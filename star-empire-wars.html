@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Корпоративные войны — прототип</title>
+<style>
+  :root {
+    --bg:#0f1526; --panel:#161f38; --panel-2:#1b2544; --line:#26314f;
+    --ink:#e4e9f4; --dim:#8894ae; --faint:#5d6881; --alert:#ff6f5e; --gold:#f2b33d;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background:var(--bg); color:var(--ink);
+    font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size:14px; line-height:1.5; padding:20px; -webkit-font-smoothing:antialiased;
+  }
+  .shell { max-width:1240px; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:18px; align-items:start; }
+  header { grid-column:1/-1; display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; padding-bottom:12px; border-bottom:1px solid var(--line); }
+  h1 { font-size:19px; font-weight:600; letter-spacing:-0.01em; }
+  header p { color:var(--dim); font-size:12.5px; max-width:56ch; }
+
+  .map { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#0a0f1c; }
+  .map svg { display:block; width:100%; height:auto; }
+
+  .panel { border:1px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden; }
+  .block { padding:13px 15px; border-bottom:1px solid var(--line); }
+  .block:last-child { border-bottom:none; }
+  .lab { font-size:12px; color:var(--dim); margin-bottom:5px; }
+  .figures { display:flex; gap:20px; }
+  .fig { flex:1 1 auto; }
+  .val { font-size:24px; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+  .note { font-size:12px; color:var(--dim); }
+  .warn { color:var(--alert); font-size:12.5px; font-weight:600; margin-top:8px; display:none; }
+
+  .taxhead { display:flex; justify-content:space-between; align-items:baseline; }
+  .taxval { font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; }
+  input[type=range] { width:100%; accent-color:var(--gold); margin:6px 0 0; }
+  input[type=range]:focus-visible { outline:2px solid var(--gold); outline-offset:3px; }
+  .hint { font-size:12px; color:var(--dim); margin-top:7px; min-height:34px; }
+
+  .corp { padding:7px 0; }
+  .corp + .corp { border-top:1px solid #1e2740; }
+  .crow { display:flex; align-items:center; gap:8px; }
+  .dot { width:9px; height:9px; border-radius:50%; flex:none; }
+  .cname { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+  .trait { color:var(--faint); font-size:11.5px; }
+  .cstat { font-variant-numeric:tabular-nums; color:var(--dim); font-size:11.5px; margin-top:3px; display:flex; gap:11px; }
+  .bar { height:3px; background:#1e2740; border-radius:2px; margin-top:4px; overflow:hidden; }
+  .bar i { display:block; height:100%; transition:width .35s ease; }
+
+  .war { padding:9px 0; font-size:12.5px; }
+  .war + .war { border-top:1px solid #1e2740; }
+  .warline { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+  .warbar { height:5px; border-radius:3px; overflow:hidden; display:flex; background:#1e2740; }
+  .warbar i { display:block; height:100%; }
+  .warmeta { color:var(--faint); font-size:11.5px; margin-top:4px; }
+  .empty { color:var(--faint); font-size:12.5px; padding:6px 0; }
+
+  .feed { max-height:200px; overflow-y:auto; }
+  .feed p { font-size:12.5px; color:#b7c1d6; padding:5px 0; border-bottom:1px solid #1a2338; }
+  .feed p:last-child { border-bottom:none; }
+  .feed span.y { color:var(--faint); font-variant-numeric:tabular-nums; }
+  .feed b { color:var(--ink); font-weight:600; }
+
+  .ctl { display:flex; gap:7px; flex-wrap:wrap; }
+  button { font:inherit; font-size:13px; cursor:pointer; color:var(--ink); background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:8px 13px; }
+  button:hover { background:#222d52; }
+  button:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+  button.live { background:var(--gold); color:#141a29; border-color:var(--gold); font-weight:600; }
+  button.ban { background:#3a1f26; border-color:#5c2f39; color:#ffb3a8; }
+
+  @media (max-width:860px) { .shell { grid-template-columns:1fr; } body { padding:14px; } }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; animation:none !important; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div>
+      <h1>Корпоративные войны</h1>
+      <p>Систему можно купить, но владелец вправе отказать. Тогда её берут силой — и обе стороны разоряются. Слабый выигрывает, если угадал с типом кораблей, а остальные корпорации подкидывают ему флот, чтобы не дать лидеру усилиться.</p>
+    </div>
+    <div class="ctl">
+      <button id="play" class="live">Пауза</button>
+      <button id="speed">×1</button>
+      <button id="reset">Заново</button>
+    </div>
+  </header>
+
+  <div class="map"><svg id="map" viewBox="0 0 780 540" role="img" aria-label="Звёздная карта с колониями и войнами корпораций"></svg></div>
+
+  <div class="panel">
+    <div class="block">
+      <div class="figures">
+        <div class="fig"><div class="lab">Казна империи</div><div class="val" id="treasury">0</div></div>
+        <div class="fig"><div class="lab">Год</div><div class="val" id="year">0</div></div>
+      </div>
+      <div class="note" id="colonized" style="margin-top:7px"></div>
+      <div class="note" id="finesnote" style="margin-top:2px"></div>
+      <div class="warn" id="warn"></div>
+    </div>
+
+    <div class="block">
+      <div class="taxhead"><div class="lab" style="margin:0">Ставка налога</div><div class="taxval" id="taxval">20%</div></div>
+      <input type="range" id="tax" min="0" max="65" step="1" value="20" aria-label="Ставка налога">
+      <div class="hint" id="hint"></div>
+    </div>
+
+    <div class="block">
+      <div class="taxhead"><div class="lab" style="margin:0">Штраф за объявление войны</div><div class="taxval" id="fineval">15%</div></div>
+      <input type="range" id="fine" min="0" max="45" step="1" value="15" aria-label="Штраф за объявление войны">
+      <div class="hint" id="finehint"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Право на силовой захват</div>
+      <button id="warlaw" style="width:100%">Войны разрешены</button>
+      <div class="hint" id="lawhint" style="min-height:0"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Идут войны</div>
+      <div id="wars"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Корпорации</div>
+      <div id="corps"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Сводка</div>
+      <div class="feed" id="feed"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var W = 780, H = 540;
+
+  // Доктрины: 0 Броня, 1 Ракеты, 2 Истребители
+  // Ракеты пробивают Броню, Броня перемалывает Истребителей, Истребители перехватывают Ракеты
+  var DOCT = ["броня", "ракеты", "истребители"];
+  var BEATS = { 0: 2, 1: 0, 2: 1 };
+  function edge(a, b) { return BEATS[a] === b ? 1.5 : (BEATS[b] === a ? 0.67 : 1); }
+
+  var TEMPLATE = [
+    { name: "Ксеногея",       color: "#f2b33d", greed: 1.15, risk: 0.50, eff: 1.00, sci: 0.90, doct: 0, trait: "экспансия" },
+    { name: "Гелиос-Прайм",   color: "#4ec4e6", greed: 0.70, risk: 0.25, eff: 1.25, sci: 1.60, doct: 1, trait: "инженеры" },
+    { name: "Тайко Дриллинг", color: "#6fd39b", greed: 1.00, risk: 0.85, eff: 0.85, sci: 0.70, doct: 2, trait: "рискует" },
+    { name: "Синдикат Веги",  color: "#dd7ec6", greed: 0.85, risk: 0.40, eff: 1.10, sci: 1.10, doct: 1, trait: "скупает" },
+    { name: "Ново-Кеплер",    color: "#ff8b5e", greed: 1.30, risk: 0.65, eff: 0.75, sci: 0.55, doct: 0, trait: "агрессивная" }
+  ];
+
+  var systems = [], corps = [], stars = [], wars = [];
+  var year = 0, treasury = 0, tax = 0.20, warsLegal = true;
+  var fineRate = 0.15, finesTotal = 0, finesDodged = 0;
+  var feed = [], timer = null, running = true, speed = 1, pulse = 0;
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function say(t) { feed.unshift({ y: year, t: t }); if (feed.length > 50) feed.pop(); }
+  function gap(a, b) { var dx = systems[a].x - systems[b].x, dy = systems[a].y - systems[b].y; return Math.sqrt(dx * dx + dy * dy); }
+  function nearest(c, k) { var best = 1e9, id = -1; for (var i = 0; i < c.holds.length; i++) { var d = gap(k, c.holds[i]); if (d < best) { best = d; id = c.holds[i]; } } return { d: best, id: id }; }
+  function power(c, foe) { return c.fleet * c.tech * edge(c.doct, foe.doct); }
+  function share(c) { var t = systems.filter(function (s) { return s.owner !== -1; }).length; return t ? c.holds.length / t : 0; }
+  function busy(id) { return wars.some(function (w) { return w.a === id || w.d === id; }); }
+
+  function build() {
+    systems = []; var guard = 0;
+    while (systems.length < 58 && guard < 6000) {
+      guard++;
+      var x = rand(30, W - 30), y = rand(28, H - 28), ok = true;
+      for (var i = 0; i < systems.length; i++) {
+        var dx = systems[i].x - x, dy = systems[i].y - y;
+        if (dx * dx + dy * dy < 2400) { ok = false; break; }
+      }
+      if (ok) systems.push({ x: x, y: y, rich: Math.floor(rand(1, 6)), owner: -1, from: -1, core: rand(1.5, 2.9), war: false });
+    }
+    stars = [];
+    for (var s = 0; s < 80; s++) stars.push({ x: rand(0, W), y: rand(0, H), r: rand(0.4, 1.1) });
+
+    corps = TEMPLATE.map(function (t, i) {
+      return { id: i, name: t.name, color: t.color, greed: t.greed, risk: t.risk, eff: t.eff,
+               sci: t.sci, doct: t.doct, trait: t.trait, tech: 1.0, fleet: 6, cash: 130, holds: [], bust: false };
+    });
+    var taken = {};
+    corps.forEach(function (c) {
+      var k; do { k = Math.floor(Math.random() * systems.length); } while (taken[k]);
+      taken[k] = true; systems[k].owner = c.id; c.holds.push(k);
+    });
+    wars = []; year = 0; treasury = 0; feed = []; finesTotal = 0; finesDodged = 0;
+    say("Пять корпораций получили лицензии на разведку.");
+  }
+
+  // ---------- экономика ----------
+  function economy() {
+    corps.forEach(function (c) {
+      var gross = 4;
+      c.holds.forEach(function (k) { if (!systems[k].war) gross += systems[k].rich * 7 * c.eff; });
+      treasury += gross * tax;
+      c.cash += gross * (1 - tax) - c.holds.length * 2.5 - c.fleet * 1.4;
+    });
+  }
+
+  function research() {
+    corps.forEach(function (c) {
+      if (c.cash < 90 || !c.holds.length) return;
+      var spend = 7 * c.sci;
+      c.cash -= spend;
+      c.tech += 0.0038 * c.sci;
+    });
+  }
+
+  function shipyards() {
+    corps.forEach(function (c) {
+      if (!c.holds.length) return;
+      var want = 5 + c.holds.length * 1.6 * (0.7 + c.greed * 0.5);
+      if (busy(c.id)) want += 10;
+      if (c.fleet >= want) return;
+      var cost = 22 + c.tech * 16;
+      if (c.cash > cost + 110) { c.cash -= cost; c.fleet++; }
+    });
+  }
+
+  // ---------- расширение в пустоту ----------
+  function expand() {
+    corps.forEach(function (c) {
+      if (!c.holds.length) return;
+      var reach = 95 + c.risk * 85, best = -1, top = 0, anchor = -1;
+      for (var k = 0; k < systems.length; k++) {
+        if (systems[k].owner !== -1) continue;
+        var n = nearest(c, k);
+        if (n.d > reach) continue;
+        var score = systems[k].rich * (1 + c.risk * 0.4) / (1 + n.d / 70);
+        if (score > top) { top = score; best = k; anchor = n.id; }
+      }
+      if (best < 0) return;
+      var cost = 55 + gap(best, anchor) * 0.65;
+      if (c.cash > cost * (1.7 / c.greed)) {
+        c.cash -= cost; systems[best].owner = c.id; systems[best].from = anchor; c.holds.push(best);
+        if (systems[best].rich === 5) say("<b>" + c.name + "</b> заявила права на богатое месторождение.");
+        else if (Math.random() < 0.18) say("<b>" + c.name + "</b> открыла новую колонию.");
+      }
+    });
+  }
+
+  // ---------- сделка, отказ, война ----------
+  function bids() {
+    corps.forEach(function (c) {
+      if (!c.holds.length || busy(c.id) || c.cash < 300) return;
+
+      var target = -1, top = 0, owner = null;
+      for (var k = 0; k < systems.length; k++) {
+        var o = systems[k].owner;
+        if (o === -1 || o === c.id || systems[k].war) continue;
+        var v = corps[o];
+        if (busy(v.id)) continue;
+        var n = nearest(c, k);
+        if (n.d > 150) continue;
+        // теперь это решение, а не случайность: богатство, близость, слабость владельца
+        var score = systems[k].rich / (1 + n.d / 80) * (1 + Math.max(0, 1 - v.cash / Math.max(1, c.cash)));
+        if (score > top) { top = score; target = k; owner = v; }
+      }
+      if (target < 0) return;
+
+      var price = 55 + systems[target].rich * 42;
+      if (c.cash < price + 90) return;
+
+      // владелец решает сам: продаёт только если ему туго или предложение щедрое
+      var desperate = owner.cash < 60;
+      var generous = price > systems[target].rich * 55;
+      var lastOne = owner.holds.length <= 1;
+
+      if ((desperate || generous) && !lastOne) {
+        c.cash -= price; owner.cash += price;
+        systems[target].owner = c.id;
+        owner.holds = owner.holds.filter(function (z) { return z !== target; });
+        c.holds.push(target);
+        say("<b>" + c.name + "</b> выкупила систему у " + owner.name + ".");
+        return;
+      }
+
+      say("<b>" + owner.name + "</b> отказала " + c.name + " в продаже системы.");
+      if (!warsLegal) return;
+      if (c.fleet < 6) return;
+
+      // штраф учитывается ДО решения: воевать имеет смысл только если после него останутся деньги
+      var fine = c.cash * fineRate;
+      if (c.cash - fine < 150) return;
+
+      wars.push({ a: c.id, d: owner.id, sys: target, t: 0, aided: {},
+                  la: 0, ld: 0, spent: 0, startA: c.fleet, startD: owner.fleet });
+      systems[target].war = true;
+      say("<b>" + c.name + "</b> направила флот к спорной системе. " + owner.name + " готовится к обороне.");
+
+      if (fine > 1) {
+        // корпорация, которая богаче государства, может просто не заплатить
+        if (c.cash > treasury * 2.5 && treasury < 4000 && Math.random() < 0.45) {
+          finesDodged += fine;
+          say("<b>" + c.name + "</b> отказалась платить штраф за объявление войны.");
+        } else {
+          c.cash -= fine; treasury += fine; finesTotal += fine;
+          say("Империя оштрафовала " + c.name + " на " + Math.round(fine) + " за силовой захват.");
+        }
+      }
+    });
+  }
+
+  // ---------- помощь слабейшему ----------
+  function coalition(w) {
+    var A = corps[w.a], D = corps[w.d];
+    var pA = power(A, D), pD = power(D, A);
+    var weakId = pA >= pD ? w.d : w.a;
+    var strongId = pA >= pD ? w.a : w.d;
+    var weak = corps[weakId], strong = corps[strongId];
+
+    if (share(strong) < 0.26) return;              // лидер ещё не пугает
+    if (pA / Math.max(1, pD) > 0.75 && pD / Math.max(1, pA) > 0.75) return; // силы примерно равны
+
+    corps.forEach(function (c) {
+      if (c.id === w.a || c.id === w.d) return;
+      if (w.aided[c.id]) return;
+      if (!c.holds.length || c.fleet < 8 || c.cash < 220) return;
+      var n = nearest(c, w.sys);
+      if (n.d > 260) return;                        // помогают только те, кому лидер близок
+      if (Math.random() > 0.45) return;             // каждый надеется, что заплатит другой
+
+      var give = Math.max(2, Math.floor(c.fleet * 0.18));
+      c.fleet -= give; weak.fleet += give;
+      w.aided[c.id] = true;
+
+      var note = "<b>" + c.name + "</b> передала " + give + " кораблей " + weak.name + " против " + strong.name + ".";
+
+      // подаренный корабль — подаренный чертёж
+      if (c.tech > weak.tech + 0.05) {
+        weak.tech += (c.tech - weak.tech) * 0.45;
+        note += " Чертежи ушли вместе с флотом.";
+      }
+      // если у дарителя удачная доктрина против агрессора, получатель переходит на неё
+      var foe = corps[strongId];
+      if (edge(c.doct, foe.doct) > edge(weak.doct, foe.doct)) {
+        weak.doct = c.doct;
+        note += " " + weak.name + " перешла на " + DOCT[c.doct] + ".";
+      }
+      say(note);
+    });
+  }
+
+  // ---------- ход войны ----------
+  function battles() {
+    for (var i = wars.length - 1; i >= 0; i--) {
+      var w = wars[i], A = corps[w.a], D = corps[w.d];
+      w.t++;
+      coalition(w);
+
+      var pA = power(A, D), pD = power(D, A);
+
+      var lossA = Math.min(A.fleet, Math.max(1, Math.round(pD * 0.055 / A.tech)));
+      var lossD = Math.min(D.fleet, Math.max(1, Math.round(pA * 0.055 / D.tech)));
+      A.fleet -= lossA; D.fleet -= lossD;
+      w.la += lossA; w.ld += lossD;
+
+      var bill = 26 + w.t * 5;
+      A.cash -= bill; D.cash -= bill; w.spent += bill * 2;
+
+      var over = false, msg = "";
+      if (D.fleet <= 1 || (pA > pD * 3 && w.t > 2)) {
+        systems[w.sys].owner = A.id;
+        D.holds = D.holds.filter(function (z) { return z !== w.sys; });
+        A.holds.push(w.sys);
+        msg = "<b>" + A.name + "</b> взяла систему силой. Потеряно кораблей: " + w.la + " и " + w.ld + ".";
+        over = true;
+      } else if (A.fleet <= 1 || (pD > pA * 2 && w.t > 2)) {
+        msg = "<b>" + D.name + "</b> отбила систему у " + A.name + ".";
+        if (D.tech > A.tech) msg += " Её корабли оказались лучше.";
+        else if (edge(D.doct, A.doct) > 1) msg += " " + DOCT[D.doct].charAt(0).toUpperCase() + DOCT[D.doct].slice(1) + " против " + DOCT[A.doct] + " решили дело.";
+        over = true;
+      } else if (w.t > 9) {
+        msg = "Война за систему выдохлась. Обе стороны разорены: потрачено " + Math.round(w.spent) + ".";
+        over = true;
+      }
+
+      if (over) { systems[w.sys].war = false; say(msg); wars.splice(i, 1); }
+    }
+  }
+
+  function collapse() {
+    corps.forEach(function (c) {
+      if (c.cash < -80 && c.holds.length > 1 && !busy(c.id)) {
+        var lost = c.holds.pop();
+        systems[lost].owner = -1; systems[lost].from = -1;
+        c.cash += 90;
+        say("<b>" + c.name + "</b> свернула убыточную колонию.");
+      }
+      if (!c.holds.length && !c.bust) { c.bust = true; say("<b>" + c.name + "</b> обанкротилась."); }
+    });
+  }
+
+  function chronicle() {
+    var total = systems.filter(function (s) { return s.owner !== -1; }).length;
+    var lead = corps.slice().sort(function (a, b) { return b.holds.length - a.holds.length; })[0];
+    if (total > 14 && share(lead) > 0.45 && year % 13 === 0)
+      say("<b>" + lead.name + "</b> контролирует " + Math.round(share(lead) * 100) + "% освоенных систем.");
+    if (treasury > 250 && lead.cash > treasury * 3 && share(lead) > 0.4 && year % 19 === 0)
+      say("<b>" + lead.name + "</b> богаче собственного государства.");
+  }
+
+  function step() {
+    year++;
+    economy(); research(); shipyards(); expand(); bids(); battles(); collapse(); chronicle();
+    draw();
+  }
+
+  // ---------- отрисовка ----------
+  function draw() {
+    pulse = (pulse + 1) % 2;
+    var out = '<rect width="' + W + '" height="' + H + '" fill="#0a0f1c"/>';
+    stars.forEach(function (s) { out += '<circle cx="' + s.x.toFixed(1) + '" cy="' + s.y.toFixed(1) + '" r="' + s.r.toFixed(2) + '" fill="#33405f"/>'; });
+
+    systems.forEach(function (s) {
+      if (s.from >= 0 && s.owner !== -1) {
+        var b = systems[s.from];
+        out += '<line x1="' + s.x.toFixed(1) + '" y1="' + s.y.toFixed(1) + '" x2="' + b.x.toFixed(1) + '" y2="' + b.y.toFixed(1) +
+               '" stroke="' + corps[s.owner].color + '" stroke-width="1" opacity="0.28"/>';
+      }
+    });
+
+    // линии наступления
+    wars.forEach(function (w) {
+      var A = corps[w.a], t = systems[w.sys], n = nearest(A, w.sys);
+      if (n.id >= 0) {
+        var f = systems[n.id];
+        out += '<line x1="' + f.x.toFixed(1) + '" y1="' + f.y.toFixed(1) + '" x2="' + t.x.toFixed(1) + '" y2="' + t.y.toFixed(1) +
+               '" stroke="' + A.color + '" stroke-width="1.8" stroke-dasharray="5 4" opacity="0.85"/>';
+      }
+    });
+
+    systems.forEach(function (s) {
+      var col = s.owner === -1 ? "#3c4763" : corps[s.owner].color;
+      var r = s.core + s.rich * 0.55;
+      if (s.owner !== -1) out += '<circle cx="' + s.x.toFixed(1) + '" cy="' + s.y.toFixed(1) + '" r="' + (r + 6).toFixed(1) + '" fill="' + col + '" opacity="0.13"/>';
+      out += '<circle cx="' + s.x.toFixed(1) + '" cy="' + s.y.toFixed(1) + '" r="' + r.toFixed(1) + '" fill="' + col + '"/>';
+      if (s.war) {
+        out += '<circle cx="' + s.x.toFixed(1) + '" cy="' + s.y.toFixed(1) + '" r="' + (r + (pulse ? 9 : 12)).toFixed(1) +
+               '" fill="none" stroke="#ff6f5e" stroke-width="1.6" opacity="' + (pulse ? 0.95 : 0.5) + '"/>';
+      }
+    });
+    document.getElementById("map").innerHTML = out;
+
+    document.getElementById("treasury").textContent = Math.round(treasury).toLocaleString("ru-RU");
+    document.getElementById("year").textContent = year;
+    var total = systems.filter(function (s) { return s.owner !== -1; }).length;
+    document.getElementById("colonized").textContent = "Освоено " + total + " из " + systems.length + " систем";
+    document.getElementById("finesnote").textContent = "Штрафов собрано " + Math.round(finesTotal).toLocaleString("ru-RU") +
+      (finesDodged > 1 ? ", не заплачено " + Math.round(finesDodged).toLocaleString("ru-RU") : "");
+
+    var lead = corps.slice().sort(function (a, b) { return b.holds.length - a.holds.length; })[0];
+    var warn = document.getElementById("warn");
+    if (total > 12 && share(lead) > 0.45) {
+      warn.style.display = "block";
+      warn.textContent = "Монополия: " + lead.name + " держит " + Math.round(share(lead) * 100) + "%";
+    } else warn.style.display = "none";
+
+    // войны
+    var wbox = document.getElementById("wars");
+    if (!wars.length) wbox.innerHTML = '<div class="empty">Тихо. Споры решаются деньгами.</div>';
+    else wbox.innerHTML = wars.map(function (w) {
+      var A = corps[w.a], D = corps[w.d];
+      var pA = power(A, D), pD = power(D, A), sum = pA + pD || 1;
+      var e = edge(A.doct, D.doct);
+      var tag = e > 1 ? DOCT[A.doct] + " против " + DOCT[D.doct] + ", перевес у нападающего"
+              : e < 1 ? DOCT[D.doct] + " против " + DOCT[A.doct] + ", перевес у обороны"
+              : "одинаковые доктрины";
+      var helpers = Object.keys(w.aided).length;
+      return '<div class="war"><div class="warline">' +
+        '<span class="dot" style="background:' + A.color + '"></span><span style="flex:1 1 auto">' + A.name + '</span>' +
+        '<span class="cnum" style="color:var(--faint)">год ' + w.t + '</span>' +
+        '<span style="flex:1 1 auto;text-align:right">' + D.name + '</span><span class="dot" style="background:' + D.color + '"></span></div>' +
+        '<div class="warbar"><i style="width:' + (pA / sum * 100) + '%;background:' + A.color + '"></i>' +
+        '<i style="width:' + (pD / sum * 100) + '%;background:' + D.color + '"></i></div>' +
+        '<div class="warmeta">' + tag + '. Потери ' + w.la + ' и ' + w.ld +
+        (helpers ? '. Помогают: ' + helpers : '') + '</div></div>';
+    }).join("");
+
+    var peak = Math.max(1, Math.max.apply(null, corps.map(function (c) { return c.holds.length; })));
+    document.getElementById("corps").innerHTML = corps.map(function (c) {
+      return '<div class="corp"><div class="crow">' +
+        '<span class="dot" style="background:' + c.color + '"></span>' +
+        '<span class="cname">' + c.name + ' <span class="trait">' + c.trait + '</span></span>' +
+        '<span class="cnum" style="color:var(--dim);font-size:12px">' + c.holds.length + '</span></div>' +
+        '<div class="cstat"><span>флот ' + c.fleet + '</span><span>' + DOCT[c.doct] + '</span>' +
+        '<span>тех ' + c.tech.toFixed(2) + '</span><span>касса ' + Math.round(c.cash) + '</span></div>' +
+        '<div class="bar"><i style="width:' + (c.holds.length / peak * 100) + '%;background:' + c.color + '"></i></div></div>';
+    }).join("");
+
+    document.getElementById("feed").innerHTML = feed.slice(0, 11).map(function (f) {
+      return '<p><span class="y">' + f.y + '</span> ' + f.t + '</p>';
+    }).join("");
+  }
+
+  function hint() {
+    var p = Math.round(tax * 100), t;
+    if (p < 12) t = "Корпорации богатеют, расширяются и охотно воюют. В казне почти ничего.";
+    else if (p < 28) t = "Рост идёт, деньги в казну поступают. Рабочий баланс.";
+    else if (p < 45) t = "Экспансия замедлилась, войны стали редкими: не на что.";
+    else t = "Корпорации в убытке и сворачивают колонии. Казна растёт на пустеющей карте.";
+    document.getElementById("hint").textContent = t;
+  }
+  function finehint() {
+    var p = Math.round(fineRate * 100), t;
+    if (p === 0) t = "Воевать бесплатно. Захваты идут постоянно, империя с них не получает ничего.";
+    else if (p < 14) t = "Символическая плата. Воюют охотно, сборы небольшие.";
+    else if (p < 26) t = "Войн меньше, но каждая приносит казне заметные деньги.";
+    else if (p < 38) t = "Только богатые могут позволить себе войну. Сборы начинают падать.";
+    else t = "Почти запрет. Воевать невыгодно, и штрафов почти никто не платит.";
+    document.getElementById("finehint").textContent = t;
+  }
+  function lawhint() {
+    document.getElementById("lawhint").textContent = warsLegal
+      ? "Отказ в продаже ведёт к войне. Карта живёт, но флот и колонии сгорают."
+      : "Никто не может отобрать систему силой. Карта застывает: владельцы просто отказывают.";
+  }
+
+  function run() { if (timer) clearInterval(timer); timer = setInterval(step, 700 / speed); }
+
+  document.getElementById("tax").addEventListener("input", function (e) {
+    tax = +e.target.value / 100;
+    document.getElementById("taxval").textContent = Math.round(tax * 100) + "%";
+    hint();
+  });
+  document.getElementById("fine").addEventListener("input", function (e) {
+    fineRate = +e.target.value / 100;
+    document.getElementById("fineval").textContent = Math.round(fineRate * 100) + "%";
+    finehint();
+  });
+  document.getElementById("warlaw").addEventListener("click", function () {
+    warsLegal = !warsLegal;
+    this.textContent = warsLegal ? "Войны разрешены" : "Войны запрещены";
+    this.className = warsLegal ? "" : "ban";
+    say(warsLegal ? "Империя разрешила силовое решение споров." : "Империя запретила силовые захваты.");
+    lawhint();
+  });
+  document.getElementById("play").addEventListener("click", function () {
+    running = !running;
+    this.textContent = running ? "Пауза" : "Пуск";
+    this.className = running ? "live" : "";
+    if (running) run(); else clearInterval(timer);
+  });
+  document.getElementById("speed").addEventListener("click", function () {
+    speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
+    this.textContent = "×" + speed;
+    if (running) run();
+  });
+  document.getElementById("reset").addEventListener("click", function () {
+    build(); draw(); hint();
+    if (running) run();
+  });
+
+  build(); draw(); hint(); finehint(); lawhint(); run();
+})();
+</script>
+</body>
+</html>
