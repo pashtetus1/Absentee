@@ -100,8 +100,22 @@ threshold-one-planet.html и threshold-visual.html
   история; threshold-visual добавил канвас с кольцом исследований.
 
 threshold-system.html (этот файл)
-  Полная фаза 1: система из звезды, трёх планет, астероидного пояса и точки
-  прыжка. Тик равен МЕСЯЦУ. Три тира предприятий.
+  Полная фаза 1 плюс первый мост в фазу 2. Тик равен МЕСЯЦУ, три тира
+  предприятий, и теперь не одна система, а галактика из десяти.
+  Система СТАТИЧНА, как в Stellaris: планеты и астероиды стоят на местах,
+  движутся только корабли. Крутящиеся орбиты читались как часы и мешали
+  запоминать место; на неподвижной карте "платформа на Гвозде" через сто лет
+  означает ровно то же самое. Пояс — не толчея из полусотни камешков, а 5-8
+  именованных астероидов, каждый под одну платформу и на века (срок жизни
+  добычи поднят с 200 месяцев до 1800, колонии до 2600).
+  Опознание разведено по двум осям: ФОРМА — тип корабля (треугольник
+  прыжковый, ромб добывающий, круг колониальный), ЦВЕТ — корпорация. Раньше
+  форма означала и то и другое сразу и потому не означала ничего.
+  Прыжок больше не финал партии, а способ ОТКРЫТЬ соседнюю систему: корабль
+  идёт по карте, система раскрывается, и в ней начинается та же экономика.
+  Цена входа растёт с удалением (base * (1 + переход * 0.3)), доход умножается
+  на богатство системы (0.8-1.45). Прыжок требует, чтобы у корпорации уже была
+  колония, иначе средний тир проскакивался (было пунктом 1 в п. 7).
 
 
 3. РЕШЕНИЯ И ПОЧЕМУ
@@ -207,6 +221,18 @@ VTYPES[].base — цена входа: платформа 150, колония 23
 
 6. ИЗВЕСТНЫЕ БАГИ И СЛАБЫЕ МЕСТА
 ────────────────────────────────────────────────────────────────────────────────
+НЕ ИСПРАВЛЕНО, галактика (прогон на 110 лет, один):
+  Галактика НАСЫЩАЕТСЯ и партия останавливается. Первый прыжок на 48 году,
+  а к 91 открыты все десять систем, заняты 52 астероида и 22 планеты, после
+  чего в сводке не появляется вообще ничего: свободных мест нет, а отнять
+  занятое нечем. Лечить либо ростом трения с удалением (сейчас всего
+  1 + переход * 0.3, этого мало), либо тем, ради чего затевалась фаза 2:
+  войны, отделение окраин, выкуп. Сейчас карта — это место, где всё
+  раскупается за полвека.
+  Прыжок дёшев относительно того, что открывает: 340 * (1 + переход * 0.3)
+  против дохода целой системы. Отсюда и скорость.
+  Десять систем на 840x680 — уже тесно, подписи задевают соседние узлы.
+
 НЕ ИСПРАВЛЕНО, фаза 1:
   Колония иногда вообще не появляется (три прогона из шести): прыжок случается
   раньше и фаза заканчивается, средний тир проскакивается. Лечить так: либо
@@ -247,9 +273,15 @@ VTYPES[].base — цена входа: платформа 150, колония 23
 
 7. СЛЕДУЮЩИЕ ШАГИ, по приоритету
 ────────────────────────────────────────────────────────────────────────────────
-1) Прыжок требует хотя бы одной колонии, чтобы средний тир не проскакивался.
-2) Склеить фазы: патенты и долги на конец фазы 1 становятся стартовыми
-   условиями галактической карты. Это главная незакрытая дыра.
+0) СДЕЛАНО: карта систем, прыжок как открытие соседней системы, требование
+   колонии перед прыжком, статичная система и крупные астероиды. Прогоном НЕ
+   проверено: тайминги из п. 5 верны только до первого прыжка, что происходит
+   с экономикой на десяти системах — неизвестно.
+1) Прогнать баланс после карты: не схлопывается ли всё в одну корпорацию,
+   когда систем становится много, и не встаёт ли экспансия из-за требования
+   колонии. Скрипт из п. 8.
+2) Склеить фазы до конца: войны, отделение окраин и коалиции из star-empire-*
+   живут в отдельных файлах и на общую карту ещё не перенесены.
 3) Починить дотации окраинам в фазе 2.
 4) Арсенал как отдельная корпорация: продаёт корабли всем воюющим и богатеет
    на любой войне. Идея "армия это тоже корпорация", доведённая до логичной
@@ -406,6 +438,19 @@ Black and White и Creatures (для отложенной эволюционно
   .era h2 { font-size:14px; color:var(--ok); margin-bottom:4px; }
   .era p { font-size:12.5px; color:#bfe0cd; }
 
+  .scenebar { display:flex; align-items:baseline; gap:10px; padding:0 2px 9px; }
+  .scenebar .sname { font-size:15px; font-weight:600; }
+  .scenebar .smeta { font-size:12px; color:var(--dim); flex:1 1 auto; }
+  button.ghost { padding:4px 10px; font-size:12px; }
+
+  .dot { flex:none; display:inline-block; width:9px; height:9px; border-radius:50%; }
+  .srow { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+  .sname2 { font-size:13px; font-weight:600; }
+  .sname2.dim { color:var(--faint); font-weight:400; }
+  .srow .vmeta { margin-left:auto; }
+  .sysrow { cursor:pointer; }
+  .sysrow:hover .sname2 { color:var(--gold); }
+
   @media (max-width:900px) { .shell { grid-template-columns:1fr; } body { padding:14px; } }
 </style>
 </head>
@@ -413,10 +458,11 @@ Black and White и Creatures (для отложенной эволюционно
 <div class="shell">
   <header>
     <div>
-      <h1>Порог · система Тира</h1>
-      <p>Пять корпораций живут на Тире. Астероидный пояс можно разрабатывать уже сейчас, соседние планеты — когда появятся корпуса и жизнеобеспечение, а точка прыжка откроется только тому, кто соберёт межзвёздный двигатель. Кольцо вокруг звезды — гонка исследований: цвет показывает, чьи это деньги, риска — порог, за которым открытие вообще становится возможным.</p>
+      <h1>Порог · Тира и окрестности</h1>
+      <p>Пять корпораций живут на Тире. Астероиды пояса можно разрабатывать уже сейчас, соседние планеты — когда появятся корпуса и жизнеобеспечение, а межзвёздный прыжок открывает соседнюю систему, и там всё начинается заново. Кольцо вокруг звезды — гонка исследований: цвет показывает, чьи это деньги, риска — порог, за которым открытие вообще становится возможным. Кнопка «Карта» показывает галактику целиком, клик по системе — заглянуть внутрь.</p>
     </div>
     <div class="ctl">
+      <button id="map">Карта</button>
       <button id="play" class="live">Пауза</button>
       <button id="speed">×1</button>
       <button id="reset">Заново</button>
@@ -425,12 +471,17 @@ Black and White и Creatures (для отложенной эволюционно
 
   <div>
     <div class="era" id="era"><h2 id="eratitle"></h2><p id="eratext"></p></div>
+    <div class="scenebar">
+      <button id="tomap" class="ghost">← карта</button>
+      <div class="sname" id="sname">—</div>
+      <div class="smeta" id="smeta"></div>
+    </div>
     <div class="stage"><canvas id="view" width="840" height="680"></canvas></div>
     <div class="keys">
       <span><svg width="14" height="12"><polygon points="7,1 12,11 2,11" fill="#8894ae"/></svg> прыжковый корабль</span>
       <span><svg width="14" height="12"><polygon points="7,1 12,6 7,11 2,6" fill="#8894ae"/></svg> добывающая платформа</span>
-      <span><svg width="14" height="12"><rect x="2.5" y="2.5" width="9" height="8" fill="#8894ae"/></svg> грузовик</span>
       <span><svg width="14" height="12"><circle cx="7" cy="6" r="4.4" fill="#8894ae"/></svg> колониальный модуль</span>
+      <span>форма — что за корабль, цвет — чей он</span>
     </div>
 
     <div class="panel below">
@@ -439,7 +490,7 @@ Black and White и Creatures (для отложенной эволюционно
         <div id="fields"></div>
       </div>
       <div class="block">
-        <div class="lab">Действующие предприятия</div>
+        <div class="lab" id="ventlab">Действующие предприятия</div>
         <div id="ventures"></div>
       </div>
     </div>
@@ -500,43 +551,53 @@ Black and White и Creatures (для отложенной эволюционно
   // Сложности разнесены СПЕЦИАЛЬНО, чтобы тиры не случались одновременно.
   // Порог открытия = 0.55 * diff, до него шанса нет вообще. См. журнал, п. 5.
   var FIELDS = [
-    { key:"drive",  name:"Межзвёздный двигатель", short:"двигатель", diff:5200, glyph:"tri" },
-    { key:"hull",   name:"Корпуса и верфи",       short:"корпуса",   diff:1900, glyph:"tri" },
-    { key:"life",   name:"Жизнеобеспечение",      short:"жизнь",     diff:2350, glyph:"cir" },
-    { key:"mining", name:"Орбитальная добыча",    short:"добыча",    diff:980, glyph:"dia" },
-    { key:"cargo",  name:"Грузовая логистика",    short:"груз",      diff:720, glyph:"sqr" },
-    { key:"goods",  name:"Товары для колоний",    short:"товары",    diff:620, glyph:"cir" }
+    { key:"drive",  name:"Межзвёздный двигатель", short:"двигатель", diff:5200 },
+    { key:"hull",   name:"Корпуса и верфи",       short:"корпуса",   diff:1900 },
+    { key:"life",   name:"Жизнеобеспечение",      short:"жизнь",     diff:2350 },
+    { key:"mining", name:"Орбитальная добыча",    short:"добыча",    diff:980 },
+    { key:"cargo",  name:"Грузовая логистика",    short:"груз",      diff:720 },
+    { key:"goods",  name:"Товары для колоний",    short:"товары",    diff:620 }
   ];
 
-  // три тира предприятий: пояс доступен рано, планеты позже, прыжок последним
+  // Три тира предприятий: пояс доступен рано, планеты позже, прыжок последним.
+  // Прыжок больше не финал партии, а способ ОТКРЫТЬ соседнюю систему.
+  // ФОРМА = тип корабля (ромб добыча, круг колония, треугольник прыжок),
+  // ЦВЕТ = корпорация. Одна ось на «что», другая на «чьё».
   var VTYPES = [
-    { key:"mine",   name:"разработка астероидов", req:["mining","cargo"],       bon:["hull"],           base:150, yield:3.1, term:200, dest:"belt",   glyph:"dia" },
-    { key:"colony", name:"колония",              req:["hull","life"],          bon:["goods","cargo"],  base:230, yield:4.4, term:280, dest:"planet", glyph:"cir" },
-    { key:"jump",   name:"межзвёздный прыжок",   req:["drive","hull","life"],  bon:["mining","goods"], base:340, yield:0,   term:0,   dest:"jump",   glyph:"tri" }
+    { key:"mine",   name:"разработка астероидов", req:["mining","cargo"],       bon:["hull"],           base:150, yield:3.1, term:1800, dest:"belt",   glyph:"dia" },
+    { key:"colony", name:"колония",              req:["hull","life"],          bon:["goods","cargo"],  base:230, yield:4.4, term:2600, dest:"planet", glyph:"cir" },
+    { key:"jump",   name:"межзвёздный прыжок",   req:["drive","hull","life"],  bon:["mining","goods"], base:340, yield:0,   term:0,    dest:"jump",   glyph:"tri" }
   ];
+  function vtype(k){ for (var i=0;i<VTYPES.length;i++) if (VTYPES[i].key===k) return VTYPES[i]; }
 
   // income — МЕСЯЧНЫЙ доход. Поднимался втрое от первой версии: месячная
   // экономика оказалась в 2.6 раза тесней, чем нужно. apt — способности,
   // жёстко привязаны к ремеслу: Тайко с бурами не выиграет гонку двигателей.
   var TEMPLATE = [
-    { name:"Тайко Дриллинг",   color:"#6fd39b", craft:"буры",      income:8.2, nerve:0.9,  shape:"dia",
+    { name:"Тайко Дриллинг",   color:"#6fd39b", craft:"буры",      income:8.2, nerve:0.9,
       apt:{ mining:1.9, hull:0.7, cargo:0.6, drive:0.4, life:0.4, goods:0.35 } },
-    { name:"Ново-Кеплер Авиа", color:"#ff8b5e", craft:"самолёты",  income:7.6, nerve:1.25, shape:"tri",
+    { name:"Ново-Кеплер Авиа", color:"#ff8b5e", craft:"самолёты",  income:7.6, nerve:1.25,
       apt:{ hull:1.9, drive:0.85, cargo:0.7, life:0.5, mining:0.4, goods:0.35 } },
-    { name:"Дом чая Ланьхуа",  color:"#dd7ec6", craft:"чай",       income:6.8, nerve:0.6,  shape:"cir",
+    { name:"Дом чая Ланьхуа",  color:"#dd7ec6", craft:"чай",       income:6.8, nerve:0.6,
       apt:{ goods:2.0, cargo:0.9, life:0.7, hull:0.35, mining:0.3, drive:0.3 } },
-    { name:"Гелиос-Прайм",     color:"#4ec4e6", craft:"механика",  income:7.2, nerve:1.05, shape:"tri",
+    { name:"Гелиос-Прайм",     color:"#4ec4e6", craft:"механика",  income:7.2, nerve:1.05,
       apt:{ drive:1.55, life:1.25, hull:0.8, cargo:0.5, mining:0.5, goods:0.35 } },
-    { name:"Синдикат Веги",    color:"#f2b33d", craft:"перевозки", income:7.9, nerve:0.85, shape:"sqr",
+    { name:"Синдикат Веги",    color:"#f2b33d", craft:"перевозки", income:7.9, nerve:0.85,
       apt:{ cargo:1.85, life:0.85, goods:0.8, hull:0.6, mining:0.55, drive:0.45 } }
   ];
 
+  var SYSNAMES = ["Тира","Скальд","Эреб","Полынь","Ирис","Корвус","Синдри","Лето","Танат","Ольха","Вега","Морок"];
+  var BODYNAMES = ["Кадм","Валун","Мора","Сель","Хорь","Гарь","Тишь","Плёс","Овод","Стынь","Зной","Кром","Луда","Смоль","Вьюга","Наволок","Осока","Кипень","Тропа","Веха"];
+  var ROCKNAMES = ["Гвоздь","Слюда","Пест","Кремень","Обух","Жернов","Скол","Дресва"];
+  var PAL = ["#5b7cae","#8a6b52","#6d5f86","#4f7a6a","#7a5560","#6a6f8e"];
+
   // ===================== состояние =====================
-  var corps = [], patents = {}, ventures = [], feed = [], ships = [], stations = [];
-  var bodies = [], rocks = [], home = null, jump = null;
+  var corps = [], patents = {}, feed = [];
+  var systems = [], links = [], voyages = [];
   var tick = 0, treasury = 320, tax = 0.18, subField = "drive", subYear = 18, patTerm = 25;
-  var mines = 0, colonies = 0, jumped = false, burned = 0, royalties = 0;
+  var jumped = false, burned = 0, royalties = 0;
   var timer = null, running = true, speed = 1, flash = {};
+  var view = { mode:"system", sys:0 };
 
   function Y(){ return Math.floor(tick / 12); }
   function dateStr(){ return "год " + Y() + " · " + MONTHS[tick % 12]; }
@@ -546,31 +607,94 @@ Black and White и Creatures (для отложенной эволюционно
   function known(k){ var p = patents[k]; return !!(p && (p.owner >= 0 || p.owner === -2)); }
   function isPublic(k){ var p = patents[k]; return !!(p && p.owner === -2); }
   var subMonth = function(){ return subYear / 12; };
+  function rnd6(){ return Math.random() * 6.2832; }
+  function dist(a, b){ var dx = a.x - b.x, dy = a.y - b.y; return Math.sqrt(dx*dx + dy*dy); }
+  function planets(s){ return s.bodies.filter(function (b) { return b.kind === "planet"; }); }
+
+  // ===================== галактика =====================
+  // Система статична, как в Stellaris: планеты и астероиды стоят на местах,
+  // движутся только корабли. Так место читается как КАРТА, а не как часы:
+  // «платформа на Гвозде» остаётся верным утверждением через сто лет.
+  function makeSystem(i, name, x, y, pool) {
+    var s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
+              rich: i ? +(0.8 + Math.random()*0.65).toFixed(2) : 1,
+              bodies:[], rocks:[], ventures:[], ships:[], stations:[], mines:0, colonies:0 };
+    if (i === 0) s.bodies.push({ name:"Тира", r:112, ang:-0.9, rad:16, col:"#5b7cae", kind:"home" });
+    var np = i === 0 ? 2 : 1 + Math.floor(Math.random()*3);
+    var base = rnd6();
+    for (var k = 0; k < np; k++)
+      s.bodies.push({ name: pool.pop() || "Безымянная", r:214 + k*58 + Math.random()*16,
+                      ang: base + k * (1.7 + Math.random()*0.9), rad:10 + Math.random()*11,
+                      col:PAL[(i + k) % PAL.length], kind:"planet" });
+
+    // 5-8 крупных астероидов вместо толчеи из мелких камней: каждый —
+    // именованное место, на которое можно встать надолго.
+    s.belt = i === 0 || Math.random() < 0.8;
+    if (s.belt) {
+      var n = 5 + Math.floor(Math.random()*4), a0 = rnd6(), names = ROCKNAMES.slice().sort(function () { return Math.random() - 0.5; });
+      for (var r = 0; r < n; r++)
+        s.rocks.push({ name:names[r], r:158 + Math.random()*20, ang:a0 + r * (6.2832 / n) + (Math.random()-0.5) * 0.28,
+                       s:4.2 + Math.random()*2.6, seed:Math.random()*6.28, taken:false });
+    }
+    s.gate = { name:"ворота", r:330, ang:rnd6() };
+    s.origin = i === 0 ? s.bodies[0] : s.gate;   // откуда стартуют корабли внутри системы
+    return s;
+  }
+
+  function linked(a, b){ return links.some(function (l) { return (l.a===a && l.b===b) || (l.a===b && l.b===a); }); }
+  function addLink(a, b){ if (a !== b && !linked(a, b)) links.push({ a:a, b:b }); }
+  function neighbors(i){
+    var r = [];
+    links.forEach(function (l) { if (l.a === i) r.push(l.b); else if (l.b === i) r.push(l.a); });
+    return r;
+  }
+  function computeDepth() {
+    systems.forEach(function (s) { s.depth = 99; });
+    systems[0].depth = 0;
+    var q = [0];
+    while (q.length) {
+      var i = q.shift();
+      neighbors(i).forEach(function (j) {
+        if (systems[j].depth > systems[i].depth + 1) { systems[j].depth = systems[i].depth + 1; q.push(j); }
+      });
+    }
+  }
+
+  function makeGalaxy() {
+    var N = 10, pts = [{ x:172, y:352 }], guard = 0;
+    while (pts.length < N && guard++ < 6000) {
+      var p = { x:80 + Math.random()*680, y:70 + Math.random()*540 };
+      if (pts.every(function (q) { return dist(p, q) > 138; })) pts.push(p);
+    }
+    var names = SYSNAMES.slice(1).sort(function () { return Math.random() - 0.5; });
+    var pool = BODYNAMES.slice().sort(function () { return Math.random() - 0.5; });
+    systems = pts.map(function (p, i) { return makeSystem(i, i ? names[i-1] : SYSNAMES[0], p.x, p.y, pool); });
+    links = [];
+    // остов: каждая новая система цепляется к ближайшей уже подключённой,
+    // потом пара перемычек между близкими, чтобы карта не была деревом
+    for (var i = 1; i < systems.length; i++) {
+      var best = 0, bd = 1e9;
+      for (var j = 0; j < i; j++) { var d = dist(systems[i], systems[j]); if (d < bd) { bd = d; best = j; } }
+      addLink(i, best);
+    }
+    for (var a = 0; a < systems.length; a++) for (var b = a+1; b < systems.length; b++)
+      if (dist(systems[a], systems[b]) < 215 && Math.random() < 0.45) addLink(a, b);
+    computeDepth();
+  }
 
   function build() {
     corps = TEMPLATE.map(function (t, i) {
       return { id:i, name:t.name, color:t.color, craft:t.craft, income:t.income, nerve:t.nerve,
-               shape:t.shape, apt:t.apt, cash:200, spent:{}, target:null, mode:'research', plan:null, earned:0, paid:0 };
+               apt:t.apt, cash:200, spent:{}, target:null, mode:'research', plan:null, earned:0, paid:0 };
     });
     patents = {};
     FIELDS.forEach(function (f) { patents[f.key] = { owner:-1, since:0, take:0 }; });
     corps.forEach(function (c) { FIELDS.forEach(function (f) { c.spent[f.key] = 0; }); });
 
-    // система: звезда, домашняя планета, пояс, две внешние планеты, точка прыжка
-    bodies = [
-      { name:"Тира",  r:104, ang:Math.random()*6.28, sp:0.030, rad:16, col:"#5b7cae", kind:"home"   },
-      { name:"Кадм",  r:214, ang:Math.random()*6.28, sp:0.014, rad:12, col:"#8a6b52", kind:"planet" },
-      { name:"Валун", r:272, ang:Math.random()*6.28, sp:0.009, rad:21, col:"#6d5f86", kind:"planet" }
-    ];
-    home = bodies[0];
-    jump = { name:"точка прыжка", r:318, ang:Math.random()*6.28, sp:0.004 };
-    rocks = [];
-    for (var i = 0; i < 54; i++)
-      rocks.push({ r:156 + Math.random()*22, ang:Math.random()*6.28, sp:0.019 + Math.random()*0.006,
-                   s:0.9 + Math.random()*1.9, taken:false });
-
-    ventures = []; feed = []; ships = []; stations = []; flash = {};
-    tick = 0; treasury = 320; mines = 0; colonies = 0; jumped = false; burned = 0; royalties = 0;
+    makeGalaxy();
+    voyages = []; feed = []; flash = {};
+    tick = 0; treasury = 320; jumped = false; burned = 0; royalties = 0;
+    view = { mode:"system", sys:0 };
     document.getElementById("era").style.display = "none";
     say("Открыт принцип дешёвого межзвёздного перехода. Кто соберёт работающий двигатель — неизвестно.");
   }
@@ -639,15 +763,28 @@ Black and White и Creatures (для отложенной эволюционно
   }
 
   // ===================== предприятия =====================
-  function slotFree(vt) {
-    if (vt.dest === "belt") return mines < 4;
-    if (vt.dest === "planet") return colonies < bodies.filter(function(b){return b.kind==="planet";}).length;
-    return !jumped;
+  // Считать надо СВОБОДНЫЕ места, а не прибывшие платформы: место занимается
+  // при старте, а счётчик растёт при посадке, и в промежутке две корпорации
+  // спокойно улетали на один и тот же камень. С поясом из полусотни камешков
+  // это не всплывало, с восемью — падало на первом же году.
+  function freeRocks(s){ return s.rocks.filter(function (r) { return !r.taken; }); }
+  function freePlanets(s){ return planets(s).filter(function (b) { return !b.colonized; }); }
+  function slotFree(s, vt) {
+    if (vt.dest === "belt") return freeRocks(s).length > 0;
+    if (vt.dest === "planet") return freePlanets(s).length > 0;
+    return false;
   }
   function feeFor(k) { return k === "drive" ? 165 : 88; }
+  function hasColony(c) {
+    return systems.some(function (s) {
+      return s.ventures.some(function (v) { return v.type === "colony" && (v.lead === c.id || v.members.indexOf(c.id) >= 0); });
+    });
+  }
+  function voyageTo(t){ return voyages.some(function (v) { return v.to === t; }); }
 
-  function priceOf(vt, lead) {
-    var fees = [], total = vt.base;
+  // цена входа растёт с удалением: своя система дешевле дальней окраины
+  function priceOf(vt, lead, s) {
+    var fees = [], total = vt.base * (1 + s.depth * 0.3);
     var ok = vt.req.every(function (k) {
       if (!known(k)) return false;
       var h = holderOf(k);
@@ -656,18 +793,31 @@ Black and White и Creatures (для отложенной эволюционно
       fees.push({ to:h, k:k, fee:fee }); total += fee;
       return true;
     });
-    return ok ? { fees:fees, total:total } : null;
+    return ok ? { fees:fees, total:Math.round(total) } : null;
   }
 
   function bestVenture(c) {
     var best = null, top = -1;
-    VTYPES.forEach(function (vt) {
-      if (!slotFree(vt)) return;
-      var p = priceOf(vt, c);
-      if (!p) return;
-      // окупаемость: доля лидера за весь срок против цены входа
-      var score = vt.key === "jump" ? 3.2 : (vt.yield * 0.55 * vt.term) / p.total;
-      if (score > top) { top = score; best = { vt:vt, p:p, score:score }; }
+    systems.forEach(function (s) {
+      if (!s.unlocked) return;
+      VTYPES.forEach(function (vt) {
+        if (vt.key === "jump" || !slotFree(s, vt)) return;
+        var p = priceOf(vt, c, s);
+        if (!p) return;
+        // окупаемость: доля лидера за весь срок против цены входа
+        var score = (vt.yield * s.rich * 0.55 * vt.term) / p.total;
+        if (score > top) { top = score; best = { vt:vt, p:p, s:s, score:score }; }
+      });
+      // Прыжок в соседнюю закрытую систему. Требует своей колонии: без этого
+      // средний тир проскакивался и экспансия шла мимо планет (журнал, п. 7).
+      if (!hasColony(c)) return;
+      var jt = vtype("jump"), jp = priceOf(jt, c, s);
+      if (!jp) return;
+      neighbors(s.id).forEach(function (n) {
+        if (systems[n].unlocked || voyageTo(n)) return;
+        var score = 42 / (1 + systems[n].depth * 0.35);
+        if (score > top) { top = score; best = { vt:jt, p:jp, s:s, to:n, score:score }; }
+      });
     });
     return best;
   }
@@ -699,15 +849,18 @@ Black and White и Creatures (для отложенной эволюционно
     if (!ready.length) return;
     ready.sort(function (x, y) { return y.b.score - x.b.score; });
     var w = ready[0];
-    launch(w.c, w.b.vt, w.b.p);
+    launch(w.c, w.b);
     w.c.mode = "research"; w.c.plan = null;
   }
 
-  function launch(lead, vt, p) {
+  function launch(lead, b) {
+    var vt = b.vt, p = b.p, s = b.s;
+    var dest = vt.key === "jump" ? null : pickDest(vt, s);
+    if (vt.key !== "jump" && !dest) return;          // место заняли, пока копили
     var mult = 1, partners = [], total = p.total;
     vt.bon.forEach(function (k) {
       if (!known(k)) return;
-      var f = fieldOf(k), gain = 0.3;
+      var gain = 0.3;
       if (isPublic(k)) { mult += gain * 0.5; return; }
       var h = holderOf(k);
       if (!h) return;
@@ -725,75 +878,93 @@ Black and White и Creatures (для отложенной эволюционно
     lead.paid += total;
 
     var members = p.fees.concat(partners);
-    var dest = pickDest(vt);
-    var v = { lead:lead.id, type:vt.key, name:vt.name, members:members.map(function(m){return m.to.id;}),
-              left:vt.term, yield:+(vt.yield * mult).toFixed(1), mult:mult, born:dateStr(), dest:dest, live:false };
-    ventures.push(v);
-    sendFleet(lead, members, vt, dest, v);
-
     var who = members.length ? " Наняты: " + members.map(function (m) { return m.to.name; }).join(", ") + "."
                              : " Своими силами.";
-    say("<b>" + lead.name + "</b> начала " + vt.name + " (" + dest.label + ")." + who);
+
+    if (vt.key === "jump") {
+      voyages.push({ from:s.id, to:b.to, corp:lead.id, color:lead.color,
+                     members:members.map(function (m) { return m.to.id; }), t:0, dur:40 + Math.random()*16 });
+      say("<b>" + lead.name + "</b> отправила прыжковый корабль из " + s.name + " в неизведанную систему." + who);
+      return;
+    }
+
+    var v = { sys:s.id, lead:lead.id, type:vt.key, name:vt.name, members:members.map(function (m) { return m.to.id; }),
+              left:vt.term, yield:+(vt.yield * mult * s.rich).toFixed(1), mult:mult, born:dateStr(), dest:dest, live:false };
+    s.ventures.push(v);
+    sendFleet(lead, members, vt, dest, v, s);
+    say("<b>" + lead.name + "</b> начала " + vt.name + " (" + s.name + " · " + dest.label + ")." + who);
   }
 
-  function pickDest(vt) {
+  // Возвращает null, если место успели занять. Занимает его сразу: между
+  // стартом и посадкой лететь почти год, и всё это время место уже чужое.
+  function pickDest(vt, s) {
     if (vt.dest === "belt") {
-      var free = rocks.filter(function (r) { return !r.taken; });
+      var free = freeRocks(s);
+      if (!free.length) return null;
       var r = free[Math.floor(Math.random() * free.length)];
       r.taken = true;
-      return { kind:"rock", ref:r, label:"астероид" };
+      return { kind:"rock", ref:r, label:r.name };
     }
-    if (vt.dest === "planet") {
-      var pl = bodies.filter(function (b) { return b.kind === "planet" && !b.colonized; });
-      var b = pl[0];
-      if (b) { b.colonized = true; return { kind:"body", ref:b, label:b.name }; }
-      return { kind:"body", ref:bodies[1], label:bodies[1].name };
-    }
-    return { kind:"jump", ref:jump, label:"точка прыжка" };
+    var pl = freePlanets(s);
+    if (!pl.length) return null;
+    pl[0].colonized = true;
+    return { kind:"body", ref:pl[0], label:pl[0].name };
   }
 
   // ВНИМАНИЕ: members — массив объектов {to:корпорация, k:поле, fee:сумма}.
   // Читать m.to.id, НЕ m.id. На этом уже падало (журнал, п. 6, баг 2).
-  function sendFleet(lead, members, vt, dest, v) {
-    var lead_s = { corp:lead.id, color:lead.color, glyph:vt.glyph, size:8, t:0, dur:9 + Math.random()*3,
-                   dest:dest, trail:[], vent:v, isLead:true };
-    ships.push(lead_s);
+  // Глиф у всего каравана один — тип предприятия; отличаются они цветом.
+  function sendFleet(lead, members, vt, dest, v, s) {
+    var lead_s = { corp:lead.id, color:lead.color, glyph:vt.glyph, size:8, t:0, dur:20 + Math.random()*8,
+                   dest:dest, trail:[], vent:v, isLead:true, x:0, y:0, ang:0 };
+    s.ships.push(lead_s);
     members.forEach(function (m, i) {
-      ships.push({ corp:m.to.id, color:m.to.color, glyph:fieldOf(m.k).glyph, size:5.2,
-                   t:-0.05 - i * 0.045, dur:lead_s.dur, dest:dest, trail:[], vent:v, isLead:false });
+      s.ships.push({ corp:m.to.id, color:m.to.color, glyph:vt.glyph, size:5.2,
+                     t:-0.05 - i * 0.045, dur:lead_s.dur, dest:dest, trail:[], vent:v, isLead:false, x:0, y:0, ang:0 });
     });
   }
 
   function ventureIncome() {
-    for (var i = ventures.length - 1; i >= 0; i--) {
-      var v = ventures[i];
-      if (!v.live) continue;
-      if (v.type === "jump") continue;
-      var lead = corps[v.lead];
-      lead.cash += v.yield * 0.55;
-      v.members.forEach(function (id) { corps[id].cash += v.yield * 0.45 / v.members.length; });
-      v.left--;
-      if (v.left <= 0) {
-        say("Предприятие " + corps[v.lead].name + " (" + v.born + ") выработало ресурс.");
-        if (v.dest.kind === "rock") { v.dest.ref.taken = false; mines--; }
-        stations = stations.filter(function (s) { return s.vent !== v; });
-        ventures.splice(i, 1);
+    systems.forEach(function (s) {
+      for (var i = s.ventures.length - 1; i >= 0; i--) {
+        var v = s.ventures[i];
+        if (!v.live) continue;
+        var lead = corps[v.lead];
+        lead.cash += v.yield * 0.55;
+        v.members.forEach(function (id) { corps[id].cash += v.yield * 0.45 / v.members.length; });
+        v.left--;
+        if (v.left <= 0) {
+          say("Предприятие " + corps[v.lead].name + " в " + s.name + " (" + v.born + ") выработало ресурс.");
+          if (v.dest.kind === "rock") { v.dest.ref.taken = false; s.mines--; }
+          else { v.dest.ref.colonized = false; s.colonies--; }
+          s.stations = s.stations.filter(function (st) { return st.vent !== v; });
+          s.ventures.splice(i, 1);
+        }
       }
-    }
+    });
   }
 
-  function arrive(sh) {
+  function arrive(sh, s) {
     var v = sh.vent;
     if (sh.isLead && !v.live) {
       v.live = true;
-      if (v.type === "mine") { mines++; say("Платформа " + corps[v.lead].name + " встала на астероид: " + v.yield + "/мес."); }
-      else if (v.type === "colony") { colonies++; say("Колония " + corps[v.lead].name + " основана на " + v.dest.label + "."); }
-      else if (v.type === "jump" && !jumped) {
-        jumped = true;
-        era(corps[v.lead]);
-      }
+      if (v.type === "mine") { s.mines++; say("Платформа " + corps[v.lead].name + " встала на " + v.dest.label + " (" + s.name + "): " + v.yield + "/мес."); }
+      else { s.colonies++; say("Колония " + corps[v.lead].name + " основана на " + v.dest.label + " (" + s.name + ")."); }
     }
-    if (v.type !== "jump") stations.push({ dest:v.dest, color:sh.color, glyph:sh.glyph, size:sh.size * 0.8, vent:v, ang:Math.random()*6.28 });
+    s.stations.push({ dest:v.dest, color:sh.color, glyph:sh.glyph, size:sh.size * 0.8, vent:v,
+                      ang:v.dest.kind === "body" ? -2.2 + s.stations.length * 0.5 : -1.9 });
+  }
+
+  function openSystem(voy) {
+    var t = systems[voy.to], c = corps[voy.corp];
+    t.pulse = 1;
+    if (t.unlocked) return;
+    t.unlocked = true;
+    var pl = planets(t).length, what = [pl === 1 ? "одна планета" : pl + " планеты"];
+    if (t.belt) what.push(t.rocks.length + " астероидов");
+    what.push(t.rich >= 1.15 ? "богатая" : t.rich <= 0.9 ? "бедная" : "средняя");
+    say("<b>" + c.name + "</b> открыла систему " + t.name + ": " + what.join(", ") + ".");
+    if (!jumped) { jumped = true; era(c, t); }
   }
 
   function economy() {
@@ -804,14 +975,14 @@ Black and White и Creatures (для отложенной эволюционно
     });
   }
 
-  function era(winner) {
+  function era(winner, t) {
     var held = corps.map(function (c) {
       var l = FIELDS.filter(function (f) { return patents[f.key].owner === c.id; }).map(function (f) { return f.short; });
       return l.length ? c.name + " (" + l.join(", ") + ")" : null;
     }).filter(Boolean);
     document.getElementById("eratitle").textContent = "Год " + Y() + ": первый прыжок совершён";
     document.getElementById("eratext").textContent =
-      winner.name + " вывела корабль за пределы системы. Патенты на входе в галактику: " +
+      winner.name + " вывела корабль за пределы системы и открыла " + t.name + ". Патенты на входе в галактику: " +
       (held.length ? held.join("; ") : "все технологии стали общими") + ".";
     document.getElementById("era").style.display = "block";
     say("<b>" + winner.name + "</b> совершила первый межзвёздный прыжок. Планетарная эпоха закончилась.");
@@ -819,10 +990,10 @@ Black and White и Creatures (для отложенной эволюционно
 
   function step() {
     tick++;
-    economy(); research(); ventureIncome();
+    economy(); research(); ventureIncome(); moveShips();
     if (tick % 3 === 0) patentsExpire();
-    if (tick % 12 === 0 && !jumped) reviewPlans();
-    if (tick % 4 === 0 && !jumped) considerVentures();
+    if (tick % 12 === 0) reviewPlans();
+    if (tick % 4 === 0) considerVentures();
     panels();
   }
 
@@ -847,61 +1018,110 @@ Black and White и Creatures (для отложенной эволюционно
   function posOf(o, mx, my) { return { x:mx + Math.cos(o.ang) * o.r, y:my + Math.sin(o.ang) * o.r }; }
 
   var last = 0, glow = 0;
-  function frame(ts) {
-    var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
-    last = ts;
-    var flow = running ? speed : 0;
-    var mx = CW / 2, my = CH / 2;
-    glow += dt;
 
+  // Полёт идёт по МЕСЯЦАМ, а не по кадрам: rAF засыпает вместе со скрытой
+  // вкладкой, и корабли зависали бы в пути, стоит отвернуться. Кадр только
+  // рисует то, что посчитал тик. dur у корабля — месяцы в пути.
+  function moveShips() {
+    systems.forEach(function (s) {
+      for (var i = s.ships.length - 1; i >= 0; i--) {
+        var sh = s.ships[i];
+        sh.t += 1 / sh.dur;
+        if (sh.t >= 1) { arrive(sh, s); s.ships.splice(i, 1); }
+      }
+    });
+    for (var j = voyages.length - 1; j >= 0; j--) {
+      var v = voyages[j];
+      v.t += 1 / v.dur;
+      if (v.t >= 1) { openSystem(v); voyages.splice(j, 1); }
+    }
+  }
+
+  // Кадр: положения кораблей внутри системы. Считается для ВСЕХ систем,
+  // чтобы след не рвался, когда возвращаешься к брошенной окраине.
+  function advance(s, dt) {
+    if (s.pulse > 0) s.pulse = Math.max(0, s.pulse - dt * 0.5);
+    var mx = CW/2, my = CH/2, op = posOf(s.origin, mx, my);
+    s.ships.forEach(function (sh) {
+      if (sh.t < 0) return;
+      var tp = posOf(sh.dest.ref, mx, my);
+      var k = Math.min(1, sh.t);
+      var e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;      // плавный разгон и торможение
+      sh.x = op.x + (tp.x - op.x) * e; sh.y = op.y + (tp.y - op.y) * e;
+      sh.ang = Math.atan2(tp.y - op.y, tp.x - op.x) + 1.5708;
+      var tl = sh.trail, lastp = tl[tl.length - 1];
+      if (!lastp || Math.abs(lastp.x - sh.x) + Math.abs(lastp.y - sh.y) > 1.5) {
+        tl.push({ x:sh.x, y:sh.y }); if (tl.length > 40) tl.shift();
+      }
+    });
+  }
+
+  // неровный камень: тот же seed — тот же силуэт, астероид узнаётся в лицо
+  function rock(x, y, rad, seed, col) {
+    cx.beginPath();
+    for (var i = 0; i < 9; i++) {
+      var a = i / 9 * 6.2832, rr = rad * (0.74 + 0.36 * Math.abs(Math.sin(seed + i * 2.3)));
+      var px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+      i ? cx.lineTo(px, py) : cx.moveTo(px, py);
+    }
+    cx.closePath(); cx.fillStyle = col; cx.fill();
+  }
+
+  function drawSystem(s) {
+    var mx = CW / 2, my = CH / 2;
     cx.fillStyle = "#080d19"; cx.fillRect(0, 0, CW, CH);
 
-    // орбиты
-    bodies.concat([jump]).forEach(function (o) {
+    // орбиты как разметка расстояний, а не как траектории
+    s.bodies.concat([s.gate]).forEach(function (o) {
       cx.beginPath(); cx.arc(mx, my, o.r, 0, 6.2832);
-      cx.strokeStyle = "#141d31"; cx.lineWidth = 1; cx.stroke();
-      o.ang += dt * o.sp * (0.4 + flow * 0.8);
+      cx.strokeStyle = "#131c2f"; cx.lineWidth = 1; cx.stroke();
     });
+    if (s.belt) {
+      cx.beginPath(); cx.arc(mx, my, 168, 0, 6.2832);
+      cx.strokeStyle = "#141d31"; cx.setLineDash([2, 7]); cx.lineWidth = 1; cx.stroke(); cx.setLineDash([]);
+    }
 
-    // ---- кольцо исследований (внутри, вокруг звезды) ----
-    var RR = 62, seg = 6.2832 / FIELDS.length, ga = 0.16;
-    FIELDS.forEach(function (f, i) {
-      var a0 = -1.5708 + i * seg + ga, a1 = -1.5708 + (i + 1) * seg - ga;
-      var h = holderOf(f.key), pub = isPublic(f.key);
-      cx.beginPath(); cx.arc(mx, my, RR, a0, a1);
-      cx.strokeStyle = "#16203a"; cx.lineWidth = 7; cx.stroke();
+    // ---- кольцо исследований (только дома: наука живёт на Тире) ----
+    if (s.id === 0) {
+      var RR = 62, seg = 6.2832 / FIELDS.length, ga = 0.16;
+      FIELDS.forEach(function (f, i) {
+        var a0 = -1.5708 + i * seg + ga, a1 = -1.5708 + (i + 1) * seg - ga;
+        var h = holderOf(f.key), pub = isPublic(f.key);
+        cx.beginPath(); cx.arc(mx, my, RR, a0, a1);
+        cx.strokeStyle = "#16203a"; cx.lineWidth = 7; cx.stroke();
 
-      if (h || pub) {
-        cx.beginPath(); cx.arc(mx, my, RR, a0, a1);
-        cx.strokeStyle = pub ? "#2f5c45" : h.color; cx.lineWidth = 7; cx.stroke();
-      } else {
-        var tot = corps.reduce(function (s, c) { return s + c.spent[f.key]; }, 0);
-        var sc = Math.max(f.diff, tot), at = a0;
-        corps.forEach(function (c) {
-          if (c.spent[f.key] < 1) return;
-          var w = (a1 - a0) * (c.spent[f.key] / sc);
-          cx.beginPath(); cx.arc(mx, my, RR, at, at + w);
-          cx.strokeStyle = c.color; cx.lineWidth = 7; cx.stroke(); at += w;
-        });
-        var th = a0 + (a1 - a0) * 0.55;
-        cx.beginPath();
-        cx.moveTo(mx + Math.cos(th) * (RR - 5.5), my + Math.sin(th) * (RR - 5.5));
-        cx.lineTo(mx + Math.cos(th) * (RR + 5.5), my + Math.sin(th) * (RR + 5.5));
-        cx.strokeStyle = "#4a5674"; cx.lineWidth = 1.1; cx.stroke();
-      }
-      if (flash[f.key] > 0) {
-        cx.beginPath(); cx.arc(mx, my, RR, a0, a1);
-        cx.strokeStyle = "#fff"; cx.lineWidth = 7;
-        cx.globalAlpha = flash[f.key] * 0.8; cx.stroke(); cx.globalAlpha = 1;
-        flash[f.key] = Math.max(0, flash[f.key] - dt * 1.2);
-      }
-      var am = (a0 + a1) / 2;
-      cx.font = "500 10px system-ui, sans-serif";
-      cx.fillStyle = (h || pub) ? "#7c88a0" : "#616d8a";
-      cx.textAlign = Math.cos(am) > 0.3 ? "left" : (Math.cos(am) < -0.3 ? "right" : "center");
-      cx.textBaseline = Math.sin(am) > 0.5 ? "top" : (Math.sin(am) < -0.5 ? "bottom" : "middle");
-      cx.fillText(f.short, mx + Math.cos(am) * (RR + 13), my + Math.sin(am) * (RR + 13));
-    });
+        if (h || pub) {
+          cx.beginPath(); cx.arc(mx, my, RR, a0, a1);
+          cx.strokeStyle = pub ? "#2f5c45" : h.color; cx.lineWidth = 7; cx.stroke();
+        } else {
+          var tot = corps.reduce(function (acc, c) { return acc + c.spent[f.key]; }, 0);
+          var sc = Math.max(f.diff, tot), at = a0;
+          corps.forEach(function (c) {
+            if (c.spent[f.key] < 1) return;
+            var w = (a1 - a0) * (c.spent[f.key] / sc);
+            cx.beginPath(); cx.arc(mx, my, RR, at, at + w);
+            cx.strokeStyle = c.color; cx.lineWidth = 7; cx.stroke(); at += w;
+          });
+          var th = a0 + (a1 - a0) * 0.55;
+          cx.beginPath();
+          cx.moveTo(mx + Math.cos(th) * (RR - 5.5), my + Math.sin(th) * (RR - 5.5));
+          cx.lineTo(mx + Math.cos(th) * (RR + 5.5), my + Math.sin(th) * (RR + 5.5));
+          cx.strokeStyle = "#4a5674"; cx.lineWidth = 1.1; cx.stroke();
+        }
+        if (flash[f.key] > 0) {
+          cx.beginPath(); cx.arc(mx, my, RR, a0, a1);
+          cx.strokeStyle = "#fff"; cx.lineWidth = 7;
+          cx.globalAlpha = flash[f.key] * 0.8; cx.stroke(); cx.globalAlpha = 1;
+          flash[f.key] = Math.max(0, flash[f.key] - 0.02);
+        }
+        var am = (a0 + a1) / 2;
+        cx.font = "500 10px system-ui, sans-serif";
+        cx.fillStyle = (h || pub) ? "#7c88a0" : "#616d8a";
+        cx.textAlign = Math.cos(am) > 0.3 ? "left" : (Math.cos(am) < -0.3 ? "right" : "center");
+        cx.textBaseline = Math.sin(am) > 0.5 ? "top" : (Math.sin(am) < -0.5 ? "bottom" : "middle");
+        cx.fillText(f.short, mx + Math.cos(am) * (RR + 13), my + Math.sin(am) * (RR + 13));
+      });
+    }
 
     // ---- звезда ----
     var pulse = 1 + Math.sin(glow * 0.7) * 0.04;
@@ -910,82 +1130,192 @@ Black and White и Creatures (для отложенной эволюционно
     cx.beginPath(); cx.arc(mx, my, 30 * pulse, 0, 6.2832); cx.fillStyle = sg; cx.fill();
     cx.beginPath(); cx.arc(mx, my, 11, 0, 6.2832); cx.fillStyle = "#fff6dd"; cx.fill();
 
-    // ---- астероидный пояс ----
-    rocks.forEach(function (r) {
-      r.ang += dt * r.sp * (0.4 + flow * 0.8);
+    // ---- астероиды: их мало, они крупные и у каждого есть имя ----
+    s.rocks.forEach(function (r) {
       var p = posOf(r, mx, my);
-      cx.beginPath(); cx.arc(p.x, p.y, r.s, 0, 6.2832);
-      cx.fillStyle = r.taken ? "#7e8aa4" : "#414d68"; cx.fill();
+      rock(p.x, p.y, r.s, r.seed, r.taken ? "#7e8aa4" : "#46526e");
+      cx.font = "500 9.5px system-ui, sans-serif"; cx.fillStyle = r.taken ? "#6d7793" : "#49536c";
+      cx.textAlign = "center"; cx.textBaseline = "top";
+      cx.fillText(r.name, p.x, p.y + r.s + 6);
     });
 
     // ---- планеты ----
-    bodies.forEach(function (b) {
+    s.bodies.forEach(function (b) {
       var p = posOf(b, mx, my);
       var g2 = cx.createRadialGradient(p.x - b.rad*0.35, p.y - b.rad*0.35, b.rad*0.15, p.x, p.y, b.rad);
       g2.addColorStop(0, b.col); g2.addColorStop(1, "#131b2d");
       cx.beginPath(); cx.arc(p.x, p.y, b.rad, 0, 6.2832); cx.fillStyle = g2; cx.fill();
       if (b.kind === "home") {
         corps.forEach(function (c, i) {
-          var a = glow * 0.25 + i * 1.2566;
-          shape(c.shape, p.x + Math.cos(a) * (b.rad + 8), p.y + Math.sin(a) * (b.rad + 8), 3.4, 0, c.color);
+          var a = -1.5708 + i * 1.2566;
+          cx.beginPath(); cx.arc(p.x + Math.cos(a) * (b.rad + 9), p.y + Math.sin(a) * (b.rad + 9), 3, 0, 6.2832);
+          cx.fillStyle = c.color; cx.fill();
         });
       }
       cx.font = "500 10.5px system-ui, sans-serif"; cx.fillStyle = "#7c88a0";
       cx.textAlign = "center"; cx.textBaseline = "top";
-      cx.fillText(b.name, p.x, p.y + b.rad + (b.kind === "home" ? 13 : 5));
+      cx.fillText(b.name, p.x, p.y + b.rad + (b.kind === "home" ? 14 : 5));
     });
 
-    // ---- точка прыжка ----
-    jp = posOf(jump, mx, my);
-    var jr = 9 + Math.sin(glow * 1.6) * 1.6;
+    // ---- ворота: отсюда уходят и сюда приходят межзвёздные корабли ----
+    var jp = posOf(s.gate, mx, my);
+    var open = known("drive"), jr = 9 + Math.sin(glow * 1.6) * 1.6;
     cx.beginPath(); cx.arc(jp.x, jp.y, jr, 0, 6.2832);
-    cx.strokeStyle = known("drive") ? "#9aa8ff" : "#3a4460"; cx.lineWidth = 1.4; cx.stroke();
+    cx.strokeStyle = open ? "#9aa8ff" : "#3a4460"; cx.lineWidth = 1.4; cx.stroke();
     cx.beginPath(); cx.arc(jp.x, jp.y, jr * 0.42, 0, 6.2832);
-    cx.fillStyle = known("drive") ? "#9aa8ff" : "#2b3450"; cx.fill();
-    cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = known("drive") ? "#8f9bc4" : "#4e5872";
+    cx.fillStyle = open ? "#9aa8ff" : "#2b3450"; cx.fill();
+    cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = open ? "#8f9bc4" : "#4e5872";
     cx.textAlign = "center"; cx.textBaseline = "top";
-    cx.fillText("прыжок", jp.x, jp.y + jr + 5);
+    cx.fillText("ворота", jp.x, jp.y + jr + 5);
 
     // ---- станции на месте ----
-    stations.forEach(function (s) {
-      s.ang += dt * 0.5;
-      var t = s.dest.ref, base = posOf(t, mx, my);
-      var off = (s.dest.kind === "body" ? t.rad + 7 : 6);
-      shape(s.glyph, base.x + Math.cos(s.ang) * off, base.y + Math.sin(s.ang) * off, s.size, s.ang, s.color);
+    s.stations.forEach(function (st) {
+      var t = st.dest.ref, base = posOf(t, mx, my);
+      var off = (st.dest.kind === "body" ? t.rad + 8 : t.s + 7);
+      shape(st.glyph, base.x + Math.cos(st.ang) * off, base.y + Math.sin(st.ang) * off, st.size, 0, st.color);
     });
 
     // ---- корабли в пути ----
-    var hp = posOf(home, mx, my);
-    for (var i = ships.length - 1; i >= 0; i--) {
-      var sh = ships[i];
-      sh.t += dt * (0.35 + flow * 0.85) / sh.dur;
-      if (sh.t < 0) continue;
-      var tp = posOf(sh.dest.ref, mx, my);
-      var k = Math.min(1, sh.t);
-      var e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;      // плавный разгон и торможение
-      var x = hp.x + (tp.x - hp.x) * e, y = hp.y + (tp.y - hp.y) * e;
-      var ang = Math.atan2(tp.y - hp.y, tp.x - hp.x) + 1.5708;
-
-      sh.trail.push({ x:x, y:y }); if (sh.trail.length > 40) sh.trail.shift();
+    s.ships.forEach(function (sh) {
+      if (sh.t < 0) return;
       cx.beginPath();
       sh.trail.forEach(function (p, j) { j ? cx.lineTo(p.x, p.y) : cx.moveTo(p.x, p.y); });
       cx.strokeStyle = sh.color; cx.globalAlpha = 0.22; cx.lineWidth = 1.3; cx.stroke(); cx.globalAlpha = 1;
+      shape(sh.glyph, sh.x, sh.y, sh.size, sh.ang, sh.color);
+    });
 
-      shape(sh.glyph, x, y, sh.size, ang, sh.color);
-
-      if (sh.t >= 1) {
-        if (sh.dest.kind === "jump") {
-          cx.beginPath(); cx.arc(x, y, 22, 0, 6.2832);
-          cx.fillStyle = "#9aa8ff"; cx.globalAlpha = 0.5; cx.fill(); cx.globalAlpha = 1;
-        }
-        arrive(sh); ships.splice(i, 1);
-      }
+    if (!s.ventures.length && !s.ships.length && s.id !== 0) {
+      cx.font = "500 12px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
+      cx.textAlign = "center"; cx.textBaseline = "bottom";
+      cx.fillText("пусто: сюда ещё никто не вложился", mx, CH - 18);
     }
+  }
 
+  // ---- карта систем ----
+  function corpsIn(s) {
+    var seen = {};
+    s.ventures.forEach(function (v) { seen[v.lead] = 1; v.members.forEach(function (id) { seen[id] = 1; }); });
+    return Object.keys(seen).map(function (id) { return corps[+id]; });
+  }
+  function nodeR(s) { return 7 + Math.min(7, s.ventures.length * 1.6); }
+  function seen(s) { return s.unlocked || neighbors(s.id).some(function (n) { return systems[n].unlocked; }); }
+
+  function drawMap() {
+    cx.fillStyle = "#080d19"; cx.fillRect(0, 0, CW, CH);
+
+    links.forEach(function (l) {
+      var a = systems[l.a], b = systems[l.b];
+      var both = a.unlocked && b.unlocked, half = a.unlocked || b.unlocked;
+      if (!half) return;
+      cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y);
+      cx.strokeStyle = both ? "#26314f" : "#182140";
+      cx.setLineDash(both ? [] : [3, 5]); cx.lineWidth = 1; cx.stroke(); cx.setLineDash([]);
+    });
+
+    // корабли между системами: тот же треугольник, что и внутри системы
+    voyages.forEach(function (v) {
+      var a = systems[v.from], b = systems[v.to];
+      var k = Math.min(1, Math.max(0, v.t));
+      var x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
+      cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(x, y);
+      cx.strokeStyle = v.color; cx.globalAlpha = 0.3; cx.lineWidth = 1.2; cx.stroke(); cx.globalAlpha = 1;
+      shape("tri", x, y, 6, Math.atan2(b.y - a.y, b.x - a.x) + 1.5708, v.color);
+    });
+
+    systems.forEach(function (s) {
+      var r = nodeR(s);
+      if (!seen(s)) {
+        cx.beginPath(); cx.arc(s.x, s.y, 2.2, 0, 6.2832); cx.fillStyle = "#1c2540"; cx.fill();
+        return;
+      }
+      if (!s.unlocked) {
+        cx.beginPath(); cx.arc(s.x, s.y, 8, 0, 6.2832);
+        cx.strokeStyle = "#3a4460"; cx.setLineDash([2, 4]); cx.lineWidth = 1.2; cx.stroke(); cx.setLineDash([]);
+        cx.font = "500 10.5px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
+        cx.textAlign = "center"; cx.textBaseline = "top";
+        cx.fillText("неизведанная", s.x, s.y + 13);
+        return;
+      }
+      if (s.pulse > 0) {
+        cx.beginPath(); cx.arc(s.x, s.y, r + 6 + (1 - s.pulse) * 22, 0, 6.2832);
+        cx.strokeStyle = "#9aa8ff"; cx.globalAlpha = s.pulse * 0.7; cx.lineWidth = 1.6; cx.stroke(); cx.globalAlpha = 1;
+      }
+      if (view.sys === s.id) {
+        cx.beginPath(); cx.arc(s.x, s.y, r + 10, 0, 6.2832);
+        cx.strokeStyle = "#3d4a70"; cx.lineWidth = 1; cx.stroke();
+      }
+      var sg2 = cx.createRadialGradient(s.x, s.y, 1, s.x, s.y, r + 9);
+      sg2.addColorStop(0, "#fff3d0"); sg2.addColorStop(0.45, "rgba(242,179,61,0.55)"); sg2.addColorStop(1, "rgba(242,179,61,0)");
+      cx.beginPath(); cx.arc(s.x, s.y, r + 9, 0, 6.2832); cx.fillStyle = sg2; cx.fill();
+      cx.beginPath(); cx.arc(s.x, s.y, r * 0.5, 0, 6.2832); cx.fillStyle = "#fff6dd"; cx.fill();
+
+      // кто здесь работает: цветные точки по кругу, по одной на корпорацию
+      var here = corpsIn(s);
+      here.forEach(function (c, i) {
+        var a = -1.5708 + i * (6.2832 / Math.max(1, here.length));
+        cx.beginPath(); cx.arc(s.x + Math.cos(a) * (r + 13), s.y + Math.sin(a) * (r + 13), 3.2, 0, 6.2832);
+        cx.fillStyle = c.color; cx.fill();
+      });
+
+      cx.font = (s.id === 0 ? "600 " : "500 ") + "11.5px system-ui, sans-serif";
+      cx.fillStyle = s.id === 0 ? "#e4e9f4" : "#9aa5bd";
+      cx.textAlign = "center"; cx.textBaseline = "top";
+      cx.fillText(s.name, s.x, s.y + r + 17);
+      var sub = [];
+      if (s.mines) sub.push(s.mines + " платф.");
+      if (s.colonies) sub.push(s.colonies + " кол.");
+      if (!sub.length) sub.push(planets(s).length + " пл." + (s.belt ? ", " + s.rocks.length + " аст." : ""));
+      cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = "#5d6881";
+      cx.fillText(sub.join(" · "), s.x, s.y + r + 31);
+    });
+
+    cx.font = "500 11px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
+    cx.textAlign = "left"; cx.textBaseline = "top";
+    cx.fillText("клик по системе — заглянуть внутрь", 16, 16);
+  }
+
+  function frame(ts) {
+    var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
+    last = ts;
+    glow += dt;
+
+    systems.forEach(function (s) { advance(s, dt); });
+
+    if (view.mode === "map") drawMap(); else drawSystem(systems[view.sys]);
     requestAnimationFrame(frame);
   }
-  var jp = { x:0, y:0 };
   requestAnimationFrame(frame);
+
+  // ===================== вид =====================
+  function scene() {
+    var map = view.mode === "map";
+    document.getElementById("tomap").style.display = map ? "none" : "inline-block";
+    document.getElementById("sname").textContent = map ? "Галактика" : systems[view.sys].name;
+    var meta;
+    if (map) {
+      var op = systems.filter(function (s) { return s.unlocked; }).length;
+      meta = "открыто систем " + op + " из " + systems.length + (voyages.length ? " · в пути " + voyages.length : "");
+    } else {
+      var s = systems[view.sys];
+      meta = (s.id === 0 ? "родная система" : "переход " + s.depth + " · богатство ×" + s.rich) +
+             " · планет " + planets(s).length + (s.belt ? " · астероидов " + s.rocks.length : " · без пояса");
+    }
+    document.getElementById("smeta").textContent = meta;
+    document.getElementById("ventlab").textContent = map ? "Что происходит в системах" : "Предприятия · " + systems[view.sys].name;
+    panels();
+  }
+  function open(i) { view = { mode:"system", sys:i }; scene(); }
+
+  cv.addEventListener("click", function (e) {
+    if (view.mode !== "map") return;
+    var rect = cv.getBoundingClientRect();
+    var x = (e.clientX - rect.left) / rect.width * CW, y = (e.clientY - rect.top) / rect.height * CH;
+    for (var i = 0; i < systems.length; i++) {
+      var s = systems[i];
+      if (!s.unlocked) continue;
+      if (Math.abs(x - s.x) < 28 && Math.abs(y - s.y) < 28) { open(i); return; }
+    }
+  });
 
   // ===================== панели =====================
   function panels() {
@@ -1011,37 +1341,62 @@ Black and White и Creatures (для отложенной эволюционно
     }).join("");
 
     var vbox = document.getElementById("ventures");
-    var act = ventures.filter(function (v) { return v.type !== "jump"; });
-    if (!act.length) {
-      var need = VTYPES[0].req.filter(function (k) { return !known(k); }).map(function (k) { return fieldOf(k).short; });
-      vbox.innerHTML = '<div class="empty">' + (need.length
-        ? "Даже пояс недоступен: нет технологий — " + need.join(", ") + "."
-        : "Технологии есть, корпорации копят на лицензии.") + '</div>';
-    } else vbox.innerHTML = act.map(function (v) {
-      var lead = corps[v.lead];
-      return '<div class="vent"><div style="display:flex;gap:6px;align-items:center;margin-bottom:3px">' +
-        '<svg class="glyph" width="11" height="11"><circle cx="5.5" cy="5.5" r="4.5" fill="' + lead.color + '"/></svg>' +
-        '<span style="flex:1 1 auto">' + lead.name + ' · ' + v.name + '</span>' +
-        '<span class="vmeta">' + (v.live ? v.yield + "/мес" : "в пути") + '</span></div>' +
-        '<div class="vmeta">' + v.dest.label + ' · ' +
-        (v.members.length ? "подряд: " + v.members.map(function (id) { return corps[id].name; }).join(", ") : "без подрядчиков") +
-        ' · ×' + v.mult.toFixed(2) + (v.live ? ", осталось " + Math.round(v.left/12) + " лет" : "") + '</div></div>';
-    }).join("");
+    if (view.mode === "map") {
+      vbox.innerHTML = systems.map(function (s) {
+        if (!seen(s)) return "";
+        if (!s.unlocked) {
+          var inbound = voyages.filter(function (v) { return v.to === s.id; })[0];
+          return '<div class="vent"><div class="srow"><span class="sname2 dim">неизведанная система</span>' +
+                 '<span class="vmeta">' + (inbound ? "летит " + corps[inbound.corp].name : "нет корабля") + '</span></div></div>';
+        }
+        var here = corpsIn(s);
+        var dots = here.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+        var line = s.ventures.length
+          ? "платформ " + s.mines + " · колоний " + s.colonies + " · " + here.map(function (c) { return c.name; }).join(", ")
+          : "никто ещё не вложился";
+        return '<div class="vent sysrow" data-sys="' + s.id + '"><div class="srow">' +
+               '<span class="sname2">' + s.name + (s.id === 0 ? " · дом" : "") + '</span>' + dots +
+               '<span class="vmeta">' + (s.id ? "переход " + s.depth + " · ×" + s.rich : "родная") + '</span></div>' +
+               '<div class="vmeta">' + line + '</div></div>';
+      }).join("");
+    } else {
+      var s = systems[view.sys], act = s.ventures;
+      if (!act.length) {
+        var need = VTYPES[0].req.filter(function (k) { return !known(k); }).map(function (k) { return fieldOf(k).short; });
+        vbox.innerHTML = '<div class="empty">' + (need.length
+          ? "Даже пояс недоступен: нет технологий — " + need.join(", ") + "."
+          : s.ships.length ? "Флот в пути." : "Технологии есть, корпорации копят на лицензии.") + '</div>';
+      } else vbox.innerHTML = act.map(function (v) {
+        var lead = corps[v.lead];
+        return '<div class="vent"><div style="display:flex;gap:6px;align-items:center;margin-bottom:3px">' +
+          '<i class="dot" style="background:' + lead.color + '"></i>' +
+          '<span style="flex:1 1 auto">' + lead.name + ' · ' + v.name + '</span>' +
+          '<span class="vmeta">' + (v.live ? v.yield + "/мес" : "в пути") + '</span></div>' +
+          '<div class="vmeta">' + v.dest.label + ' · ' +
+          (v.members.length ? "подряд: " + v.members.map(function (id) { return corps[id].name; }).join(", ") : "без подрядчиков") +
+          ' · ×' + v.mult.toFixed(2) + (v.live ? ", осталось " + Math.round(v.left/12) + " лет" : "") + '</div></div>';
+      }).join("");
+    }
 
+    var tm = 0, tc = 0;
+    systems.forEach(function (s) { tm += s.mines; tc += s.colonies; });
     document.getElementById("treasury").textContent = Math.round(treasury).toLocaleString("ru-RU");
     document.getElementById("date").textContent = dateStr();
-    document.getElementById("stats").textContent = "Платформ " + mines + " · колоний " + colonies +
-      " · роялти " + Math.round(royalties) + " · сгорело " + Math.round(burned);
+    document.getElementById("stats").textContent = "Систем " + systems.filter(function (s) { return s.unlocked; }).length +
+      " · платформ " + tm + " · колоний " + tc + " · роялти " + Math.round(royalties) + " · сгорело " + Math.round(burned);
 
     document.getElementById("corps").innerHTML = corps.slice().sort(function (a, b) { return b.cash - a.cash; }).map(function (c) {
       var mine = FIELDS.filter(function (f) { return patents[f.key].owner === c.id; }).map(function (f) { return f.short; });
       var t = c.mode === "save" ? "копит на " + (c.plan === "jump" ? "прыжок" : c.plan === "mine" ? "платформу" : "колонию") : (c.target && !known(c.target) ? "ищет: " + fieldOf(c.target).short : "ничего");
-      var gl = c.shape === "tri" ? '<polygon points="5.5,1 10,10 1,10"' : c.shape === "dia" ? '<polygon points="5.5,1 10,5.5 5.5,10 1,5.5"'
-             : c.shape === "sqr" ? '<rect x="1.5" y="1.5" width="8" height="8"' : '<circle cx="5.5" cy="5.5" r="4.5"';
+      var where = [];
+      systems.forEach(function (s) {
+        if (s.ventures.some(function (v) { return v.lead === c.id || v.members.indexOf(c.id) >= 0; })) where.push(s.name);
+      });
       return '<div class="corp"><div class="crow">' +
-        '<svg class="glyph" width="11" height="11">' + gl + ' fill="' + c.color + '"/></svg>' +
+        '<i class="dot" style="background:' + c.color + '"></i>' +
         '<span class="cname">' + c.name + '</span><span class="cmoney">' + Math.round(c.cash) + '</span></div>' +
         '<div class="cstat">' + c.craft + ' · ' + t + '</div>' +
+        (where.length ? '<div class="cstat">присутствие: ' + where.join(", ") + '</div>' : '') +
         (mine.length ? '<div class="cpat">патенты: ' + mine.join(", ") + '</div>' : '') + '</div>';
     }).join("");
 
@@ -1051,6 +1406,11 @@ Black and White и Creatures (для отложенной эволюционно
 
     document.getElementById("force").disabled = !FIELDS.some(function (f) { return patents[f.key].owner >= 0; });
   }
+
+  document.getElementById("ventures").addEventListener("click", function (e) {
+    var row = e.target.closest(".sysrow");
+    if (row) open(+row.getAttribute("data-sys"));
+  });
 
   // ===================== управление =====================
   function taxhint() {
@@ -1113,11 +1473,13 @@ Black and White и Creatures (для отложенной эволюционно
     speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
     this.textContent = "×" + speed; if (running) run();
   });
+  document.getElementById("map").addEventListener("click", function () { view.mode = "map"; scene(); });
+  document.getElementById("tomap").addEventListener("click", function () { view.mode = "map"; scene(); });
   document.getElementById("reset").addEventListener("click", function () {
-    build(); panels(); if (running) run();
+    build(); scene(); if (running) run();
   });
 
-  build(); panels(); taxhint(); subhint(); pathint(); run();
+  build(); scene(); taxhint(); subhint(); pathint(); run();
 })();
 </script>
 </body>
