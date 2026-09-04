@@ -599,6 +599,26 @@ Black and White и Creatures (для отложенной эволюционно
   var timer = null, running = true, speed = 1, flash = {};
   var view = { mode:"system", sys:0 };
 
+  // Рычаги переживают перезагрузку: подобрал налог и срок патента — F5 не
+  // сбрасывает их обратно. Всё в try/catch: на file:// хранилище иногда
+  // просто бросает исключение, и это не повод ронять игру.
+  var LSKEY = "threshold.levers";
+  function saveLevers() {
+    try {
+      localStorage.setItem(LSKEY, JSON.stringify({ tax:tax, subField:subField, subYear:subYear, patTerm:patTerm, speed:speed }));
+    } catch (e) {}
+  }
+  function loadLevers() {
+    var v = null;
+    try { v = JSON.parse(localStorage.getItem(LSKEY) || "null"); } catch (e) {}
+    if (!v) return;
+    if (typeof v.tax === "number" && v.tax >= 0 && v.tax <= 0.6) tax = v.tax;
+    if (typeof v.subYear === "number" && v.subYear >= 0 && v.subYear <= 72) subYear = v.subYear;
+    if (typeof v.patTerm === "number" && v.patTerm >= 5 && v.patTerm <= 70) patTerm = v.patTerm;
+    if (fieldOf(v.subField)) subField = v.subField;
+    if (v.speed === 1 || v.speed === 2 || v.speed === 4) speed = v.speed;
+  }
+
   function Y(){ return Math.floor(tick / 12); }
   function dateStr(){ return "год " + Y() + " · " + MONTHS[tick % 12]; }
   function say(t){ feed.unshift({ d:dateStr(), t:t }); if (feed.length > 80) feed.pop(); }
@@ -685,7 +705,7 @@ Black and White и Creatures (для отложенной эволюционно
   function build() {
     corps = TEMPLATE.map(function (t, i) {
       return { id:i, name:t.name, color:t.color, craft:t.craft, income:t.income, nerve:t.nerve,
-               apt:t.apt, cash:200, spent:{}, target:null, mode:'research', plan:null, earned:0, paid:0 };
+               apt:t.apt, cash:200, spent:{}, target:null, mode:'research', plan:null, earned:0, paid:0, cool:0 };
     });
     patents = {};
     FIELDS.forEach(function (f) { patents[f.key] = { owner:-1, since:0, take:0 }; });
@@ -841,7 +861,10 @@ Black and White и Creatures (для отложенной эволюционно
   function considerVentures() {
     var ready = [];
     corps.forEach(function (c) {
-      if (c.mode !== "save") return;
+      // Свежеоткрытая система — это разом 3-8 свободных мест при пяти богатых
+      // корпорациях, и они уходили туда залпом за пару лет. Пауза после
+      // собственного запуска растягивает заселение на десятилетия.
+      if (c.mode !== "save" || c.cool > 0) return;
       var b = bestVenture(c);
       if (!b) { c.mode = "research"; c.plan = null; return; }
       if (c.cash >= b.p.total + 25) ready.push({ c:c, b:b });
@@ -850,7 +873,7 @@ Black and White и Creatures (для отложенной эволюционно
     ready.sort(function (x, y) { return y.b.score - x.b.score; });
     var w = ready[0];
     launch(w.c, w.b);
-    w.c.mode = "research"; w.c.plan = null;
+    w.c.mode = "research"; w.c.plan = null; w.c.cool = 30 + Math.floor(Math.random() * 30);
   }
 
   function launch(lead, b) {
@@ -919,8 +942,10 @@ Black and White и Creatures (для отложенной эволюционно
                    dest:dest, trail:[], vent:v, isLead:true, x:0, y:0, ang:0 };
     s.ships.push(lead_s);
     members.forEach(function (m, i) {
+      // Караван должен читаться как вереница, а не как залп: интервал в месяц
+      // сливал подрядчиков с ведущим в одно пятно разных цветов.
       s.ships.push({ corp:m.to.id, color:m.to.color, glyph:vt.glyph, size:5.2,
-                     t:-0.05 - i * 0.045, dur:lead_s.dur, dest:dest, trail:[], vent:v, isLead:false, x:0, y:0, ang:0 });
+                     t:-0.11 - i * 0.09, dur:lead_s.dur, dest:dest, trail:[], vent:v, isLead:false, x:0, y:0, ang:0 });
     });
   }
 
@@ -969,6 +994,7 @@ Black and White и Creatures (для отложенной эволюционно
 
   function economy() {
     corps.forEach(function (c) {
+      if (c.cool > 0) c.cool--;
       treasury += c.income * tax;
       c.cash += c.income * (1 - tax) - 0.35;
       if (c.cash < -20) c.cash = -20;
@@ -1438,18 +1464,30 @@ Black and White и Creatures (для отложенной эволюционно
 
   var sel = document.getElementById("subfield");
   sel.innerHTML = FIELDS.map(function (f) { return '<option value="' + f.key + '">' + f.name + '</option>'; }).join("");
-  sel.addEventListener("change", function (e) { subField = e.target.value; subhint(); });
+  sel.addEventListener("change", function (e) { subField = e.target.value; subhint(); saveLevers(); });
 
   document.getElementById("tax").addEventListener("input", function (e) {
     tax = +e.target.value / 100;
-    document.getElementById("taxval").textContent = Math.round(tax * 100) + "%"; taxhint();
+    document.getElementById("taxval").textContent = Math.round(tax * 100) + "%"; taxhint(); saveLevers();
   });
   document.getElementById("sub").addEventListener("input", function (e) {
-    subYear = +e.target.value; document.getElementById("subval").textContent = subYear; subhint();
+    subYear = +e.target.value; document.getElementById("subval").textContent = subYear; subhint(); saveLevers();
   });
   document.getElementById("pat").addEventListener("input", function (e) {
-    patTerm = +e.target.value; document.getElementById("patval").textContent = patTerm + " лет"; pathint();
+    patTerm = +e.target.value; document.getElementById("patval").textContent = patTerm + " лет"; pathint(); saveLevers();
   });
+
+  // состояние -> элементы управления (после чтения сохранённых рычагов)
+  function syncControls() {
+    document.getElementById("tax").value = Math.round(tax * 100);
+    document.getElementById("taxval").textContent = Math.round(tax * 100) + "%";
+    document.getElementById("sub").value = subYear;
+    document.getElementById("subval").textContent = subYear;
+    document.getElementById("pat").value = patTerm;
+    document.getElementById("patval").textContent = patTerm + " лет";
+    document.getElementById("speed").textContent = "×" + speed;
+    sel.value = subField;
+  }
   document.getElementById("force").addEventListener("click", function () {
     var best = null;
     FIELDS.forEach(function (f) {
@@ -1471,7 +1509,7 @@ Black and White и Creatures (для отложенной эволюционно
   });
   document.getElementById("speed").addEventListener("click", function () {
     speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
-    this.textContent = "×" + speed; if (running) run();
+    this.textContent = "×" + speed; if (running) run(); saveLevers();
   });
   document.getElementById("map").addEventListener("click", function () { view.mode = "map"; scene(); });
   document.getElementById("tomap").addEventListener("click", function () { view.mode = "map"; scene(); });
@@ -1479,6 +1517,7 @@ Black and White и Creatures (для отложенной эволюционно
     build(); scene(); if (running) run();
   });
 
+  loadLevers(); syncControls();
   build(); scene(); taxhint(); subhint(); pathint(); run();
 })();
 </script>
