@@ -563,10 +563,13 @@ Black and White и Creatures (для отложенной эволюционно
   // Прыжок больше не финал партии, а способ ОТКРЫТЬ соседнюю систему.
   // ФОРМА = тип корабля (ромб добыча, круг колония, треугольник прыжок),
   // ЦВЕТ = корпорация. Одна ось на «что», другая на «чьё».
+  // build — месяцы постройки на верфи до вылета. Корабль должен быть событием,
+  // а не мгновенной покупкой: колонизация случается раз в десятилетия, и если
+  // она занимает две секунды, её просто не видно.
   var VTYPES = [
-    { key:"mine",   name:"разработка астероидов", req:["mining","cargo"],       bon:["hull"],           base:150, yield:3.1, term:1800, dest:"belt",   glyph:"dia" },
-    { key:"colony", name:"колония",              req:["hull","life"],          bon:["goods","cargo"],  base:230, yield:4.4, term:2600, dest:"planet", glyph:"cir" },
-    { key:"jump",   name:"межзвёздный прыжок",   req:["drive","hull","life"],  bon:["mining","goods"], base:340, yield:0,   term:0,    dest:"jump",   glyph:"tri" }
+    { key:"mine",   name:"разработка астероидов", req:["mining","cargo"],       bon:["hull"],           base:260, build:14, yield:3.1, term:1800, dest:"belt",   glyph:"dia" },
+    { key:"colony", name:"колония",              req:["hull","life"],          bon:["goods","cargo"],  base:420, build:22, yield:4.4, term:2600, dest:"planet", glyph:"cir" },
+    { key:"jump",   name:"межзвёздный прыжок",   req:["drive","hull","life"],  bon:["mining","goods"], base:700, build:30, yield:0,   term:0,    dest:"jump",   glyph:"tri" }
   ];
   function vtype(k){ for (var i=0;i<VTYPES.length;i++) if (VTYPES[i].key===k) return VTYPES[i]; }
 
@@ -638,7 +641,7 @@ Black and White и Creatures (для отложенной эволюционно
   function makeSystem(i, name, x, y, pool) {
     var s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
               rich: i ? +(0.8 + Math.random()*0.65).toFixed(2) : 1,
-              bodies:[], rocks:[], ventures:[], ships:[], stations:[], mines:0, colonies:0 };
+              bodies:[], rocks:[], ventures:[], ships:[], yards:[], stations:[], mines:0, colonies:0 };
     if (i === 0) s.bodies.push({ name:"Тира", r:112, ang:-0.9, rad:16, col:"#5b7cae", kind:"home" });
     var np = i === 0 ? 2 : 1 + Math.floor(Math.random()*3);
     var base = rnd6();
@@ -904,18 +907,15 @@ Black and White и Creatures (для отложенной эволюционно
     var who = members.length ? " Наняты: " + members.map(function (m) { return m.to.name; }).join(", ") + "."
                              : " Своими силами.";
 
-    if (vt.key === "jump") {
-      voyages.push({ from:s.id, to:b.to, corp:lead.id, color:lead.color,
-                     members:members.map(function (m) { return m.to.id; }), t:0, dur:40 + Math.random()*16 });
-      say("<b>" + lead.name + "</b> отправила прыжковый корабль из " + s.name + " в неизведанную систему." + who);
-      return;
-    }
-
     var v = { sys:s.id, lead:lead.id, type:vt.key, name:vt.name, members:members.map(function (m) { return m.to.id; }),
-              left:vt.term, yield:+(vt.yield * mult * s.rich).toFixed(1), mult:mult, born:dateStr(), dest:dest, live:false };
-    s.ventures.push(v);
-    sendFleet(lead, members, vt, dest, v, s);
-    say("<b>" + lead.name + "</b> начала " + vt.name + " (" + s.name + " · " + dest.label + ")." + who);
+              left:vt.term, yield:+(vt.yield * mult * s.rich).toFixed(1), mult:mult, born:dateStr(),
+              dest:dest, live:false, building:true };
+    if (vt.key !== "jump") s.ventures.push(v);
+    s.yards.push({ vt:vt, vent:v, lead:lead.id, color:lead.color, glyph:vt.glyph, members:members,
+                   dest:dest, to:b.to, left:vt.build, total:vt.build });
+    var where = vt.key === "jump" ? "неизведанной системы" : dest.label;
+    say("<b>" + lead.name + "</b> заложила " + vt.name + " на верфи " + s.name + " (" + where + "), " +
+        vt.build + " месяцев постройки." + who);
   }
 
   // Возвращает null, если место успели занять. Занимает его сразу: между
@@ -938,7 +938,7 @@ Black and White и Creatures (для отложенной эволюционно
   // Читать m.to.id, НЕ m.id. На этом уже падало (журнал, п. 6, баг 2).
   // Глиф у всего каравана один — тип предприятия; отличаются они цветом.
   function sendFleet(lead, members, vt, dest, v, s) {
-    var lead_s = { corp:lead.id, color:lead.color, glyph:vt.glyph, size:8, t:0, dur:20 + Math.random()*8,
+    var lead_s = { corp:lead.id, color:lead.color, glyph:vt.glyph, size:8, t:0, dur:32 + Math.random()*12,
                    dest:dest, trail:[], vent:v, isLead:true, x:0, y:0, ang:0 };
     s.ships.push(lead_s);
     members.forEach(function (m, i) {
@@ -1050,6 +1050,22 @@ Black and White и Creatures (для отложенной эволюционно
   // рисует то, что посчитал тик. dur у корабля — месяцы в пути.
   function moveShips() {
     systems.forEach(function (s) {
+      for (var y = s.yards.length - 1; y >= 0; y--) {
+        var yd = s.yards[y];
+        if (--yd.left > 0) continue;
+        s.yards.splice(y, 1);
+        var lead = corps[yd.lead];
+        if (yd.vt.key === "jump") {
+          voyages.push({ from:s.id, to:yd.to, corp:yd.lead, color:yd.color,
+                         members:yd.members.map(function (m) { return m.to.id; }), t:0, dur:70 + Math.random()*30 });
+          say("<b>" + lead.name + "</b> вывела прыжковый корабль с верфи " + s.name + " и ушла за пределы системы.");
+        } else {
+          yd.vent.building = false;
+          sendFleet(lead, yd.members, yd.vt, yd.dest, yd.vent, s);
+          say("<b>" + lead.name + "</b> спустила " + (yd.vt.key === "mine" ? "платформу" : "колониальный модуль") +
+              " со стапеля " + s.name + ": курс на " + yd.dest.label + ".");
+        }
+      }
       for (var i = s.ships.length - 1; i >= 0; i--) {
         var sh = s.ships[i];
         sh.t += 1 / sh.dur;
@@ -1199,6 +1215,21 @@ Black and White и Creatures (для отложенной эволюционно
       var t = st.dest.ref, base = posOf(t, mx, my);
       var off = (st.dest.kind === "body" ? t.rad + 8 : t.s + 7);
       shape(st.glyph, base.x + Math.cos(st.ang) * off, base.y + Math.sin(st.ang) * off, st.size, 0, st.color);
+    });
+
+    // ---- верфь: корпус растёт на стапеле, кольцо показывает готовность ----
+    var op = posOf(s.origin, mx, my);
+    s.yards.forEach(function (yd, i) {
+      var a = -1.5708 + i * 1.05, off = (s.origin.rad || 10) + 24;
+      var x = op.x + Math.cos(a) * off, y = op.y + Math.sin(a) * off;
+      var done = 1 - yd.left / yd.total;
+      cx.beginPath(); cx.arc(x, y, 10, 0, 6.2832);
+      cx.strokeStyle = "#1e2740"; cx.lineWidth = 2; cx.stroke();
+      cx.beginPath(); cx.arc(x, y, 10, -1.5708, -1.5708 + 6.2832 * done);
+      cx.strokeStyle = yd.color; cx.lineWidth = 2; cx.stroke();
+      cx.globalAlpha = 0.35 + done * 0.65;
+      shape(yd.glyph, x, y, 5.4, 0, yd.color);
+      cx.globalAlpha = 1;
     });
 
     // ---- корабли в пути ----
@@ -1389,18 +1420,32 @@ Black and White и Creatures (для отложенной эволюционно
       var s = systems[view.sys], act = s.ventures;
       if (!act.length) {
         var need = VTYPES[0].req.filter(function (k) { return !known(k); }).map(function (k) { return fieldOf(k).short; });
-        vbox.innerHTML = '<div class="empty">' + (need.length
+        vbox.innerHTML = jumpYards(s) || '<div class="empty">' + (need.length
           ? "Даже пояс недоступен: нет технологий — " + need.join(", ") + "."
           : s.ships.length ? "Флот в пути." : "Технологии есть, корпорации копят на лицензии.") + '</div>';
-      } else vbox.innerHTML = act.map(function (v) {
+      } else vbox.innerHTML = jumpYards(s) + act.map(function (v) {
         var lead = corps[v.lead];
         return '<div class="vent"><div style="display:flex;gap:6px;align-items:center;margin-bottom:3px">' +
           '<i class="dot" style="background:' + lead.color + '"></i>' +
           '<span style="flex:1 1 auto">' + lead.name + ' · ' + v.name + '</span>' +
-          '<span class="vmeta">' + (v.live ? v.yield + "/мес" : "в пути") + '</span></div>' +
+          '<span class="vmeta">' + (v.building ? "на верфи" : v.live ? v.yield + "/мес" : "в пути") + '</span></div>' +
           '<div class="vmeta">' + v.dest.label + ' · ' +
           (v.members.length ? "подряд: " + v.members.map(function (id) { return corps[id].name; }).join(", ") : "без подрядчиков") +
           ' · ×' + v.mult.toFixed(2) + (v.live ? ", осталось " + Math.round(v.left/12) + " лет" : "") + '</div></div>';
+      }).join("");
+    }
+
+    // прыжковый корабль не предприятие: он не приносит дохода и живёт
+    // только на стапеле, поэтому в списке предприятий его нет
+    function jumpYards(s) {
+      return s.yards.filter(function (yd) { return yd.vt.key === "jump"; }).map(function (yd) {
+        var lead = corps[yd.lead];
+        return '<div class="vent"><div style="display:flex;gap:6px;align-items:center;margin-bottom:3px">' +
+          '<i class="dot" style="background:' + lead.color + '"></i>' +
+          '<span style="flex:1 1 auto">' + lead.name + ' · прыжковый корабль</span>' +
+          '<span class="vmeta">на верфи</span></div>' +
+          '<div class="vmeta">готовность ' + Math.round((1 - yd.left / yd.total) * 100) + '% · до спуска ' +
+          yd.left + ' мес.</div></div>';
       }).join("");
     }
 
