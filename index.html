@@ -112,6 +112,17 @@
             min-width:136px; padding:13px 22px; font-size:15px;
             box-shadow:0 6px 22px rgba(4,8,18,0.6); }
   }
+  /* Узко бывает и на настольном экране — от зума страницы. Кнопка нужна внизу
+     и там (шапка уезжает так же), но крупный палец-размер посреди сцены только
+     заслоняет её. Отличаем не по ширине, а по указателю: мышь целится точнее
+     пальца, поэтому при pointer:fine та же прилипшая кнопка мельче и прижата
+     к углу, а не к середине — под курсором она не мешает смотреть. */
+  @media (max-width:900px) and (pointer:fine) {
+    body { padding-bottom:54px; }
+    #play { left:auto; right:14px; bottom:12px; transform:none;
+            min-width:0; padding:7px 14px; font-size:13px;
+            box-shadow:0 4px 14px rgba(4,8,18,0.5); }
+  }
 </style>
 </head>
 <body>
