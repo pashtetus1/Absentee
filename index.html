@@ -1129,7 +1129,9 @@ var THRESHOLD = (function () {
       for (var i = voyages.length - 1; i >= 0; i--) {
         var v = voyages[i];
         if (v.kind === "jump" || v.kind === "opener") continue;
-        var owner = v.kind === "parts" ? v.forCorp : (v.relief !== undefined ? v.relief : -1);
+        var owner = v.kind === "parts" ? v.forCorp
+                  : v.kind === "ferry" ? v.corp
+                  : (v.relief !== undefined ? v.relief : -1);
         if (owner === p.id) continue;
         var a = v.sysFrom !== undefined ? systems[v.sysFrom] : systems[v.from.sys];
         var b = v.sysFrom !== undefined ? systems[v.to] : systems[v.to.sys];
@@ -1143,6 +1145,18 @@ var THRESHOLD = (function () {
         var loot;
         if (v.kind === "food") { p.home.food.stock += v.qty; loot = v.qty + " еды"; }
         else if (v.kind === "pops") { p.home.pop.free += v.qty; loot = v.qty.toFixed(1) + " человечков"; }
+        else if (v.kind === "ferry") {
+          // захвачен целый корабль: он разбирается на детали, а предприятие
+          // или колония, ради которых он шёл, срываются — место освобождается
+          v.parts.forEach(function (pt) { addStock(p, ps.id, pt.k, 1); });
+          if (v.cargo === "colony") { v.body.claimed = false; loot = "колониальный модуль"; }
+          else {
+            if (v.dest && v.dest.ref) v.dest.ref.taken = false;
+            var ds = systems[v.to];
+            ds.ventures = ds.ventures.filter(function (x) { return x !== v.vent; });
+            loot = "готовая платформа";
+          }
+        }
         else { addStock(p, ps.id, v.k, v.qty); loot = compOf(v.k).short; }
         raids++;
         if (pick && pick.data === v) pick = null;
@@ -1756,7 +1770,8 @@ var THRESHOLD = (function () {
         if (!pickS) return;
         var free = freeRocks(pickS);
         o.rock = free[Math.floor(Math.random() * free.length)];
-        o.rock.taken = true; o.sys = pickS.id;
+        o.rock.taken = true;
+        o.dst = pickS.id; o.sys = baseSys(c, pickS.id);   // собираем у себя, везём туда
       } else if (best.key === "gate") {
         // Ворота для ЗАКРЫТОЙ системы собираются у ближайших готовых ворот и
         // уходят туда одним рейсом: свозить детали в систему, до которой ещё
@@ -1782,6 +1797,21 @@ var THRESHOLD = (function () {
       c.order = o;
       say("<b>" + c.name + "</b> взялась собирать " + best.name + " в " + systems[o.sys].name + ".");
     });
+  }
+
+  // Где компания СОБИРАЕТ корабль: в своей системе с филиалом, ближайшей к
+  // цели. Раньше собирали прямо в системе назначения — детали летели в пустую
+  // систему, где у компании нет ни цеха, ни склада, ни человека: 85% рейсов с
+  // деталями шли в никуда. Теперь туда летит готовый корабль, а не запчасти.
+  function baseSys(c, target) {
+    var best = null, bd = 1e9;
+    c.branches.forEach(function (b) {
+      var s = b.world.sys;
+      if (!reachable(s)) return;
+      var d = s === target ? -1 : dist(systems[s], systems[target]);
+      if (d < bd) { bd = d; best = s; }
+    });
+    return best === null ? 0 : best;
   }
 
   // отменённый заказ отдаёт назад то, что успел занять
@@ -1815,7 +1845,7 @@ var THRESHOLD = (function () {
       if (!target) return;
       var cost = colonyCost(target.s), put = Math.min(c.cash * 0.45, cost);
       c.cash -= put; target.b.claimed = true;
-      projects.push({ lead:c.id, body:target.b, sys:target.s.id, cost:cost, purse:put,
+      projects.push({ lead:c.id, body:target.b, dst:target.s.id, sys:baseSys(c, target.s.id), cost:cost, purse:put,
                       need:JSON.parse(JSON.stringify(vtype("colony").need)), got:{}, parts:[],
                       backers:[{ corp:c.id, sum:put }], age:0, born:dateStr() });
       say("<b>" + c.name + "</b> открыла подписку на колонию " + target.b.name +
@@ -1867,13 +1897,14 @@ var THRESHOLD = (function () {
         s.yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:to,
                        parts:o.parts.slice(), left:vt.build, total:vt.build });
       } else {
-        var r = o.rock;
-        var v = { sys:o.sys, lead:c.id, type:"mine", name:vt.name, parts:o.parts.slice(),
+        // предприятие числится в системе АСТЕРОИДА, а не сборки
+        var r = o.rock, ds = systems[o.dst];
+        var v = { sys:o.dst, lead:c.id, type:"mine", name:vt.name, parts:o.parts.slice(),
                   left:vt.term, yield:vt.yield, born:dateStr(), dest:{ kind:"rock", ref:r, label:r.name },
                   live:false, building:true };
-        s.ventures.push(v);
+        ds.ventures.push(v);
         s.yards.push({ vt:vt, vent:v, lead:c.id, color:c.color, glyph:vt.glyph, dest:v.dest,
-                       parts:v.parts, left:vt.build, total:vt.build });
+                       dst:o.dst, parts:v.parts, left:vt.build, total:vt.build });
       }
       var from = {};
       c.order.parts.forEach(function (p) { from[p.from] = 1; });
@@ -1888,7 +1919,7 @@ var THRESHOLD = (function () {
       pr.age++;
       if (!full(pr.need, pr.got)) return;
       systems[pr.sys].yards.push({ vt:vtype("colony"), lead:pr.lead, color:corps[pr.lead].color, glyph:"cir",
-                                   body:pr.body, backers:pr.backers.slice(), parts:pr.parts.slice(),
+                                   body:pr.body, dst:pr.dst, backers:pr.backers.slice(), parts:pr.parts.slice(),
                                    left:vtype("colony").build, total:vtype("colony").build });
       say("<b>" + corps[pr.lead].name + "</b> заложила колониальный модуль для " + pr.body.name +
           " (вкладчиков " + pr.backers.length + ").");
@@ -1898,6 +1929,17 @@ var THRESHOLD = (function () {
   }
 
   // ===================== движение =====================
+  // Готовый корабль своим ходом идёт в чужую систему: это межзвёздный перелёт,
+  // он жжёт межзвёздное топливо и виден на карте. По прилёте корабль встаёт на
+  // свой обычный внутрисистемный курс — к астероиду или к планете.
+  function ferry(yd, s, kind) {
+    var lead = corps[yd.lead];
+    voyages.push({ kind:"ferry", cargo:kind, sysFrom:s.id, to:yd.dst, corp:yd.lead, color:yd.color,
+                   parts:yd.parts, body:yd.body, backers:yd.backers, dest:yd.dest, vent:yd.vent,
+                   t:0, dur:(200 + Math.random()*70) / speedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
+    say("<b>" + lead.name + "</b> отправила " + yd.vt.name + " из " + s.name + " в " + systems[yd.dst].name + ".");
+  }
+
   function moveShips() {
     systems.forEach(function (s) {
       for (var y = s.yards.length - 1; y >= 0; y--) {
@@ -1906,8 +1948,11 @@ var THRESHOLD = (function () {
         var lead = corps[yd.lead];
         // Готовый корабль без топлива стоит у стапеля. Межзвёздному нужно
         // межзвёздное, внутрисистемному — местное; ворота никуда не летят.
+        // межзвёздному рейсу — межзвёздное топливо: и прыжковому, и воротам
+        // на сторону, и готовой платформе, которую ещё вести в чужую систему
+        var far = yd.dst !== undefined && yd.dst !== s.id;
         var fuelKind = yd.vt.key === "gate" ? (yd.gateHere !== s.id ? "sfuel" : null)
-                     : (yd.vt.key === "jump" || yd.vt.key === "opener") ? "sfuel" : "fuel";
+                     : (yd.vt.key === "jump" || yd.vt.key === "opener" || far) ? "sfuel" : "fuel";
         if (fuelKind && !takeFuel(lead, s.id, fuelKind)) {
           yd.left = 1; yd.fuelWait = (yd.fuelWait || 0) + 1;
           if (yd.fuelWait === 1 || yd.fuelWait % 36 === 0)
@@ -1932,11 +1977,13 @@ var THRESHOLD = (function () {
           say("<b>" + lead.name + "</b> вывела " + (yd.vt.key === "opener" ? "порталооткрыватель" : "прыжковый корабль") +
               " с верфи " + s.name + ".");
         } else if (yd.vt.key === "colony") {
+          if (far) { ferry(yd, s, "colony"); continue; }
           s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
                          dur:(120 + Math.random()*60) / speedOf(yd.lead), body:yd.body, backers:yd.backers, parts:yd.parts,
                          trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain() });
           say("<b>" + lead.name + "</b> спустила колониальный модуль: курс на " + yd.body.name + ".");
         } else {
+          if (far) { ferry(yd, s, "mine"); continue; }
           yd.vent.building = false;
           s.ships.push({ kind:"mine", corp:yd.lead, color:yd.color, glyph:yd.glyph, size:8, t:0,
                          dur:(120 + Math.random()*60) / speedOf(yd.lead), dest:yd.dest, vent:yd.vent, parts:yd.parts,
@@ -1991,6 +2038,22 @@ var THRESHOLD = (function () {
             t.bodies.map(function (b) { return b.type.name; }).join(", ") + "." +
             (v.kind === "opener" ? " Проход прожжён и остаётся открытым." : ""));
         if (!jumped) { jumped = true; say("Первый межзвёздный переход совершён."); }
+      }
+      return;
+    }
+    if (v.kind === "ferry") {                       // корабль долетел до чужой системы
+      var t = systems[v.to];
+      if (v.cargo === "colony") {
+        t.ships.push({ kind:"colony", corp:v.corp, color:v.color, glyph:"cir", size:8, t:0,
+                       dur:(120 + Math.random()*60) / speedOf(v.corp), body:v.body, backers:v.backers,
+                       parts:v.parts, trail:[], x:0, y:0, ang:0, born:dateStr(), captain:v.captain });
+        say("<b>" + corps[v.corp].name + "</b>: колониальный модуль дошёл до " + t.name +
+            ", курс на " + v.body.name + ".");
+      } else {
+        t.ships.push({ kind:"mine", corp:v.corp, color:v.color, glyph:"mine", size:8, t:0,
+                       dur:(120 + Math.random()*60) / speedOf(v.corp), dest:v.dest, vent:v.vent,
+                       parts:v.parts, trail:[], x:0, y:0, ang:0, born:dateStr(), captain:v.captain });
+        say("<b>" + corps[v.corp].name + "</b>: платформа дошла до " + t.name + ", курс на " + v.dest.label + ".");
       }
       return;
     }

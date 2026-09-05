@@ -388,8 +388,11 @@ test("зависшая подписка распадается и освобож
     st.systems.forEach((s) => s.bodies.forEach((b) => {
       if (!b.claimed || b.world) return;
       const live = st.projects.some((pr) => pr.body === b);
+      // модуль может лететь тремя способами: внутри системы, на стапеле или
+      // межзвёздным перегоном в чужую систему
       const flying = st.systems.some((sy) => sy.ships.some((sh) => sh.body === b)) ||
-                     st.systems.some((sy) => sy.yards.some((y) => y.body === b));
+                     st.systems.some((sy) => sy.yards.some((y) => y.body === b)) ||
+                     st.voyages.some((v) => v.kind === "ferry" && v.body === b);
       assert(live || flying, b.name + ": планета числится занятой, а взять её некому");
     }));
   });
@@ -642,6 +645,40 @@ test("покупатель не заказывает то, что уже лет�
     assert(st.voyages.filter((v) => v.kind === "parts").length <= 40,
            "в воздухе " + st.voyages.filter((v) => v.kind === "parts").length + " грузовиков с деталями");
   });
+});
+
+// ── детали свозят туда, где есть цех ────────────────────────────────────────
+// Уже ломалось: корабль собирали прямо в системе назначения, и 85% грузовиков
+// с деталями летели в пустую систему, где у покупателя нет ни цеха, ни склада,
+// ни человека. Теперь туда идёт готовый корабль, а не запчасти.
+test("детали везут в систему с филиалом, а не в пустую", () => {
+  const sim = load("index.html", { seed: 1 });
+  let bad = 0, total = 0;
+  runYears(sim, 300, (st) => {
+    st.voyages.forEach((v) => {
+      if (v.kind !== "parts" || v.counted) return;
+      v.counted = true; total++;
+      const s = st.systems[v.to];
+      const settled = s.bodies.some((b) => b.world);
+      if (!settled) bad++;
+    });
+  });
+  assert(total > 0, "за триста лет ни одного рейса с деталями");
+  assert(bad / total < 0.25, Math.round(100 * bad / total) + "% деталей летит в необжитые системы");
+});
+
+test("готовый корабль сам идёт в чужую систему", () => {
+  const sim = load("index.html", { seed: 1 });
+  let ferries = 0;
+  runYears(sim, 300, (st) => {
+    st.voyages.forEach((v) => {
+      if (v.kind !== "ferry" || v.counted) return;
+      v.counted = true; ferries++;
+      assert(v.cargo === "colony" || v.cargo === "mine", "странный перегон: " + v.cargo);
+      assert(v.sysFrom !== v.to, "перегон внутри одной системы");
+    });
+  });
+  assert(ferries > 0, "за триста лет ни одного перегона готового корабля");
 });
 
 // ── воспроизводимость ───────────────────────────────────────────────────────
