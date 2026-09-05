@@ -29,7 +29,7 @@ function runYears(sim, years, check) {
 
 // ── ядро запускается и не падает ────────────────────────────────────────────
 test("ядро стартует без браузера", () => {
-  const sim = load("threshold-market.html", { seed: 1 });
+  const sim = load("index.html", { seed: 1 });
   const st = sim.state();
   assert(st.corps.length === 5, "должно быть пять компаний");
   assert(st.worlds.length === 1, "на старте освоена только Тира");
@@ -37,7 +37,7 @@ test("ядро стартует без браузера", () => {
 });
 
 test("двести лет без исключений", () => {
-  const sim = load("threshold-market.html", { seed: 7 });
+  const sim = load("index.html", { seed: 7 });
   runYears(sim, 200);
 });
 
@@ -45,7 +45,7 @@ test("двести лет без исключений", () => {
 // Уже ломалось: убыль вычиталась только из свободных, и когда безработных не
 // оставалось, итог расходился с суммой по занятиям — панель начинала врать.
 test("население неотрицательно и конечно", () => {
-  const sim = load("threshold-market.html", { seed: 3 });
+  const sim = load("index.html", { seed: 3 });
   runYears(sim, 120, (st) => {
     st.worlds.forEach((w) => {
       ["farm","prod","sci","free"].forEach((k) => {
@@ -57,7 +57,7 @@ test("население неотрицательно и конечно", () => 
 });
 
 test("мир не переполняется сверх предела навсегда", () => {
-  const sim = load("threshold-market.html", { seed: 11 });
+  const sim = load("index.html", { seed: 11 });
   const st = runYears(sim, 150);
   st.worlds.forEach((w) => {
     const total = sim.popOf(w);
@@ -67,7 +67,7 @@ test("мир не переполняется сверх предела навс�
 
 // ── деньги ──────────────────────────────────────────────────────────────────
 test("касса и цены остаются числами", () => {
-  const sim = load("threshold-market.html", { seed: 5 });
+  const sim = load("index.html", { seed: 5 });
   runYears(sim, 150, (st) => {
     assert(Number.isFinite(st.treasury), "казна стала не числом");
     st.corps.forEach((c) => assert(Number.isFinite(c.cash), c.name + ": касса стала не числом"));
@@ -80,7 +80,7 @@ test("касса и цены остаются числами", () => {
 });
 
 test("цены держатся в коридоре от базы", () => {
-  const sim = load("threshold-market.html", { seed: 9 });
+  const sim = load("index.html", { seed: 9 });
   const st = runYears(sim, 200);
   sim.consts.COMPS.forEach((f) => {
     const p = st.market[f.key].price;
@@ -89,7 +89,7 @@ test("цены держатся в коридоре от базы", () => {
 });
 
 test("склад деталей не уходит в минус", () => {
-  const sim = load("threshold-market.html", { seed: 13 });
+  const sim = load("index.html", { seed: 13 });
   runYears(sim, 150, (st) => {
     st.corps.forEach((c) => {
       Object.keys(c.stock).forEach((k) => {
@@ -104,7 +104,7 @@ test("склад деталей не уходит в минус", () => {
 // Уже ломалось: к 29 году лежало 222 товара при нуле заказов, и весь труд
 // планеты уходил в никуда.
 test("склад не забивается деталями без спроса", () => {
-  const sim = load("threshold-market.html", { seed: 17 });
+  const sim = load("index.html", { seed: 17 });
   const st = runYears(sim, 120);
   st.corps.forEach((c) => {
     Object.keys(c.stock).forEach((k) => {
@@ -115,14 +115,14 @@ test("склад не забивается деталями без спроса"
 
 // ── технологии, патенты, монополия ──────────────────────────────────────────
 test("за сто лет осваивают хотя бы половину деталей", () => {
-  const sim = load("threshold-market.html", { seed: 23 });
+  const sim = load("index.html", { seed: 23 });
   const st = runYears(sim, 100);
   const known = sim.consts.COMPS.filter((f) => st.corps.some((c) => c.known[f.key])).length;
   assert(known >= 3, "освоено всего " + known + " деталей из " + sim.consts.COMPS.length);
 });
 
 test("патент даёт монополию на производство", () => {
-  const sim = load("threshold-market.html", { seed: 29 });
+  const sim = load("index.html", { seed: 29 });
   const st = runYears(sim, 60);
   // только детали: технологии колонизации на складе не лежат
   sim.consts.COMPS.map((f) => f.key).forEach((k) => {
@@ -141,13 +141,13 @@ test("патент даёт монополию на производство", (
 
 // ── рынок реально работает ──────────────────────────────────────────────────
 test("к ста годам детали покупаются друг у друга", () => {
-  const sim = load("threshold-market.html", { seed: 31 });
+  const sim = load("index.html", { seed: 31 });
   const st = runYears(sim, 100);
   assert(st.trades > 0, "за сто лет ни одной сделки: рынок мёртв");
 });
 
 test("корабли собираются из чужих деталей", () => {
-  const sim = load("threshold-market.html", { seed: 37 });
+  const sim = load("index.html", { seed: 37 });
   const st = runYears(sim, 120);
   let mixed = 0, total = 0;
   st.systems.forEach((s) => s.ventures.forEach((v) => {
@@ -162,13 +162,13 @@ test("корабли собираются из чужих деталей", () =>
 // Деталь на складе — рычаг, а не товар: продать двигатель тому, кто рвётся к
 // последнему астероиду, значит устроить его рывок своими руками.
 test("компании отказывают друг другу", () => {
-  const sim = load("threshold-market.html", { seed: 61 });
+  const sim = load("index.html", { seed: 61 });
   const st = runYears(sim, 150);
   assert(st.refusals > 0, "за сто пятьдесят лет ни одного отказа: рычаг не работает");
 });
 
 test("отказ помнится годами, а не перерешается каждый месяц", () => {
-  const sim = load("threshold-market.html", { seed: 67 });
+  const sim = load("index.html", { seed: 67 });
   let seen = false;
   runYears(sim, 120, (st) => {
     st.corps.forEach((c) => {
@@ -181,14 +181,14 @@ test("отказ помнится годами, а не перерешается
 });
 
 test("отказы не душат экономику насмерть", () => {
-  const sim = load("threshold-market.html", { seed: 71 });
+  const sim = load("index.html", { seed: 71 });
   const st = runYears(sim, 200);
   assert(st.trades > 50, "всего " + st.trades + " сделок: рынок задушен отказами");
   assert(st.worlds.length > 1, "из-за отказов не основано ни одной колонии");
 });
 
 test("свёрнутая сборка возвращает детали на склад", () => {
-  const sim = load("threshold-market.html", { seed: 73 });
+  const sim = load("index.html", { seed: 73 });
   runYears(sim, 200, (st) => {
     st.corps.forEach((c) => {
       Object.keys(c.stock).forEach((k) => assert(c.stock[k] >= 0, c.name + ": отрицательный склад после отмены"));
@@ -198,7 +198,7 @@ test("свёрнутая сборка возвращает детали на с�
 
 // ── корабли долетают ────────────────────────────────────────────────────────
 test("флот не зависает в пути", () => {
-  const sim = load("threshold-market.html", { seed: 41 });
+  const sim = load("index.html", { seed: 41 });
   runYears(sim, 150, (st) => {
     st.systems.forEach((s) => s.ships.forEach((sh) => {
       assert(sh.t <= 1.001, "корабль пролетел мимо цели: t=" + sh.t.toFixed(2));
@@ -214,7 +214,7 @@ test("флот не зависает в пути", () => {
 // планету, и на одной планете вырастало по десять колоний. В панели это
 // выглядело как 104 мира при сорока планетах в галактике.
 test("на планете не больше одной колонии", () => {
-  const sim = load("threshold-market.html", { seed: 2 });
+  const sim = load("index.html", { seed: 2 });
   const st = runYears(sim, 250);
   const bodies = new Set();
   let planets = 0;
@@ -227,19 +227,19 @@ test("на планете не больше одной колонии", () => {
 });
 
 test("переселение случается", () => {
-  const sim = load("threshold-market.html", { seed: 4 });
+  const sim = load("index.html", { seed: 4 });
   const st = runYears(sim, 250);
   assert(st.movedPops > 0.5, "за двести пятьдесят лет переселено " + st.movedPops.toFixed(1) + " человечков");
 });
 
 test("за двести лет осваивают новые миры", () => {
-  const sim = load("threshold-market.html", { seed: 43 });
+  const sim = load("index.html", { seed: 43 });
   const st = runYears(sim, 200);
   assert(st.worlds.length > 1, "за двести лет не основано ни одной колонии");
 });
 
 test("бесплодные миры получают привозную еду", () => {
-  const sim = load("threshold-market.html", { seed: 47 });
+  const sim = load("index.html", { seed: 47 });
   const st = runYears(sim, 250);
   const barren = st.worlds.filter((w) => w.type.farm < 1 && w.founder >= 0);
   if (!barren.length) return;                       // в этой партии таких не колонизовали
@@ -247,7 +247,7 @@ test("бесплодные миры получают привозную еду",
 });
 
 test("еда не берётся из ниоткуда", () => {
-  const sim = load("threshold-market.html", { seed: 53 });
+  const sim = load("index.html", { seed: 53 });
   runYears(sim, 150, (st) => {
     st.worlds.forEach((w) => {
       assert(w.food.stock >= -1e-9, w.body.name + ": отрицательный запас еды");
@@ -261,7 +261,7 @@ test("еда не берётся из ниоткуда", () => {
 // расселения — иначе на трети сеймов игра просто стоит.
 ["drives", "opener", "gates"].forEach((mode) => {
   test("способ «" + mode + "»: системы открываются", () => {
-    const sim = load("threshold-market.html", { seed: 83 });
+    const sim = load("index.html", { seed: 83 });
     sim.build(mode);
     const st = runYears(sim, 250);
     assert(st.move.key === mode, "режим не установился");
@@ -271,7 +271,7 @@ test("еда не берётся из ниоткуда", () => {
 });
 
 test("под воротами хлебовоз летает только между воротами", () => {
-  const sim = load("threshold-market.html", { seed: 89 });
+  const sim = load("index.html", { seed: 89 });
   sim.build("gates");
   runYears(sim, 200, (st) => {
     st.voyages.forEach((v) => {
@@ -285,7 +285,7 @@ test("под воротами хлебовоз летает только меж�
 });
 
 test("под порталооткрывателями рейсы идут только по прожжённым проходам", () => {
-  const sim = load("threshold-market.html", { seed: 97 });
+  const sim = load("index.html", { seed: 97 });
   sim.build("opener");
   runYears(sim, 200, (st) => {
     st.voyages.forEach((v) => {
@@ -311,7 +311,7 @@ test("под порталооткрывателями рейсы идут тол
 });
 
 test("под движками межзвёздный транспорт везёт двигатель", () => {
-  const sim = load("threshold-market.html", { seed: 103 });
+  const sim = load("index.html", { seed: 103 });
   sim.build("drives");
   let checked = 0;
   runYears(sim, 250, (st) => {
@@ -328,8 +328,8 @@ test("под движками межзвёздный транспорт везё
 // Ради этого стенд и городился: увидел странную партию — вбил сейм и смотришь
 // ту же самую партию глазами.
 test("один сейм даёт одну и ту же партию", () => {
-  const a = load("threshold-market.html", { seed: 101 });
-  const b = load("threshold-market.html", { seed: 101 });
+  const a = load("index.html", { seed: 101 });
+  const b = load("index.html", { seed: 101 });
   runYears(a, 60); runYears(b, 60);
   const sa = a.state(), sb = b.state();
   close(sa.treasury, sb.treasury, 1e-6, "казна разошлась при одном сейме");
@@ -339,7 +339,7 @@ test("один сейм даёт одну и ту же партию", () => {
 
 // ── отрисовка тоже не должна падать ─────────────────────────────────────────
 test("код отрисовки не падает на заглушках DOM", () => {
-  const sim = load("threshold-market.html", { withDom: true, seed: 59 });
+  const sim = load("index.html", { withDom: true, seed: 59 });
   runYears(sim, 40);
 });
 
