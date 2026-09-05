@@ -265,9 +265,10 @@ test/harness.js вырезает ядро из этого файла, подсо
   Патент истекает — и к концу партии зависимости всё равно слабеют.
   Пятое кольцо почти недостижимо: до соседей в нём 236, а Mk4 бьёт на 130,
   дотуда дотягиваются только радиальные переходы из четвёртого кольца.
-  Подписи в первом кольце всё равно тесно стоят, когда открыто много систем;
-  карта таскается мышью и приближается колесом (двойной клик возвращает вид),
-  но своего масштаба у неё пока нет — только общий зум.
+  Подписи в первом кольце тесно стоят, когда открыто много систем. Карта
+  таскается мышью, масштаб — кнопками или Ctrl+колесо; ПРОСТОЕ колесо трогать
+  нельзя, иначе страница перестаёт прокручиваться над канвасом и это читается
+  как зависание (уже наступали на это).
 
 
 8. СЛЕДУЮЩИЕ ШАГИ, по приоритету
@@ -471,6 +472,9 @@ threshold-market — эта ветка: население, рынок дета�
       <button id="tomap" class="ghost">← карта</button>
       <div class="sname" id="sname">—</div>
       <div class="smeta" id="smeta"></div>
+      <button id="zout" class="ghost" title="отдалить">−</button>
+      <button id="zin" class="ghost" title="приблизить">+</button>
+      <button id="zfit" class="ghost" title="вернуть вид">сброс</button>
     </div>
     <div class="stage"><canvas id="view" width="840" height="680"></canvas></div>
     <div class="keys">
@@ -478,7 +482,7 @@ threshold-market — эта ветка: население, рынок дета�
       <span><svg width="14" height="12"><polygon points="7,1 12,6 7,11 2,6" fill="#8894ae"/></svg> добывающая платформа</span>
       <span><svg width="14" height="12"><circle cx="7" cy="6" r="4.4" fill="#8894ae"/></svg> колониальный модуль</span>
       <span><svg width="14" height="12"><rect x="2.5" y="2.5" width="9" height="8" fill="#8894ae"/></svg> транспорт: еда и люди</span>
-      <span>карта: тащить мышью, колесо — приблизить</span>
+      <span>карта: тащить мышью, Ctrl+колесо или кнопки — масштаб</span>
       <span>форма — что за корабль, цвет — чей он</span>
     </div>
 
@@ -1577,6 +1581,7 @@ var THRESHOLD = (function () {
   }
 
   function arriveShip(sh, s) {
+    if (pick && pick.data === sh) pick = null;
     if (sh.kind === "colony" && sh.body.world) {   // кто-то успел раньше
       sh.body.claimed = false;
       say("Колония " + corps[sh.corp].name + " опоздала: " + sh.body.name + " уже занята.");
@@ -1597,6 +1602,7 @@ var THRESHOLD = (function () {
   }
 
   function arriveVoyage(v) {
+    if (pick && pick.data === v) pick = null;      // иначе в панели висит "в пути 102%"
     if (v.kind === "jump" || v.kind === "opener") {
       var t = systems[v.to];
       t.pulse = 1;
@@ -1860,7 +1866,10 @@ var THRESHOLD = (function () {
     systems.forEach(function (s) {
       var r = nodeR(s);
       if (!seenSys(s)) {
-        cx.beginPath(); cx.arc(s.x, s.y, 2.2, 0, 6.2832); cx.fillStyle = "#1c2540"; cx.fill();
+        // Далёкая звезда обязана быть ВИДНА: карта из пятидесяти точек, где
+        // сорок три почти сливаются с фоном, читается как пустая, и тогда
+        // непонятно даже, работает ли зум. Видно — но недостижимо.
+        cx.beginPath(); cx.arc(s.x, s.y, 2.6, 0, 6.2832); cx.fillStyle = "#46527a"; cx.fill();
         return;
       }
       if (!s.unlocked) {
@@ -1912,7 +1921,7 @@ var THRESHOLD = (function () {
     cx.restore();
     cx.font = "500 11px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
     cx.textAlign = "left"; cx.textBaseline = "top";
-    cx.fillText("клик по системе — внутрь, по кораблю — что везёт · тащить мышью, колесо — приблизить", 16, 16);
+    cx.fillText("клик по системе — внутрь, по кораблю — что везёт · тащить мышью, Ctrl+колесо — приблизить", 16, 16);
     if (cam.k !== 1 || cam.x || cam.y) cx.fillText("×" + cam.k.toFixed(1) + " · двойной клик вернёт вид", 16, 32);
   }
 
@@ -2262,14 +2271,24 @@ var THRESHOLD = (function () {
     });
     window.addEventListener("mouseup", function () { setTimeout(function () { drag = null; }, 0); });
 
+    // Зум ТОЛЬКО с зажатым Ctrl. Простое колесо обязано прокручивать страницу:
+    // канвас занимает пол-экрана, и перехват колеса читается как зависание —
+    // страница не едет, а карта визуально не меняется.
     cv.addEventListener("wheel", function (e) {
-      if (view.mode !== "map") return;
+      if (view.mode !== "map" || !(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
-      var p = scenePos(e), k = clamp(cam.k * (e.deltaY < 0 ? 1.15 : 0.87), 0.7, 4);
+      zoomAt(scenePos(e), e.deltaY < 0 ? 1.15 : 0.87);
+    }, { passive:false });
+
+    function zoomAt(p, mul) {
+      var k = clamp(cam.k * mul, 0.7, 4);
       // приближаем к точке под курсором, а не к углу канваса
       cam.x += p.x * (cam.k - k); cam.y += p.y * (cam.k - k);
       cam.k = k;
-    }, { passive:false });
+    }
+    el("zin").addEventListener("click", function () { zoomAt({ x:CW/2, y:CH/2 }, 1.3); });
+    el("zout").addEventListener("click", function () { zoomAt({ x:CW/2, y:CH/2 }, 0.77); });
+    el("zfit").addEventListener("click", function () { cam = { x:0, y:0, k:1 }; });
 
     cv.addEventListener("dblclick", function () { cam = { x:0, y:0, k:1 }; });
 
