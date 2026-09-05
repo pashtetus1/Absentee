@@ -149,10 +149,17 @@ Mk4 — до пятого. Дальние звёзды видно, но лини
 быстрее (x1.3, x1.6, x2.0, x2.5, x3.1). Патентуется как всё остальное:
 держатель Mk3 какое-то время летает вдвое быстрее соседей. Корабль летит на
 двигателях того, кто его построил — хлебовоз правительства наследует скорость
-от продавца корпуса. Базовые рейсы нарочно медленные (внутри системы 40-52
-месяца, между звёздами 105-150), чтобы ускорение ощущалось наградой, а не
+от продавца корпуса. Базовые рейсы нарочно ОЧЕНЬ медленные: внутри системы
+84-120 месяцев, между звёздами 150-210, грузовик с деталями 96-130. Полёт к
+соседней планете занимает семь-десять лет, и смысл этой длины в том, чтобы
+захотелось посмотреть, кто летит: за каждым кораблём в системе тащится
+окошко — кто и что, куда и сколько ещё. На карте окошко только у выбранного
+рейса и у того, над которым мышь: рейсов там десятки, и подписи у всех
+превращают карту в кашу. Ускорение двигателями ощущается наградой, а не
 возвратом к норме. Наука ценит двигатели ровно настолько, насколько много
 всего летает. У каждого летящего корабля дрожащий огонёк за кормой.
+Правительство заказывает еду раньше и большей партией (порог 8 месяцев запаса,
+партия на 24), иначе хлебовоз годами не успевал к пустому складу.
 
 ЕДА ВОЗИТСЯ, И У ПРАВИТЕЛЬСТВА МИРА СВОЙ КОШЕЛЁК И СВОЙ УМ. Оно собирает налог
 с филиалов, считает баланс, закупает еду у сытого мира, оплачивает перевозку и
@@ -262,11 +269,15 @@ PTYPES[].cap   — предел населения, .farm — урожай с ф
                  0.7..2.2; после сделки +0.012, после срыва -0.02; потолок
                  покупателя 0.9 + срочность * 0.5 (+0.15 при кассе выше 1200);
                  ходовая цена подтягивается к сделке на 4 процента.
-Грузовик      — 66-96 месяцев между звёздами на базовых двигателях, единица
-                 межзвёздного топлива с отправителя.
+Рейсы         — внутри системы 84-120 месяцев, между звёздами 150-210,
+                 грузовик с деталями 96-130, хлебовоз 36-48 внутри и 100-140
+                 между звёздами; всё делится на скорость двигателей строителя.
+                 Межзвёздный рейс жжёт единицу межзвёздного топлива с
+                 отправителя.
 ENGINES       — ходовые двигатели: diff 700, 1500, 2600, 4000, 5600; скорость
-                 x1.3, x1.6, x2.0, x2.5, x3.1. Прогон на четырёх сеймах: Mk1 на
-                 63-76 году, Mk2 на 124-190, Mk3 на 177.
+                 x1.3, x1.6, x2.0, x2.5, x3.1. Прогон на четырёх сеймах при
+                 долгих рейсах: Mk1 на 36-58 году, Mk2 на 99-132, Mk3 на
+                 161-177; к 200 году 6-15 миров и 300-480 грузовиков.
 Марки порталов сравниваются со СВОЕЙ дальностью компании, а не с лучшей в
                  галактике: чужой патент летать не даёт. До этого все шли
                  исследовать Mk4 за 5800, пока ни один корабль не мог выйти из
@@ -796,7 +807,7 @@ var THRESHOLD = (function () {
   var moveKnown = false;
   var timer = null, running = true, speed = 1, flash = {};
   var view = { mode:"system", sys:0 };
-  var pick = null, hits = [];
+  var pick = null, hits = [], hover = null;
   var cam = { x:0, y:0, k:1 };            // камера карты: перетаскивание и зум
   var headless = typeof document === "undefined";
 
@@ -1216,7 +1227,7 @@ var THRESHOLD = (function () {
     var v = { kind:kind, from:from, to:to, qty:qty, parts:parts,
               color: parts.length ? corps[parts[0].from].color : "#8894ae",
               // корабль летит на двигателях того, кто его построил
-              t:0, dur: (from.sys === to.sys ? 22 + Math.random() * 8 : 60 + Math.random() * 30) / speedOf(parts.length ? parts[0].from : -1),
+              t:0, dur: (from.sys === to.sys ? 36 + Math.random() * 12 : 100 + Math.random() * 40) / speedOf(parts.length ? parts[0].from : -1),
               born:dateStr() };
     voyages.push(v);
     return v;
@@ -1227,8 +1238,10 @@ var THRESHOLD = (function () {
       var total = popOf(w), grown = w.pop.farm * w.type.farm, deficit = total - grown;
       if (deficit <= 0.05) return;
       var incoming = voyages.reduce(function (a, v) { return a + (v.kind === "food" && v.to === w ? v.qty : 0); }, 0);
-      if (w.food.stock + incoming > total * 4) return;
-      var qty = Math.ceil(deficit * 12);
+      // порог и партия под долгие рейсы: хлебовоз идёт годами, и заказывать
+      // надо задолго до того, как склад опустеет
+      if (w.food.stock + incoming > total * 8) return;
+      var qty = Math.ceil(deficit * 24);
       var src = surplusWorld(qty, w);
       if (!src || !canTravel(src.sys, w.sys)) return;   // дороги нет — мир голодает
       var price = qty * 1.2;
@@ -1650,7 +1663,7 @@ var THRESHOLD = (function () {
     }
     voyages.push({ kind:"parts", sysFrom:sysFrom, to:dest, k:k, qty:1, corp:seller.id,
                    color:corps[seller.id].color, forCorp:buyer.id, take:take,
-                   t:0, dur:(66 + Math.random() * 30) / speedOf(seller.id), born:dateStr() });
+                   t:0, dur:(96 + Math.random() * 34) / speedOf(seller.id), born:dateStr() });
     hauled++;
     return true;
   }
@@ -1967,18 +1980,18 @@ var THRESHOLD = (function () {
           if (!jumped && first) { jumped = true; say("Первый межзвёздный переход совершён."); }
         } else if (yd.vt.key === "jump" || yd.vt.key === "opener") {
           voyages.push({ kind:yd.vt.key, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color,
-                         parts:yd.parts, t:0, dur:(105 + Math.random()*45) / speedOf(yd.lead), born:dateStr() });
+                         parts:yd.parts, t:0, dur:(150 + Math.random()*60) / speedOf(yd.lead), born:dateStr() });
           say("<b>" + lead.name + "</b> вывела " + (yd.vt.key === "opener" ? "порталооткрыватель" : "прыжковый корабль") +
               " с верфи " + s.name + ".");
         } else if (yd.vt.key === "colony") {
           s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
-                         dur:(40 + Math.random()*12) / speedOf(yd.lead), body:yd.body, backers:yd.backers, parts:yd.parts,
+                         dur:(84 + Math.random()*36) / speedOf(yd.lead), body:yd.body, backers:yd.backers, parts:yd.parts,
                          trail:[], x:0, y:0, ang:0, born:dateStr() });
           say("<b>" + lead.name + "</b> спустила колониальный модуль: курс на " + yd.body.name + ".");
         } else {
           yd.vent.building = false;
           s.ships.push({ kind:"mine", corp:yd.lead, color:yd.color, glyph:yd.glyph, size:8, t:0,
-                         dur:(40 + Math.random()*12) / speedOf(yd.lead), dest:yd.dest, vent:yd.vent, parts:yd.parts,
+                         dur:(84 + Math.random()*36) / speedOf(yd.lead), dest:yd.dest, vent:yd.vent, parts:yd.parts,
                          trail:[], x:0, y:0, ang:0, born:dateStr() });
           say("<b>" + lead.name + "</b> спустила платформу: курс на " + yd.dest.label + ".");
         }
@@ -2117,6 +2130,48 @@ var THRESHOLD = (function () {
     cx.fillStyle = "#ffe08a";
     cx.beginPath(); cx.moveTo(-1.2, 5.2); cx.lineTo(0, 5.2 + len * 0.55); cx.lineTo(1.2, 5.2); cx.closePath(); cx.fill();
     cx.restore();
+  }
+  // Окошко с подписью, которое тащится за кораблём. Рейсы идут годами, и весь
+  // смысл долгого полёта в том, чтобы захотелось посмотреть: кто летит, куда,
+  // с чем и сколько ещё. Первая строка — кто и что, вторая — куда и когда.
+  function caption(x, y, lines, col) {
+    cx.save();
+    cx.font = "500 9.5px system-ui, sans-serif";
+    var w = 0;
+    lines.forEach(function (l) { w = Math.max(w, cx.measureText(l).width); });
+    var pad = 5, h = lines.length * 12 + pad * 2 - 2, bw = w + pad * 2;
+    var bx = x + 14, by = clamp(y - h / 2, 4, CH - h - 4);
+    if (bx + bw > CW - 4) bx = x - 14 - bw;                // не вылезать за правый край
+    cx.beginPath(); cx.moveTo(x + 6, y); cx.lineTo(bx < x ? bx + bw : bx, y);
+    cx.strokeStyle = col; cx.globalAlpha = 0.5; cx.lineWidth = 1; cx.stroke(); cx.globalAlpha = 1;
+    cx.fillStyle = "rgba(11,17,32,0.88)"; cx.fillRect(bx, by, bw, h);
+    cx.strokeStyle = col; cx.globalAlpha = 0.7; cx.strokeRect(bx + 0.5, by + 0.5, bw - 1, h - 1); cx.globalAlpha = 1;
+    cx.textAlign = "left"; cx.textBaseline = "top";
+    lines.forEach(function (l, i) {
+      cx.fillStyle = i ? "#8894ae" : "#e4e9f4";
+      cx.fillText(l, bx + pad, by + pad - 1 + i * 12);
+    });
+    cx.restore();
+  }
+  function eta(t, dur) {
+    var m = Math.max(0, Math.round((1 - clamp(t, 0, 1)) * dur)), yr = Math.floor(m / 12), mo = m % 12;
+    return "ещё " + (yr ? yr + " г. " : "") + mo + " мес.";
+  }
+  function shipLines(sh) {              // корабль внутри системы
+    var who = corps[sh.corp].name;
+    if (sh.kind === "colony") return ["Колониальный модуль · " + who, "→ " + sh.body.name + " · " + eta(sh.t, sh.dur)];
+    return ["Платформа · " + who, "→ " + sh.dest.label + " · " + eta(sh.t, sh.dur)];
+  }
+  function voyageLines(v) {             // рейс между звёздами или между мирами
+    if (v.kind === "jump" || v.kind === "opener")
+      return [(v.kind === "opener" ? "Открыватель · " : "Прыжковый · ") + corps[v.corp].name,
+              "→ " + systems[v.to].name + " · " + eta(v.t, v.dur)];
+    if (v.kind === "parts")
+      return ["Грузовик · " + compOf(v.k).name.toLowerCase() + " для " + corps[v.forCorp].name,
+              systems[v.sysFrom].name + " → " + systems[v.to].name + " · " + eta(v.t, v.dur)];
+    if (v.kind === "food")
+      return ["Хлебовоз · " + v.qty + " еды", v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
+    return ["Переселенцы · " + v.qty.toFixed(1) + " чел.", v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
   }
   function ship(kind, x, y, s, rot, col) {
     cx.save();
@@ -2267,6 +2322,7 @@ var THRESHOLD = (function () {
       cx.strokeStyle = sh.color; cx.globalAlpha = 0.22; cx.lineWidth = 1.3; cx.stroke(); cx.globalAlpha = 1;
       flame(sh.x, sh.y, sh.size, sh.ang);
       ship(sh.glyph, sh.x, sh.y, sh.size, sh.ang, sh.color);
+      caption(sh.x, sh.y, shipLines(sh), sh.color);
       hits.push({ x:sh.x, y:sh.y, r:13, kind:"ship", data:sh });
     });
 
@@ -2275,6 +2331,7 @@ var THRESHOLD = (function () {
       var a = posOf(v.from.body, mx, my), b = posOf(v.to.body, mx, my), k = clamp(v.t, 0, 1);
       var x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
       ship("cargo", x, y, 6, 0, v.color);
+      caption(x, y, voyageLines(v), v.color);
       hits.push({ x:x, y:y, r:12, kind:"cargo", data:v });
     });
   }
@@ -2336,6 +2393,9 @@ var THRESHOLD = (function () {
       var rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
       flame(x, y, 6.5, rot);
       ship(isJump ? "jump" : "cargo", x, y, 6.5, rot, v.color);
+      // на карте рейсов десятки — подпись только у выбранного и у того, над
+      // которым мышь, иначе карта превращается в кашу из окошек
+      if ((pick && pick.data === v) || hover === v) caption(x, y, voyageLines(v), v.color);
       hits.push({ x:x, y:y, r:12, kind:isJump ? "jumpship" : "cargo", data:v });
     });
     systems.forEach(function (s) {
@@ -2765,7 +2825,16 @@ var THRESHOLD = (function () {
       drag = { x:e.clientX, y:e.clientY, cx:cam.x, cy:cam.y }; moved = 0;
     });
     window.addEventListener("mousemove", function (e) {
-      if (!drag) return;
+      if (!drag) {
+        // наведение на рейс на карте показывает его окошко
+        if (view.mode !== "map") return;
+        var p = scenePos(e); hover = null;
+        hits.forEach(function (h) {
+          if (h.kind !== "cargo" && h.kind !== "jumpship") return;
+          if (Math.abs(p.x - h.x) <= h.r && Math.abs(p.y - h.y) <= h.r) hover = h.data;
+        });
+        return;
+      }
       var rect = cv.getBoundingClientRect();
       var sx = CW / rect.width, sy = CH / rect.height;
       var dx = (e.clientX - drag.x) * sx, dy = (e.clientY - drag.y) * sy;

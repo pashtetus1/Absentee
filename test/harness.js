@@ -29,7 +29,8 @@ function stubContext() {
     lineTo: noop, rect: noop, arc: noop, closePath: noop, fill: noop, stroke: noop, fillRect: noop,
     fillText: noop, setLineDash: noop, setTransform: noop,
     createRadialGradient: () => ({ addColorStop: noop }),
-    bezierCurveTo: noop, quadraticCurveTo: noop, arcTo: noop, scale: noop,
+    bezierCurveTo: noop, quadraticCurveTo: noop, arcTo: noop, scale: noop, strokeRect: noop,
+    measureText: (s) => ({ width: String(s).length * 5.5 }),
     fillStyle: "", strokeStyle: "", lineWidth: 1, globalAlpha: 1, font: "", textAlign: "", textBaseline: ""
   };
 }
