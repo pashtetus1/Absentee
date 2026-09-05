@@ -697,6 +697,7 @@ threshold-market — эта ветка: население, рынок дета�
       <span><canvas class="ikon" data-kind="mine" width="22" height="20"></canvas> добывающая платформа</span>
       <span><canvas class="ikon" data-kind="colony" width="22" height="20"></canvas> колониальный модуль</span>
       <span><canvas class="ikon" data-kind="cargo" width="22" height="20"></canvas> транспорт: еда и люди</span>
+      <span>пробел — пауза</span>
       <span>карта: тащить мышью, Ctrl+колесо или кнопки — масштаб</span>
       <span>форма — что за корабль, цвет — чей он</span>
     </div>
@@ -3504,11 +3505,22 @@ var THRESHOLD = (function () {
     el("dole").addEventListener("input", function (e) {
       dole = +e.target.value / 5; el("doleval").textContent = dole.toFixed(1); dolehint(); saveLevers();
     });
-    el("play").addEventListener("click", function () {
+    function togglePause() {
       running = !running;
-      this.textContent = running ? "Пауза" : "Пуск";
-      this.className = running ? "live" : "";
+      var b = el("play");
+      b.textContent = running ? "Пауза" : "Пуск";
+      b.className = running ? "live" : "";
       if (running) run(); else clearInterval(timer);
+    }
+    el("play").addEventListener("click", togglePause);
+    // пробел — пауза; но не когда курсор в ползунке или выпадающем списке,
+    // там пробел свой
+    window.addEventListener("keydown", function (e) {
+      if (e.code !== "Space" || e.repeat) return;
+      var tag = (e.target && e.target.tagName) || "";
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || tag === "BUTTON") return;
+      e.preventDefault();
+      togglePause();
     });
     el("speed").addEventListener("click", function () {
       var ladder = [1, 2, 4, 10, 20];
