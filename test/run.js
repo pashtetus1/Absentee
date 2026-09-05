@@ -510,6 +510,48 @@ test("колонии в основном выживают", () => {
   assert(dead <= Math.max(1, Math.floor(cols.length / 3)), "вымерло " + dead + " из " + cols.length + " колоний");
 });
 
+// ── отделение голодных миров и освоение ─────────────────────────────────────
+// Мир, голодающий семь лет, становится новой компанией: она забирает филиалы
+// на планете, наследует знания основателя и вкладывается в освоение своего
+// класса миров. Марки освоения бесконечны — за взятой появляется следующая.
+test("голодный мир отделяется и становится компанией", () => {
+  const sim = load("index.html", { seed: 3 });
+  const st = runYears(sim, 300);
+  const born = st.corps.length - 5;
+  assert(born > 0, "за триста лет ни одного отделения");
+  st.corps.slice(5).forEach((c) => {
+    assert(c.native, c.name + ": у отделившейся компании нет своего класса миров");
+    assert(c.branches.length >= 1, c.name + ": у отделившейся компании нет филиала");
+    assert(/^Свободн(ый|ая) /.test(c.name), "странное имя: " + c.name);
+  });
+  // чужие филиалы отбираются в момент отделения, но позже независимый мир
+  // вправе снова продать место — поэтому проверяем только свой филиал
+  st.worlds.filter((w) => w.free).forEach((w) => {
+    assert(w.branches.some((b) => b.corp === w.founder), w.body.name + ": у отделившегося мира нет собственного филиала");
+  });
+});
+
+test("освоение миров растёт без предела", () => {
+  const sim = load("index.html", { seed: 1 });
+  const st = runYears(sim, 300);
+  const known = Object.keys(st.patents).filter((k) => /^dev_/.test(k) && st.corps.some((c) => c.known[k]));
+  assert(known.length > 0, "ни одной марки освоения за триста лет");
+  const best = known.reduce((m, k) => Math.max(m, +k.split("_")[2]), 0);
+  assert(best >= 2, "освоение застряло на Mk" + best);
+  // за каждой взятой маркой обязана существовать следующая
+  known.forEach((k) => {
+    const p = k.split("_");
+    assert(st.patents[p[0] + "_" + p[1] + "_" + (+p[2] + 1)], "после " + k + " нет следующей марки");
+  });
+});
+
+test("на карте много типов планет", () => {
+  const sim = load("index.html", { seed: 2 });
+  const types = new Set();
+  sim.state().systems.forEach((s) => s.bodies.forEach((b) => types.add(b.type.key)));
+  assert(types.size >= 12, "типов планет всего " + types.size);
+});
+
 // ── воспроизводимость ───────────────────────────────────────────────────────
 // Ради этого стенд и городился: увидел странную партию — вбил сейм и смотришь
 // ту же самую партию глазами.
