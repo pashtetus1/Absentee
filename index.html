@@ -98,7 +98,20 @@
   .part span.pn { flex:1 1 auto; }
   .part span.pw { color:var(--faint); font-size:11.5px; }
 
-  @media (max-width:900px) { .shell { grid-template-columns:1fr; } body { padding:14px; } }
+  /* На узком экране пауза прилипает к низу. Целевой формат мобильный, а шапка
+     уезжает вверх на первом же движении пальца — и единственная кнопка, которая
+     нужна в любой момент, оказывалась за экраном: остановить, чтобы разглядеть
+     корабль, было нечем. Прилипает только она; карта, скорость и "заново"
+     остаются в шапке, за ними лезут осознанно. Кнопка та же самая, не копия, —
+     иначе её надпись и цвет пришлось бы держать в двух местах. */
+  @media (max-width:900px) {
+    .shell { grid-template-columns:1fr; }
+    body { padding:14px 14px calc(78px + env(safe-area-inset-bottom)); }
+    #play { position:fixed; left:50%; transform:translateX(-50%); z-index:20;
+            bottom:calc(14px + env(safe-area-inset-bottom));
+            min-width:136px; padding:13px 22px; font-size:15px;
+            box-shadow:0 6px 22px rgba(4,8,18,0.6); }
+  }
 </style>
 </head>
 <body>
