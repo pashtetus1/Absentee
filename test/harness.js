@@ -39,7 +39,8 @@ function stubContext() {
 // не падает — она тоже часть файла и тоже ломается.
 function load(file, { withDom = false, seed = null } = {}) {
   const html = fs.readFileSync(path.resolve(__dirname, "..", file), "utf8");
-  const m = html.match(/<script>\n([\s\S]*?)\n<\/script>/);
+  // \r?  — на Windows git выдаёт файл с CRLF, и без этого стенд не находит тег
+  const m = html.match(/<script>\r?\n([\s\S]*?)\r?\n<\/script>/);
   if (!m) throw new Error("в " + file + " не нашёлся тег script");
   const code = m[1];
 
@@ -72,13 +73,20 @@ function load(file, { withDom = false, seed = null } = {}) {
     sandbox.document.getElementById("view").getContext = stubContext;
     sandbox.window = { devicePixelRatio: 1, addEventListener() {} };
     sandbox.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
-    sandbox.requestAnimationFrame = () => 0;
+    // кадр не крутится сам: тест дёргает __frame() руками, чтобы отрисовка
+    // карты и системы реально исполнялась, а не только регистрировалась
+    sandbox.requestAnimationFrame = (fn) => { sandbox.__frame = fn; return 0; };
     sandbox.setInterval = () => 0;
     sandbox.clearInterval = () => {};
   }
   vm.createContext(sandbox);
   vm.runInContext(code, sandbox, { filename: file });
-  return sandbox.module.exports;
+  const api = sandbox.module.exports;
+  if (withDom) {
+    let ts = 0;
+    api.__frame = () => { const fn = sandbox.__frame; sandbox.__frame = null; if (fn) fn(ts += 16); };
+  }
+  return api;
 }
 
 module.exports = { load };

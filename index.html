@@ -120,6 +120,31 @@ Mk4 — до пятого. Дальние звёзды видно, но лини
 открытой системе можно, только если до неё дотягивается сеть. Без этого правила
 все три способа давали одинаковую партию — проверено прогоном.
 
+ДЕТАЛИ ТОЖЕ ВОЗЯТ. Склад теперь с адресом: деталь лежит в той системе, где
+её сделал филиал. Купил в другой системе — за ней идёт грузовик, летит годами
+и виден на карте (клик показывает, кто продал и кто везёт). Правительство мира
+покупает корабли только из того, что лежит В ЕГО системе: окраина без своего
+цеха сидит без хлебовоза, пока кто-нибудь не откроет там филиал. Место сборки
+выбирается в момент заказа, а не когда комплект собран — свозить надо в
+конкретную точку.
+
+ТОПЛИВО — ПЕРВЫЙ РАСХОДНИК. Всё остальное покупается раз и стоит вечно, а
+топливо жгут каждым рейсом, отсюда постоянный спрос. Местное и межзвёздное —
+разные вещества: платформа и колониальный модуль взлетают на местном,
+прыжковый, открыватель, дальние ворота и всякий рейс между звёздами — на
+межзвёздном. Готовый корабль без горючего стоит у стапеля; заказ не начинают,
+пока горючее вообще некому делать. Топливом торгуют БЕЗ отказов: на нём не
+выигрывают гонку, а запрет на него запирает галактику целиком. Нет топлива в
+системе — заказывают танкер из другой.
+
+ТОРГ. Продавец называет свою цену (ask, во сколько раз выше ходовой), покупатель
+— потолок (растёт с ожиданием заказа и с деньгами), сделка бывает только если
+они пересеклись, итог пополам. После каждой попытки обе стороны двигают
+притязания, поэтому жадный сидит без сделок, а ходовая цена — память рынка о
+состоявшихся сделках, а не закон. Покупатель перебирает ВСЕХ продавцов:
+первая версия брала одного, и один упрямый держатель корпусов на годы
+останавливал подписки при девятнадцати корпусах на складах у остальных.
+
 ЕДА ВОЗИТСЯ, И У ПРАВИТЕЛЬСТВА МИРА СВОЙ КОШЕЛЁК И СВОЙ УМ. Оно собирает налог
 с филиалов, считает баланс, закупает еду у сытого мира, оплачивает перевозку и
 покупает корабли — у компаний, из их же деталей. Так у рынка деталей появляется
@@ -221,6 +246,15 @@ PTYPES[].cap   — предел населения, .farm — урожай с ф
                  выше 12%.
 Колония       — подписка 260 * (1 + переход * 0.3), доля от 70, место под
                  филиал у правительства 140.
+Топливо       — местное diff 380, work 1, base 9; межзвёздное diff 1400,
+                 work 4, base 48. Наука ценит межзвёздное на 4.5, если у стапеля
+                 стоит корабль без горючего.
+Торг          — стартовый запрос 0.95 + (nerve - 0.9) * 0.25, коридор
+                 0.7..2.2; после сделки +0.012, после срыва -0.02; потолок
+                 покупателя 0.9 + срочность * 0.5 (+0.15 при кассе выше 1200);
+                 ходовая цена подтягивается к сделке на 4 процента.
+Грузовик      — 44-66 месяцев между звёздами, единица межзвёздного топлива с
+                 отправителя.
 Отказы        — базовая склонность 0.14, плюс 0.30 за свой патент, 0.26 за
                  общую цель, 0.20 если покупатель впереди, 0.15 если делить
                  нечего; умножается на nerve и на дешевизну; помнится 24-60
@@ -238,8 +272,9 @@ MARKDIFF      — их сложность: 1300, 2500, 4000, 5800.
               марку иногда перепрыгивают: берут сразу старшую, если она
               открывает заметно больше звёзд;
   первая новая система на 60-100 году, первая колония на 40-101;
-  к 250 году  ворота 20 систем и 65 миров, движки 15.6 и 53.4,
-              открыватели 13.0 и 44.4 — из пятидесяти звёзд;
+  к 200 году  с возимыми деталями и топливом: движки 7-12 миров, открыватели
+              12-14, ворота 8; грузовиков с деталями 150-510, топлива сожжено
+              130-380 за партию (три сейма на способ);
   за партию   150-310 отказов и 13-56 свёрнутых сборок.
 Галактика больше НЕ раскупается за полвека: на 50 звёздах с дальностями к концу
 партии освоена примерно треть, и это лечит старую болячку из журнала.
@@ -282,10 +317,13 @@ test/harness.js вырезает ядро из этого файла, подсо
   мимо него, а это противоречит замыслу: государство должно менять выгодность.
   Напрашивается закон о равном доступе или принудительная продажа с
   компенсацией — как принудительная лицензия в патентной версии.
-  Рынок деталей общий на всю галактику, детали телепортируются к покупателю:
-  возятся только еда и люди. Логично было бы возить и детали — тогда трюм
-  понадобился бы вдвойне.
-  Цена одна для всех, торга нет: продавец не может запросить своё.
+  Возимые детали и топливо замедлили экспансию втрое: к 200 году 7-14 миров
+  против 24-49 при телепортации. Это честная цена физики, но цифра — черновик:
+  срок рейса (44-66 месяцев) и сложность топлива крутятся одной строкой.
+  Ходовая цена корпуса скачет между полом (14) и потолком (200): память рынка
+  о сделках плюс поправка на дефицит ещё не уравновешены.
+  Отказов стало вдвое больше по счётчику: покупатель теперь перебирает всех
+  продавцов, и каждый опрос может кончиться отказом. Это учёт, а не ужесточение.
   Правительство покупает еду у самого сытого, не выбирая по цене и дальности.
   Наука общая для компании, а не привязана к лабораториям конкретного мира.
   Войны, отделение окраин и коалиции живут только в истории git и на общую
@@ -610,7 +648,13 @@ var THRESHOLD = (function () {
     { key:"drill", name:"Буровая установка",   short:"бур",       diff:880,  work:3, base:24,  glyph:"dia" },
     { key:"hull",  name:"Корпус",              short:"корпус",    diff:1750, work:5, base:40,  glyph:"tri" },
     { key:"life",  name:"Жизнеобеспечение",    short:"жизнь",     diff:2200, work:6, base:58,  glyph:"cir" },
-    { key:"drive", name:"Прыжковый двигатель", short:"двигатель", diff:4600, work:9, base:110, glyph:"tri" }
+    { key:"drive", name:"Прыжковый двигатель", short:"двигатель", diff:4600, work:9, base:110, glyph:"tri" },
+    // Топливо — первый РАСХОДНИК в этой экономике: всё остальное покупается раз
+    // и стоит вечно, а его жгут каждым рейсом. Отсюда постоянный спрос, а не
+    // разовые всплески. Местное и межзвёздное — разные вещества: на местном
+    // внутри системы не уйдёшь за звезду, и наоборот.
+    { key:"fuel",  name:"Местное топливо",     short:"топливо",   diff:380,  work:1, base:9,   glyph:"cir" },
+    { key:"sfuel", name:"Межзвёздное топливо", short:"м-топливо", diff:1400, work:4, base:48,  glyph:"cir" }
   ];
   function compOf(k){ for (var i=0;i<COMPS.length;i++) if (COMPS[i].key===k) return COMPS[i]; }
 
@@ -723,6 +767,7 @@ var THRESHOLD = (function () {
   var worlds = [], projects = [], home = null, move = null, routes = {};
   var tick = 0, treasury = 320, tax = 0.18, subKey = "drive", subYear = 90, tradeFee = 0.06, dole = 0.6, patTerm = 25;
   var jumped = false, trades = 0, turnover = 0, shipped = 0, movedPops = 0, refusals = 0, dropped = 0;
+  var hauled = 0, burned = 0;             // деталей отправлено грузовиком; топлива сожжено
   // Какой из трёх способов достался государству — заранее НЕИЗВЕСТНО. Это
   // выясняется в тот месяц, когда кто-нибудь доводит первую марку до конца:
   // до тех пор вкладываешься в межзвёздный переход вслепую.
@@ -780,7 +825,10 @@ var THRESHOLD = (function () {
     var base = rnd6();
     for (var k = 0; k < np; k++) {
       var t = (i === 0 && k === 0) ? ptypeOf("terran") : rollType();
-      s.bodies.push({ name: pool.pop() || "Безымянная", type:t, r:150 + k*52 + Math.random()*16,
+      // пятьдесят систем по пять планет — имён в пуле меньше, дальше идут
+      // номера: "Кадм II", а не "Безымянная"
+      var nm = pool.pop() || (BODYNAMES[(i * 5 + k) % BODYNAMES.length] + " " + ROMAN[1 + Math.floor((i * 5 + k) / BODYNAMES.length) % 4]);
+      s.bodies.push({ name: nm, type:t, r:150 + k*52 + Math.random()*16,
                       ang: base + k * (1.5 + Math.random()*0.8), rad:8 + t.cap * 0.7,
                       kind:"planet", sys:i, world:null });
     }
@@ -891,6 +939,25 @@ var THRESHOLD = (function () {
     return w;
   }
   function popOf(w){ return w.pop.farm + w.pop.prod + w.pop.sci + w.pop.free; }
+
+  // ---- склад с адресом --------------------------------------------------
+  // Деталь лежит там, где её сделали. Раньше склад был у компании общий на всю
+  // галактику, и корпус мгновенно оказывался за пять звёзд от цеха — рынок был
+  // честным только на бумаге. Теперь у каждой единицы есть система, и если она
+  // не та, деталь придётся ВЕЗТИ.
+  function stockAt(c, sys, k){ var s = c.stock[sys]; return (s && s[k]) || 0; }
+  function addStock(c, sys, k, n) {
+    if (!c.stock[sys]) c.stock[sys] = {};
+    c.stock[sys][k] = (c.stock[sys][k] || 0) + n;
+  }
+  function totalStock(c, k) {
+    var t = 0;
+    Object.keys(c.stock).forEach(function (s) { t += c.stock[s][k] || 0; });
+    return t;
+  }
+  function whereStock(c, k) {                 // системы, где у компании есть эта деталь
+    return Object.keys(c.stock).filter(function (s) { return c.stock[s][k] > 0; }).map(Number);
+  }
   function hasBranch(c, w){ return w.branches.some(function (b) { return b.corp === c.id; }); }
 
   function openBranch(c, w, quiet) {
@@ -908,10 +975,12 @@ var THRESHOLD = (function () {
     makeMarks();
     corps = TEMPLATE.map(function (t, i) {
       var c = { id:i, name:t.name, color:t.color, craft:t.craft, nerve:t.nerve, apt:t.apt,
-                cash:900, known:{}, spent:{}, stock:{}, wip:{}, target:null, order:null,
-                branches:[], sold:0, bought:0, cool:0, embargo:{} };
+                cash:900, known:{}, spent:{}, stock:{}, target:null, order:null,
+                branches:[], sold:0, bought:0, cool:0, embargo:{}, ask:{} };
       allTech().forEach(function (f) { c.spent[f.key] = 0; });
-      COMPS.forEach(function (f) { c.stock[f.key] = 0; c.wip[f.key] = 0; });
+      // ask — во сколько раз компания просит выше ходовой цены. Характер здесь
+      // виден сразу: смелые запрашивают больше и чаще остаются без сделки.
+      COMPS.forEach(function (f) { c.ask[f.key] = 0.95 + (t.nerve - 0.9) * 0.25 + Math.random() * 0.1; });
       return c;
     });
     market = {}; patents = {};
@@ -926,7 +995,7 @@ var THRESHOLD = (function () {
     corps.forEach(function (c) { openBranch(c, home, true); });
 
     tick = 0; treasury = 320; jumped = false; trades = 0; turnover = 0; shipped = 0; movedPops = 0;
-    refusals = 0; dropped = 0; moveKnown = false;
+    refusals = 0; dropped = 0; moveKnown = false; hauled = 0; burned = 0;
     view = { mode:"system", sys:0 };
     say("Тира: восемнадцать человечков, пять компаний и ни одной освоенной детали.");
     say("Межзвёздный переход возможен, но какой именно — неизвестно: выяснится, когда кто-нибудь доведёт первую марку.");
@@ -1072,21 +1141,26 @@ var THRESHOLD = (function () {
   // Правительствам не отказывают: они покупатели еды, а не соперники.
   // need — уже готовый набор деталей, потому что под движками межзвёздный
   // рейс обязан нести ещё и двигатель, а под воротами и проходами не обязан.
+  // Правительство покупает только то, что лежит В ЕГО СИСТЕМЕ: возить детали
+  // ради хлебовоза оно не умеет, и это правильно — окраина без своего цеха
+  // сидит без транспорта, пока кто-нибудь не откроет там филиал.
   function govBuyShip(w, need) {
     var taken = [], cost = 0, ok = true;
     Object.keys(need).forEach(function (k) {
       for (var i = 0; i < need[k]; i++) {
         if (!ok) return;
         var seller = null;
-        corps.forEach(function (c) { if (c.stock[k] > 0 && (!seller || c.stock[k] > seller.stock[k])) seller = c; });
+        corps.forEach(function (c) {
+          if (stockAt(c, w.sys, k) > 0 && (!seller || stockAt(c, w.sys, k) > stockAt(seller, w.sys, k))) seller = c;
+        });
         if (!seller) { ok = false; return; }
-        seller.stock[k]--;
-        taken.push({ k:k, from:seller.id, price:market[k].price });
-        cost += market[k].price * (1 + tradeFee);
+        addStock(seller, w.sys, k, -1);
+        taken.push({ k:k, from:seller.id, price:askPrice(seller, k) });
+        cost += taken[taken.length - 1].price * (1 + tradeFee);
       }
     });
     if (!ok || w.gov.cash < cost) {
-      taken.forEach(function (t) { corps[t.from].stock[t.k]++; });
+      taken.forEach(function (t) { addStock(corps[t.from], w.sys, t.k, 1); });
       return null;
     }
     w.gov.cash -= cost;
@@ -1117,8 +1191,11 @@ var THRESHOLD = (function () {
       if (!src || !canTravel(src.sys, w.sys)) return;   // дороги нет — мир голодает
       var price = qty * 1.2;
       if (w.gov.cash < price + 40) return;
+      var fk = src.sys === w.sys ? "fuel" : "sfuel";
+      if (!govFuelAvail(w, fk)) return;                 // без горючего хлебовоз не полетит
       var parts = govBuyShip(w, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
       if (!parts) return;
+      govFuel(w, fk);
       w.gov.cash -= price; src.gov.cash += price; src.food.stock -= qty;
       dispatch(src, w, "food", qty, parts);
       shipped += qty;
@@ -1137,8 +1214,11 @@ var THRESHOLD = (function () {
         if (o.wantOut > bs) { bs = o.wantOut; src = o; }
       });
       if (!src) return;
+      var fk2 = src.sys === w.sys ? "fuel" : "sfuel";
+      if (!govFuelAvail(w, fk2)) return;
       var parts = govBuyShip(w, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
       if (!parts) return;
+      govFuel(w, fk2);
       var qty = Math.min(src.wantOut, w.wantIn, 1.6);
       var takeFree = Math.min(src.pop.free, qty);
       src.pop.free -= takeFree;
@@ -1169,6 +1249,13 @@ var THRESHOLD = (function () {
           gain += within(s.id, m.range).filter(function (n) { return !systems[n].unlocked; }).length;
         });
         worth = 1.2 + Math.min(12, gain) * 0.45;
+      }
+      else if (f.key === "fuel") worth = 2.8;                              // без него не взлетает ничего
+      else if (f.key === "sfuel") {
+        // межзвёздное топливо дорожает в цене ровно тогда, когда есть чему лететь:
+        // без него готовый прыжковый корабль стоял у стапеля девяносто лет
+        var waiting = systems.some(function (s) { return s.yards.some(function (y) { return y.fuelWait > 0; }); });
+        worth = waiting ? 4.5 : (galaxyRange() > 0 || anyKnows("drive") ? 3.2 : 1.2);
       }
       else if (compOf(f.key)) worth = f.key === "drive" ? 3.0 : (f.key === "drill" || f.key === "hold" ? 2.2 : 1.8);
       else {
@@ -1230,43 +1317,138 @@ var THRESHOLD = (function () {
   }
 
   // ===================== производство =====================
+  // Цех стоит на конкретной планете и складывает сделанное там же. Поэтому у
+  // филиала на окраине появляется смысл: он снабжает окраину, не гоняя корпуса
+  // через полгалактики.
   function produce() {
     corps.forEach(function (c) {
-      var cap = prodOf(c);
-      if (cap <= 0) return;
       var mine = COMPS.filter(function (f) { return canBuild(c, f.key); });
       if (!mine.length) return;
-      var weights = mine.map(function (f) {
-        var w = market[f.key].price / f.work, own = 0;
-        if (c.order) own = (c.order.need[f.key] || 0) - (c.order.got[f.key] || 0) - c.stock[f.key];
-        if (own > 0) return w * 3.5;
-        // на склад без спроса не работают: первая версия набивала его впустую
-        if (c.stock[f.key] >= 4 && market[f.key].want <= c.stock[f.key]) return 0;
-        return w;
-      });
-      var sum = weights.reduce(function (a, b) { return a + b; }, 0);
-      if (sum <= 0) return;
-      mine.forEach(function (f, i) {
-        c.wip[f.key] += cap * weights[i] / sum;
-        while (c.wip[f.key] >= f.work) { c.wip[f.key] -= f.work; c.stock[f.key]++; }
+      c.branches.forEach(function (b) {
+        var cap = b.emp.prod, sys = b.world.sys;
+        if (cap <= 0) return;
+        if (!b.wip) b.wip = {};
+        var weights = mine.map(function (f) {
+          var w = market[f.key].price / f.work, own = 0;
+          if (c.order && c.order.sys === sys)
+            own = (c.order.need[f.key] || 0) - (c.order.got[f.key] || 0) - stockAt(c, sys, f.key);
+          if (own > 0) return w * 3.5;
+          // расходник берут всегда, но и его не копят без края
+          if (f.key === "fuel" || f.key === "sfuel") return stockAt(c, sys, f.key) >= 10 ? 0 : w * 1.6;
+          // на склад без спроса не работают: первая версия набивала его впустую
+          if (stockAt(c, sys, f.key) >= 4 && market[f.key].want <= totalStock(c, f.key)) return 0;
+          return w;
+        });
+        var sum = weights.reduce(function (a, x) { return a + x; }, 0);
+        if (sum <= 0) return;
+        mine.forEach(function (f, i) {
+          b.wip[f.key] = (b.wip[f.key] || 0) + cap * weights[i] / sum;
+          while (b.wip[f.key] >= f.work) { b.wip[f.key] -= f.work; addStock(c, sys, f.key, 1); }
+        });
       });
     });
   }
 
   // ===================== рынок деталей =====================
+  // Ходовая цена — не закон, а память рынка: скользящее среднее по СОСТОЯВШИМСЯ
+  // сделкам плюс поправка на дефицит. От неё продавец и покупатель пляшут в
+  // торге, но сама по себе она никого ни к чему не обязывает.
   function repriceMarket() {
     COMPS.forEach(function (f) {
       var m = market[f.key], stock = 0, want = 0;
       corps.forEach(function (c) {
-        stock += c.stock[f.key];
+        stock += totalStock(c, f.key);
         if (c.order) want += Math.max(0, (c.order.need[f.key] || 0) - (c.order.got[f.key] || 0));
       });
       projects.forEach(function (pr) { want += Math.max(0, (pr.need[f.key] || 0) - (pr.got[f.key] || 0)); });
+      // купленное и уже едущее — не спрос, а поставка: без этой поправки цена
+      // годами карабкалась к потолку, пока грузовики были в пути
+      voyages.forEach(function (v) { if (v.kind === "parts" && v.k === f.key) want -= v.qty; });
+      want = Math.max(0, want);
       m.last = m.price;
       m.price = clamp(m.price * clamp(1 + 0.05 * (want - stock) / (want + stock + 2), 0.95, 1.06),
                       f.base * 0.35, f.base * 5);
       m.stock = stock; m.want = want;
     });
+  }
+
+  // ---- топливо ----------------------------------------------------------
+  // Топливом торгуют БЕЗ отказов: это расходник, на нём не выигрывают гонку, а
+  // запрет на него мгновенно запирает всю галактику и убивает партию. Берём
+  // своё, если есть в этой системе, иначе покупаем у соседа по цеху.
+  function takeFuel(c, sys, k, direct) {
+    if (stockAt(c, sys, k) > 0) { addStock(c, sys, k, -1); return true; }
+    var seller = null;
+    corps.forEach(function (s) {
+      if (s.id === c.id || stockAt(s, sys, k) <= 0) return;
+      if (!seller || stockAt(s, sys, k) > stockAt(seller, sys, k)) seller = s;
+    });
+    if (!seller) {
+      // В этой системе топлива нет — заказываем танкер из другой. Он приедет
+      // через годы, и до тех пор корабль стоит. direct запрещает вложенный
+      // заказ: танкеру за топливом для танкера ехать некуда.
+      if (direct) return false;
+      buyPart(c, k, sys, 0.6,
+              function (sum) { if (c.cash < sum + 10) return false; c.cash -= sum; return true; },
+              function (part) { addStock(c, sys, part.k, 1); }, true);
+      return false;
+    }
+    var price = market[k].price * (1 + tradeFee);
+    if (c.cash < price + 10) return false;
+    c.cash -= price; seller.cash += market[k].price; seller.sold++;
+    treasury += price - market[k].price;
+    addStock(seller, sys, k, -1);
+    trades++; turnover += price; burned++;
+    return true;
+  }
+  // есть ли в системе мира продавец топлива, и хватит ли казне — проверяется
+  // ДО покупки корабля, чтобы не остаться с оплаченным корпусом без горючего
+  function govFuelAvail(w, k) {
+    var price = market[k].price * (1 + tradeFee);
+    return w.gov.cash >= price + 10 && corps.some(function (s) { return stockAt(s, w.sys, k) > 0; });
+  }
+  // правительство мира жжёт своё топливо так же, только платит из своей казны
+  function govFuel(w, k) {
+    var seller = null;
+    corps.forEach(function (s) {
+      if (stockAt(s, w.sys, k) <= 0) return;
+      if (!seller || stockAt(s, w.sys, k) > stockAt(seller, w.sys, k)) seller = s;
+    });
+    if (!seller) return false;
+    var price = market[k].price * (1 + tradeFee);
+    if (w.gov.cash < price + 10) return false;
+    w.gov.cash -= price; seller.cash += market[k].price; seller.sold++;
+    treasury += price - market[k].price;
+    addStock(seller, w.sys, k, -1);
+    trades++; turnover += price; burned++;
+    return true;
+  }
+
+  // ---- торг -------------------------------------------------------------
+  // Продавец называет свою цену, покупатель — потолок, и сделка случается
+  // только если они пересеклись; итог делится пополам. Без этого "рынок" был
+  // наполовину декорацией: цена одна на всех и торговаться не о чем.
+  // После каждой попытки обе стороны подвигают свои притязания, поэтому цены
+  // сходятся сами, а жадный продавец какое-то время сидит без сделок.
+  function askPrice(seller, k) {
+    return market[k].price * clamp(seller.ask[k], 0.7, 2.2);
+  }
+  function bidCap(buyer, k, urgency) {
+    // чем дольше ждёт заказ и чем богаче покупатель, тем выше он готов задрать
+    return market[k].price * clamp(0.9 + urgency * 0.5 + (buyer.cash > 1200 ? 0.15 : 0), 0.8, 2.0);
+  }
+  function haggle(seller, buyer, k, urgency) {
+    var ask = askPrice(seller, k), cap = bidCap(buyer, k, urgency);
+    if (ask > cap) {                                   // не сошлись
+      seller.ask[k] = clamp(seller.ask[k] - 0.02, 0.7, 2.2);
+      return 0;
+    }
+    seller.ask[k] = clamp(seller.ask[k] + 0.012, 0.7, 2.2);
+    var price = (ask + cap) / 2;
+    // ходовая цена подтягивается к состоявшейся сделке
+    market[k].price = clamp(market[k].price * 0.96 + price * 0.04,
+                            compOf(k).base * 0.35, compOf(k).base * 5);
+    return price;
   }
   // ---- отказ продавать -------------------------------------------------
   // Деталь на складе — это не товар, а рычаг. Продать двигатель тому, кто
@@ -1317,17 +1499,6 @@ var THRESHOLD = (function () {
     return false;
   }
 
-  function bestSeller(k, buyer) {
-    var best = null;
-    corps.forEach(function (c) {
-      if (c.stock[k] <= 0) return;
-      if (buyer && c.id === buyer.id) return;
-      if (buyer && !willSell(c, buyer, k)) return;
-      if (!best || c.stock[k] > best.stock[k]) best = c;
-    });
-    return best;
-  }
-
   // Заказ, который некому снабдить, не висит вечно: через шесть лет ожидания
   // компания сворачивает сборку. Это и есть цена отказов — не все могут в
   // принципе что-то запустить, и видно, кто именно перекрыл кислород.
@@ -1353,7 +1524,7 @@ var THRESHOLD = (function () {
       // деньги возвращаются вкладчикам по долям, детали — ведущему на склад
       var total = pr.backers.reduce(function (a, b) { return a + b.sum; }, 0) || 1;
       pr.backers.forEach(function (b) { corps[b.corp].cash += pr.purse * b.sum / total; });
-      pr.parts.forEach(function (p) { corps[pr.lead].stock[p.k]++; });
+      pr.parts.forEach(function (p) { addStock(corps[pr.lead], pr.sys, p.k, 1); });
       pr.body.claimed = false;
       say("Подписка на колонию " + pr.body.name + " распалась" +
           (who.length ? ": " + who.join(" и ") + " не продают детали." : ": собрать нечего.") +
@@ -1381,61 +1552,111 @@ var THRESHOLD = (function () {
       var who = Object.keys(blockers);
       say("<b>" + c.name + "</b> свернула сборку: " + missing.map(function (f) { return f.short; }).join(", ") +
           (who.length ? " не продают " + who.join(" и ") : " взять негде") + ".");
-      // купленное остаётся на складе, деньги не пропадают
-      c.order.parts.forEach(function (p) { c.stock[p.k]++; });
+      // купленное остаётся на складе там, где собиралось; деньги не пропадают
+      c.order.parts.forEach(function (p) { addStock(c, c.order.sys, p.k, 1); });
+      releaseOrder(c.order);
       c.order = null; c.cool = 24; dropped++;
     });
+  }
+
+  // Покупка = договор о цене плюс ДОСТАВКА. Если деталь лежит в другой системе,
+  // она не появляется у покупателя по щелчку: за ней идёт грузовик, тратит
+  // межзвёздное топливо и летит годами. Купленное в пути видно на карте.
+  function buyPart(buyer, k, dest, urgency, pay, take, noRefuse) {
+    // Кандидаты: сначала те, у кого деталь лежит прямо здесь, потом дальние.
+    // Перебираем ВСЕХ: раньше брали одного, и если он отказывал, покупка
+    // срывалась на месяц — при том, что у соседа та же деталь лежала без дела.
+    var cands = [];
+    corps.forEach(function (s) {
+      if (s.id === buyer.id) return;
+      if (stockAt(s, dest, k) > 0) cands.push({ s:s, from:dest, n:stockAt(s, dest, k) });
+      else if (totalStock(s, k) > 0) cands.push({ s:s, from:whereStock(s, k)[0], n:0 });
+    });
+    cands.sort(function (a, b) { return b.n - a.n; });
+    var seller = null, sysFrom = -1, price = 0;
+    for (var i = 0; i < cands.length; i++) {
+      var cnd = cands[i];
+      if (!noRefuse && !willSell(cnd.s, buyer, k)) continue;
+      if (cnd.from !== dest && !canTravel(cnd.from, dest)) continue;      // дороги нет
+      var p = haggle(cnd.s, buyer, k, urgency);
+      if (!p) continue;                                                   // не сошлись в цене
+      seller = cnd.s; sysFrom = cnd.from; price = p;
+      break;
+    }
+    if (!seller) return false;
+    var full = price * (1 + tradeFee);
+    if (!pay(full)) return false;
+
+    seller.stock[sysFrom][k]--; seller.cash += price; seller.sold++;
+    treasury += full - price; trades++; turnover += full; buyer.bought++;
+    if (sysFrom === dest) { take({ k:k, from:seller.id }); return true; }
+    // грузовик заправляется там, где грузится: топливо покупается у отправителя
+    if (!takeFuel(buyer, sysFrom, "sfuel", true)) {                       // нечем везти
+      seller.stock[sysFrom][k]++; seller.cash -= price; treasury -= full - price;
+      trades--; turnover -= full;
+      return false;
+    }
+    voyages.push({ kind:"parts", sysFrom:sysFrom, to:dest, k:k, qty:1, corp:seller.id,
+                   color:corps[seller.id].color, forCorp:buyer.id, take:take,
+                   t:0, dur:44 + Math.random() * 22, born:dateStr() });
+    hauled++;
+    return true;
   }
 
   function trade() {
     repriceMarket();
     corps.forEach(function (c) {
       if (!c.order) return;
+      var urgency = Math.min(1, (c.order.wait || 0) / 48);
       COMPS.forEach(function (f) {
-        var need = (c.order.need[f.key] || 0) - (c.order.got[f.key] || 0);
-        if (need <= 0) return;
-        if (c.stock[f.key] > 0) {
-          c.stock[f.key]--;
-          c.order.got[f.key] = (c.order.got[f.key] || 0) + 1;
-          c.order.parts.push({ k:f.key, from:c.id });
+        var o = c.order;
+        if ((o.need[f.key] || 0) - (o.got[f.key] || 0) <= 0) return;
+        if (stockAt(c, o.sys, f.key) > 0) {                    // своё, и лежит где надо
+          addStock(c, o.sys, f.key, -1);
+          o.got[f.key] = (o.got[f.key] || 0) + 1;
+          o.parts.push({ k:f.key, from:c.id });
           return;
         }
-        var seller = bestSeller(f.key, c);
-        if (!seller) return;
-        var p = market[f.key].price, full = p * (1 + tradeFee);
-        if (c.cash < full + 25) return;
-        c.cash -= full; seller.cash += p; treasury += full - p;
-        seller.stock[f.key]--; seller.sold++; c.bought++; trades++; turnover += full;
-        c.order.got[f.key] = (c.order.got[f.key] || 0) + 1;
-        c.order.parts.push({ k:f.key, from:seller.id });
+        buyPart(c, f.key, o.sys, urgency,
+                function (sum) { if (c.cash < sum + 25) return false; c.cash -= sum; return true; },
+                function (part) {
+                  // грузовик мог прилететь к уже свёрнутому заказу — тогда на склад
+                  if (c.order !== o) { addStock(c, o.sys, part.k, 1); return; }
+                  o.got[part.k] = (o.got[part.k] || 0) + 1; o.parts.push(part);
+                });
       });
     });
     projects.forEach(function (pr) {
+      var urgency = Math.min(1, (pr.wait || 0) / 48), lead = corps[pr.lead];
       COMPS.forEach(function (f) {
-        var need = (pr.need[f.key] || 0) - (pr.got[f.key] || 0);
-        if (need <= 0) return;
-        // вкладчики продают своему консорциуму без разговоров: они в доле
-        var seller = null;
-        corps.forEach(function (c) {
-          if (c.stock[f.key] <= 0) return;
-          if (!pr.backers.some(function (b) { return b.corp === c.id; })) return;
-          if (!seller || c.stock[f.key] > seller.stock[f.key]) seller = c;
-        });
-        if (!seller) seller = bestSeller(f.key, corps[pr.lead]);
-        if (!seller) return;
-        var p = market[f.key].price, full = p * (1 + tradeFee);
-        if (pr.purse < full) return;
-        pr.purse -= full; seller.cash += p; treasury += full - p;
-        seller.stock[f.key]--; seller.sold++; trades++; turnover += full;
-        pr.got[f.key] = (pr.got[f.key] || 0) + 1;
-        pr.parts.push({ k:f.key, from:seller.id });
+        if ((pr.need[f.key] || 0) - (pr.got[f.key] || 0) <= 0) return;
+        // своё, лежащее на месте, ведущий продаёт консорциуму по ходовой
+        if (stockAt(lead, pr.sys, f.key) > 0) {
+          var p = market[f.key].price;
+          if (pr.purse < p) return;
+          pr.purse -= p; lead.cash += p; addStock(lead, pr.sys, f.key, -1);
+          pr.got[f.key] = (pr.got[f.key] || 0) + 1; pr.parts.push({ k:f.key, from:lead.id });
+          return;
+        }
+        buyPart(lead, f.key, pr.sys, urgency,
+                function (sum) { if (pr.purse < sum) return false; pr.purse -= sum; return true; },
+                function (part) {
+                  if (projects.indexOf(pr) < 0) { addStock(lead, pr.sys, part.k, 1); return; }
+                  pr.got[part.k] = (pr.got[part.k] || 0) + 1; pr.parts.push(part);
+                });
       });
     });
   }
 
   // ===================== заказы, консорциумы, филиалы =====================
   function freeRocks(s){ return s.rocks.filter(function (r) { return !r.taken; }); }
-  function buildable(vt){ return Object.keys(vt.need).every(function (k) { return anyMakes(k); }); }
+  // Заказ не начинают, пока нет горючего, на котором это полетит: иначе корабль
+  // собирают, а потом он десятилетиями стоит у стапеля и ест деньги впустую.
+  function buildable(vt) {
+    var fuelKey = (vt.key === "mine" || vt.key === "colony") ? "fuel" : "sfuel";
+    if (!anyMakes(fuelKey)) return false;
+    return Object.keys(vt.need).every(function (k) { return anyMakes(k); });
+  }
   function anyRock(){ return systems.some(function (s) { return s.unlocked && reachable(s.id) && freeRocks(s).length; }); }
   // Ближайшая закрытая звезда, до которой ДОТЯГИВАЕТСЯ марка этой компании.
   // Отсюда и берётся ощущение края карты: дальние звёзды видны, но пока не
@@ -1449,6 +1670,7 @@ var THRESHOLD = (function () {
       within(s.id, range).forEach(function (n) {
         if (systems[n].unlocked) return;
         if (voyages.some(function (v) { return v.to === n && (v.kind === "jump" || v.kind === "opener"); })) return;
+        if (corps.some(function (o) { return o.order && o.order.to === n; })) return;   // туда уже собираются
         var d = dist(s, systems[n]);
         if (d < bd) { bd = d; out = { from:s.id, to:n }; }
       });
@@ -1505,9 +1727,52 @@ var THRESHOLD = (function () {
         if (score > top) { top = score; best = vt; }
       });
       if (!best || Math.random() > clamp(0.55 / c.nerve, 0.2, 0.9)) return;
-      c.order = { type:best.key, need:JSON.parse(JSON.stringify(best.need)), got:{}, parts:[], born:dateStr() };
-      say("<b>" + c.name + "</b> взялась собирать " + best.name + ".");
+      // Место назначения выбирается СЕЙЧАС, а не когда комплект собран: детали
+      // надо свозить в конкретную систему, и заранее должно быть ясно, в какую.
+      var o = { type:best.key, need:JSON.parse(JSON.stringify(best.need)), got:{}, parts:[], born:dateStr() };
+      if (best.key === "mine") {
+        var pickS = null, top2 = -1;
+        systems.forEach(function (s) {
+          if (!s.unlocked || !reachable(s.id) || !freeRocks(s).length) return;
+          var score = 1 / (1 + s.depth * 0.25);
+          if (score > top2) { top2 = score; pickS = s; }
+        });
+        if (!pickS) return;
+        var free = freeRocks(pickS);
+        o.rock = free[Math.floor(Math.random() * free.length)];
+        o.rock.taken = true; o.sys = pickS.id;
+      } else if (best.key === "gate") {
+        // Ворота для ЗАКРЫТОЙ системы собираются у ближайших готовых ворот и
+        // уходят туда одним рейсом: свозить детали в систему, до которой ещё
+        // нет дороги, невозможно — на этом экспансия под воротами и встала.
+        var gt = gateTarget(c);
+        if (!gt) return;
+        o.gateAt = gt.sys; systems[gt.sys].gate.building = true;
+        var base = gt.sys;
+        if (gt.sys !== 0 && !gated(gt.sys)) {
+          base = null;
+          within(gt.sys, rangeOf(c)).forEach(function (n) {
+            if (!gated(n)) return;
+            if (base === null || dist(systems[n], systems[gt.sys]) < dist(systems[base], systems[gt.sys])) base = n;
+          });
+          if (base === null) base = 0;
+        }
+        o.sys = base;
+      } else {
+        var jt = jumpTarget(c);
+        if (!jt) return;
+        o.sys = jt.from; o.to = jt.to;
+      }
+      c.order = o;
+      say("<b>" + c.name + "</b> взялась собирать " + best.name + " в " + systems[o.sys].name + ".");
     });
+  }
+
+  // отменённый заказ отдаёт назад то, что успел занять
+  function releaseOrder(o) {
+    if (!o) return;
+    if (o.rock) o.rock.taken = false;
+    if (o.type === "gate" && systems[o.gateAt]) systems[o.gateAt].gate.building = false;
   }
 
   // Колония — консорциум: держатель технологии кладёт своё, остальные доносят
@@ -1518,7 +1783,7 @@ var THRESHOLD = (function () {
   function reviewProjects() {
     corps.forEach(function (c) {
       if (projects.some(function (p) { return p.lead === c.id; })) return;
-      if (c.cash < 200) return;
+      if (c.cash < 200 || !anyMakes("fuel")) return;      // модулю нечем взлететь
       var target = null, top = -1;
       systems.forEach(function (s) {
         if (!s.unlocked || !reachable(s.id)) return;
@@ -1575,34 +1840,24 @@ var THRESHOLD = (function () {
   function assemble() {
     corps.forEach(function (c) {
       if (!c.order || !full(c.order.need, c.order.got)) return;
-      var vt = vtype(c.order.type);
+      var vt = vtype(c.order.type), o = c.order, s = systems[o.sys];
       if (vt.key === "gate") {
-        var gt = gateTarget(c);
-        if (!gt) return;
-        systems[gt.sys].gate.building = true;
-        systems[gt.sys].yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, gateHere:gt.sys,
-                                     parts:c.order.parts.slice(), left:vt.build, total:vt.build });
+        s.yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, gateHere:o.gateAt,
+                       parts:o.parts.slice(), left:vt.build, total:vt.build });
       } else if (vt.key === "jump" || vt.key === "opener") {
-        var jt = jumpTarget(c);
-        if (!jt) return;
-        systems[jt.from].yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:jt.to,
-                                      parts:c.order.parts.slice(), left:vt.build, total:vt.build });
+        // цель могла открыться, пока свозили детали — тогда летим к другой
+        var to = o.to;
+        if (systems[to].unlocked) { var jt = jumpTarget(c); if (!jt) { releaseOrder(o); c.order = null; return; } to = jt.to; }
+        s.yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:to,
+                       parts:o.parts.slice(), left:vt.build, total:vt.build });
       } else {
-        var pickS = null, top = -1;
-        systems.forEach(function (s) {
-          if (!s.unlocked || !reachable(s.id) || !freeRocks(s).length) return;
-          var score = 1 / (1 + s.depth * 0.25);
-          if (score > top) { top = score; pickS = s; }
-        });
-        if (!pickS) return;
-        var free = freeRocks(pickS), r = free[Math.floor(Math.random() * free.length)];
-        r.taken = true;
-        var v = { sys:pickS.id, lead:c.id, type:"mine", name:vt.name, parts:c.order.parts.slice(),
+        var r = o.rock;
+        var v = { sys:o.sys, lead:c.id, type:"mine", name:vt.name, parts:o.parts.slice(),
                   left:vt.term, yield:vt.yield, born:dateStr(), dest:{ kind:"rock", ref:r, label:r.name },
                   live:false, building:true };
-        pickS.ventures.push(v);
-        pickS.yards.push({ vt:vt, vent:v, lead:c.id, color:c.color, glyph:vt.glyph, dest:v.dest,
-                           parts:v.parts, left:vt.build, total:vt.build });
+        s.ventures.push(v);
+        s.yards.push({ vt:vt, vent:v, lead:c.id, color:c.color, glyph:vt.glyph, dest:v.dest,
+                       parts:v.parts, left:vt.build, total:vt.build });
       }
       var from = {};
       c.order.parts.forEach(function (p) { from[p.from] = 1; });
@@ -1632,8 +1887,19 @@ var THRESHOLD = (function () {
       for (var y = s.yards.length - 1; y >= 0; y--) {
         var yd = s.yards[y];
         if (--yd.left > 0) continue;
-        s.yards.splice(y, 1);
         var lead = corps[yd.lead];
+        // Готовый корабль без топлива стоит у стапеля. Межзвёздному нужно
+        // межзвёздное, внутрисистемному — местное; ворота никуда не летят.
+        var fuelKind = yd.vt.key === "gate" ? (yd.gateHere !== s.id ? "sfuel" : null)
+                     : (yd.vt.key === "jump" || yd.vt.key === "opener") ? "sfuel" : "fuel";
+        if (fuelKind && !takeFuel(lead, s.id, fuelKind)) {
+          yd.left = 1; yd.fuelWait = (yd.fuelWait || 0) + 1;
+          if (yd.fuelWait === 1 || yd.fuelWait % 36 === 0)
+            say("<b>" + lead.name + "</b>: " + yd.vt.name + " в " + s.name + " готов, но " +
+                (fuelKind === "sfuel" ? "межзвёздного" : "местного") + " топлива в системе нет.");
+          continue;
+        }
+        s.yards.splice(y, 1);
         if (yd.vt.key === "gate") {
           // Ворота никуда не летят: они простреливают коридор до соседей прямо
           // отсюда. Поэтому под воротами экспансия идёт кольцами, а не ниточкой.
@@ -1711,6 +1977,7 @@ var THRESHOLD = (function () {
       }
       return;
     }
+    if (v.kind === "parts") { v.take({ k:v.k, from:v.corp }); return; }
     if (v.kind === "food") { v.to.food.stock += v.qty; return; }
     if (v.kind === "pops") {
       v.to.pop.free += v.qty;
@@ -1933,7 +2200,7 @@ var THRESHOLD = (function () {
     });
 
     voyages.forEach(function (v) {
-      if (v.kind === "jump" || v.from.sys !== s.id || v.to.sys !== s.id) return;
+      if (v.sysFrom !== undefined || v.from.sys !== s.id || v.to.sys !== s.id) return;
       var a = posOf(v.from.body, mx, my), b = posOf(v.to.body, mx, my), k = clamp(v.t, 0, 1);
       var x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
       ship("cargo", x, y, 6, 0, v.color);
@@ -1987,14 +2254,16 @@ var THRESHOLD = (function () {
     }
     voyages.forEach(function (v) {
       var a, b;
-      if (v.kind === "jump") { a = systems[v.sysFrom]; b = systems[v.to]; }
+      // прыжковые, открыватели и грузовики с деталями летят между СИСТЕМАМИ и
+      // несут sysFrom/to; хлебовозы и переселенцы — между мирами
+      if (v.sysFrom !== undefined) { a = systems[v.sysFrom]; b = systems[v.to]; }
       else { a = systems[v.from.sys]; b = systems[v.to.sys]; if (a === b) return; }
       var k = clamp(v.t, 0, 1), x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
       cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(x, y);
       cx.strokeStyle = v.color; cx.globalAlpha = 0.3; cx.lineWidth = 1.2; cx.stroke(); cx.globalAlpha = 1;
-      ship(v.kind === "food" || v.kind === "pops" ? "cargo" : "jump", x, y, 6.5,
-           Math.atan2(b.y - a.y, b.x - a.x) + 1.5708, v.color);
-      hits.push({ x:x, y:y, r:12, kind:v.kind === "jump" ? "jumpship" : "cargo", data:v });
+      var isJump = v.kind === "jump" || v.kind === "opener";
+      ship(isJump ? "jump" : "cargo", x, y, 6.5, Math.atan2(b.y - a.y, b.x - a.x) + 1.5708, v.color);
+      hits.push({ x:x, y:y, r:12, kind:isJump ? "jumpship" : "cargo", data:v });
     });
     systems.forEach(function (s) {
       var r = nodeR(s);
@@ -2117,6 +2386,16 @@ var THRESHOLD = (function () {
               ' из ' + pr.cost + ', вкладчиков ' + pr.backers.length + '</div>' : '') + '</div>';
       return;
     }
+    if (pick.kind === "cargo" && d.kind === "parts") {
+      var fc = compOf(d.k), buyer = corps[d.forCorp], sellerC = corps[d.corp];
+      box.innerHTML = '<div class="card"><h3>Грузовик с деталями</h3>' +
+        '<div class="sub">везёт ' + fc.name.toLowerCase() + ' из ' + systems[d.sysFrom].name + ' в ' +
+        systems[d.to].name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
+        '<div class="part"><i class="dot" style="background:' + sellerC.color + '"></i><span class="pn">продал</span><span class="pw">' + sellerC.name + '</span></div>' +
+        '<div class="part"><i class="dot" style="background:' + buyer.color + '"></i><span class="pn">купил и везёт</span><span class="pw">' + buyer.name + '</span></div>' +
+        '<div class="sub" style="margin:6px 0 0">Рейс сжёг единицу межзвёздного топлива.</div></div>';
+      return;
+    }
     if (pick.kind === "cargo") {
       box.innerHTML = '<div class="card"><h3>' + (d.kind === "food" ? "Грузовик" : "Переселенческий") + '</h3>' +
         '<div class="sub">везёт ' + (d.kind === "food" ? d.qty + " еды" : d.qty.toFixed(1) + " человечков") +
@@ -2168,7 +2447,12 @@ var THRESHOLD = (function () {
         if (c.target === f.key) chasers.push(c.name);
       });
       var meta = makers.length
-        ? (pat ? pat + " · " : "") + "склад " + m.stock + " · заказано " + m.want
+        ? (pat ? pat + " · " : "") + "склад " + m.stock + " · заказано " + m.want + " · просят " +
+          (function () {
+            var a = makers.map(function (c) { return c.ask[f.key]; });
+            var lo = Math.min.apply(null, a), hi = Math.max.apply(null, a);
+            return "×" + lo.toFixed(2) + (hi - lo > 0.02 ? "–" + hi.toFixed(2) : "");
+          })()
         : "никто не делает · лучший на " + Math.round(Math.max.apply(null, corps.map(function (c) { return c.spent[f.key]; }))) +
           " из " + f.diff + (chasers.length ? " · ищут: " + chasers.join(", ") : "");
       return '<div class="row"><div class="rhead"><span class="rname">' + f.name + '</span>' + dots +
@@ -2275,7 +2559,8 @@ var THRESHOLD = (function () {
     el("treasury").textContent = Math.round(treasury).toLocaleString("ru-RU");
     el("date").textContent = dateStr();
     el("stats").textContent = "Миров " + worlds.length + " · людей " + fmt(totPop) + " · сделок " + trades +
-      " · еды перевезено " + Math.round(shipped) + " · отказов " + refusals + ", свёрнуто сборок " + dropped;
+      " · еды перевезено " + Math.round(shipped) + " · деталей грузовиком " + hauled +
+      " · топлива сожжено " + burned + " · отказов " + refusals + ", свёрнуто сборок " + dropped;
 
     el("corps").innerHTML = corps.slice().sort(function (a, b) { return b.cash - a.cash; }).map(function (c) {
       var can = COMPS.filter(function (f) { return canBuild(c, f.key); }).map(function (f) { return f.short; });
@@ -2508,7 +2793,8 @@ var THRESHOLD = (function () {
     state: function () {
       return { tick:tick, treasury:treasury, corps:corps, worlds:worlds, systems:systems, links:links, move:move, routes:routes,
                market:market, patents:patents, voyages:voyages, projects:projects,
-               trades:trades, shipped:shipped, movedPops:movedPops, refusals:refusals, dropped:dropped, feed:feed };
+               trades:trades, shipped:shipped, movedPops:movedPops, refusals:refusals, dropped:dropped,
+               hauled:hauled, burned:burned, feed:feed };
     },
     setLever: function (k, v) {
       if (k === "tax") tax = v; else if (k === "sub") subYear = v; else if (k === "subKey") subKey = v;
@@ -2518,7 +2804,9 @@ var THRESHOLD = (function () {
     // разглядывать силуэты крупно, не дублируя код
     icon: function (ctx, kind, x, y, s, col) { var keep = cx; cx = ctx; ship(kind, x, y, s, 0, col); cx = keep; },
     consts: { COMPS:COMPS, COLTECH:COLTECH, PTYPES:PTYPES, VTYPES:VTYPES, MOVES:MOVES, get MARKS(){ return MARKS; } },
-    popOf: popOf
+    popOf: popOf,
+    // для стенда: переключить вид, чтобы кадр отрисовал и карту, и систему
+    setView: function (mode, sys) { view = { mode:mode, sys:sys || 0 }; }
   };
   // Запуск ПОСЛЕ объявления API: легенда рисуется через него, и при обратном
   // порядке падала бы на первой же загрузке.

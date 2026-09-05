@@ -19,6 +19,11 @@ function close(a, b, eps, msg) {
   if (Math.abs(a - b) > eps) throw new Error(msg + " (" + a.toFixed(3) + " против " + b.toFixed(3) + ")");
 }
 
+// склад теперь с адресом: c.stock[система][деталь]
+const stockOf = (c, k) => Object.values(c.stock).reduce((a, s) => a + (s[k] || 0), 0);
+const eachStock = (c, fn) => Object.keys(c.stock).forEach((sys) =>
+  Object.keys(c.stock[sys]).forEach((k) => fn(k, c.stock[sys][k], sys)));
+
 function runYears(sim, years, check) {
   for (let i = 0; i < years * 12; i++) {
     sim.step();
@@ -92,9 +97,9 @@ test("склад деталей не уходит в минус", () => {
   const sim = load("index.html", { seed: 13 });
   runYears(sim, 150, (st) => {
     st.corps.forEach((c) => {
-      Object.keys(c.stock).forEach((k) => {
-        assert(c.stock[k] >= 0, c.name + ": отрицательный склад " + k);
-        assert(Number.isInteger(c.stock[k]), c.name + ": дробная деталь " + k);
+      eachStock(c, (k, n, sys) => {
+        assert(n >= 0, c.name + ": отрицательный склад " + k + " в системе " + sys);
+        assert(Number.isInteger(n), c.name + ": дробная деталь " + k);
       });
     });
   });
@@ -107,8 +112,8 @@ test("склад не забивается деталями без спроса"
   const sim = load("index.html", { seed: 17 });
   const st = runYears(sim, 120);
   st.corps.forEach((c) => {
-    Object.keys(c.stock).forEach((k) => {
-      assert(c.stock[k] <= 12, c.name + ": " + c.stock[k] + " штук «" + k + "» на складе — работа в пустоту");
+    eachStock(c, (k, n, sys) => {
+      assert(n <= 12, c.name + ": " + n + " штук «" + k + "» на складе в системе " + sys + " — работа в пустоту");
     });
   });
 });
@@ -134,7 +139,7 @@ test("патент даёт монополию на производство", (
     makers.forEach((c) => {
       // догнавший под живым патентом имеет право знать, но не производить:
       // его склад по этой детали не должен расти
-      assert(c.stock[k] === 0, c.name + " делает «" + k + "» вопреки патенту " + st.corps[p.owner].name);
+      assert(stockOf(c, k) === 0, c.name + " делает «" + k + "» вопреки патенту " + st.corps[p.owner].name);
     });
   });
 });
@@ -191,7 +196,7 @@ test("свёрнутая сборка возвращает детали на с�
   const sim = load("index.html", { seed: 73 });
   runYears(sim, 200, (st) => {
     st.corps.forEach((c) => {
-      Object.keys(c.stock).forEach((k) => assert(c.stock[k] >= 0, c.name + ": отрицательный склад после отмены"));
+      eachStock(c, (k, n) => assert(n >= 0, c.name + ": отрицательный склад " + k + " после отмены"));
     });
   });
 });
@@ -396,6 +401,53 @@ test("распавшаяся подписка не съедает деньги �
   });
 });
 
+// ── перевозка деталей, топливо, торг ────────────────────────────────────────
+// Деталь лежит там, где сделана; в другую систему её ВЕЗУТ, и рейс жжёт
+// межзвёздное топливо. Если это не происходит, значит склад опять общий на
+// всю галактику и рынок телепортирует.
+test("детали возят грузовиком, а не телепортируют", () => {
+  const sim = load("index.html", { seed: 3 });
+  const st = runYears(sim, 200);
+  assert(st.hauled > 0, "за двести лет ни одного грузовика с деталями");
+  assert(st.burned > 0, "топливо не сжигается: рейсы бесплатны");
+});
+
+test("грузовик с деталями долетает и отдаёт груз", () => {
+  const sim = load("index.html", { seed: 5 });
+  runYears(sim, 200, (st) => {
+    st.voyages.forEach((v) => {
+      if (v.kind !== "parts") return;
+      assert(v.t <= 1.001, "грузовик пролетел мимо: t=" + v.t.toFixed(2));
+      assert(typeof v.take === "function", "у грузовика нет получателя");
+    });
+  });
+});
+
+test("топлива на складах не бывает меньше нуля", () => {
+  const sim = load("index.html", { seed: 7 });
+  runYears(sim, 150, (st) => {
+    st.corps.forEach((c) => eachStock(c, (k, n) => {
+      if (k === "fuel" || k === "sfuel") assert(n >= 0, c.name + ": " + k + " ушло в минус");
+    }));
+  });
+});
+
+test("запросы продавцов остаются в коридоре торга", () => {
+  const sim = load("index.html", { seed: 11 });
+  runYears(sim, 200, (st) => {
+    st.corps.forEach((c) => Object.keys(c.ask).forEach((k) => {
+      assert(c.ask[k] >= 0.7 - 1e-9 && c.ask[k] <= 2.2 + 1e-9, c.name + ": запрос ×" + c.ask[k].toFixed(2) + " за " + k);
+    }));
+  });
+});
+
+test("торг не одинаков у всех: запросы расходятся", () => {
+  const sim = load("index.html", { seed: 13 });
+  const st = runYears(sim, 120);
+  const asks = st.corps.map((c) => c.ask.hull);
+  assert(Math.max(...asks) - Math.min(...asks) > 0.03, "все просят одно и то же: торга нет");
+});
+
 // ── воспроизводимость ───────────────────────────────────────────────────────
 // Ради этого стенд и городился: увидел странную партию — вбил сейм и смотришь
 // ту же самую партию глазами.
@@ -410,9 +462,19 @@ test("один сейм даёт одну и ту же партию", () => {
 });
 
 // ── отрисовка тоже не должна падать ─────────────────────────────────────────
+// Кадр здесь дёргается руками после каждого шага и по очереди рисует карту и
+// систему: иначе отрисовка вовсе не исполняется, и в ней годами живут
+// падения — так уже прятался рейс открывателя без поля from.
 test("код отрисовки не падает на заглушках DOM", () => {
   const sim = load("index.html", { withDom: true, seed: 59 });
-  runYears(sim, 40);
+  sim.build("opener");
+  for (let i = 0; i < 250 * 12; i++) {
+    sim.step();
+    sim.setView(i % 2 ? "map" : "system", 0);
+    sim.__frame();
+  }
+  const st = sim.state();
+  assert(st.systems.filter((s) => s.unlocked).length > 1, "за двести пятьдесят лет открыта одна система");
 });
 
 console.log("\n" + results.join("\n"));
