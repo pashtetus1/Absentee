@@ -104,11 +104,16 @@
      корабль, было нечем. Прилипает только она; карта, скорость и "заново"
      остаются в шапке, за ними лезут осознанно. Кнопка та же самая, не копия, —
      иначе её надпись и цвет пришлось бы держать в двух местах. */
+     Отступ снизу считается от --vvbot: сколько видимой области отъела нижняя
+     панель браузера (её меряет скрипт, см. fitPause). На айфоне кнопка иначе
+     оказывается ПОД панелью Chrome — safe-area тут не спасает, она про полосу
+     жестов, а не про браузер. max() берёт большее из двух: без скрипта или на
+     настольном остаётся прежнее поведение. */
   @media (max-width:900px) {
     .shell { grid-template-columns:1fr; }
-    body { padding:14px 14px calc(78px + env(safe-area-inset-bottom)); }
+    body { padding:14px 14px calc(78px + max(env(safe-area-inset-bottom), var(--vvbot, 0px))); }
     #play { position:fixed; left:50%; transform:translateX(-50%); z-index:20;
-            bottom:calc(14px + env(safe-area-inset-bottom));
+            bottom:calc(14px + max(env(safe-area-inset-bottom), var(--vvbot, 0px)));
             min-width:136px; padding:13px 22px; font-size:15px;
             box-shadow:0 6px 22px rgba(4,8,18,0.6); }
   }
@@ -118,8 +123,9 @@
      пальца, поэтому при pointer:fine та же прилипшая кнопка мельче и прижата
      к углу, а не к середине — под курсором она не мешает смотреть. */
   @media (max-width:900px) and (pointer:fine) {
-    body { padding-bottom:54px; }
-    #play { left:auto; right:14px; bottom:12px; transform:none;
+    body { padding-bottom:calc(54px + var(--vvbot, 0px)); }
+    #play { left:auto; right:14px; transform:none;
+            bottom:calc(12px + max(env(safe-area-inset-bottom), var(--vvbot, 0px)));
             min-width:0; padding:7px 14px; font-size:13px;
             box-shadow:0 4px 14px rgba(4,8,18,0.5); }
   }
@@ -3113,6 +3119,27 @@ var THRESHOLD = (function () {
       if (running) run(); else clearInterval(timer);
     }
     el("play").addEventListener("click", togglePause);
+    // Прилипшую снизу кнопку на айфоне НАКРЫВАЕТ нижняя панель браузера.
+    // position:fixed отсчитывается от layout-вьюпорта, а тот у мобильного
+    // сафари/хрома уходит ПОД панель — bottom:0 оказывается за ней. Полоса
+    // жестов тут ни при чём, поэтому env(safe-area-inset-bottom) не помогал.
+    // Меряем, сколько видимой области отъедено снизу, и поднимаем кнопку на
+    // столько же. clientHeight — это по определению высота layout-вьюпорта, то
+    // есть та самая система координат, в которой живёт fixed; innerHeight
+    // считаем вторым мнением и берём большее, потому что у разных мобильных
+    // браузеров эти два числа означают разное. Панель прячется при прокрутке —
+    // visualViewport присылает событие, и кнопка опускается обратно.
+    var vv = window.visualViewport;
+    if (vv) {
+      var fitPause = function () {
+        var seen = vv.height + vv.offsetTop;
+        var gap = Math.max(document.documentElement.clientHeight - seen, window.innerHeight - seen, 0);
+        document.documentElement.style.setProperty("--vvbot", Math.round(gap) + "px");
+      };
+      vv.addEventListener("resize", fitPause);
+      vv.addEventListener("scroll", fitPause);
+      fitPause();
+    }
     // пробел — пауза; но не когда курсор в ползунке или выпадающем списке,
     // там пробел свой
     window.addEventListener("keydown", function (e) {
