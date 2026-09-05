@@ -479,6 +479,37 @@ test("у каждого корабля и рейса есть командир",
   });
 });
 
+// ── разруха на свежих колониях ──────────────────────────────────────────────
+// Колония первые десять лет живёт на привозном и терпении, но живёт: раньше
+// требование "детали в своей системе" и партия еды на три года убивали её с
+// полным складом провизии и казной в полторы тысячи.
+test("свежая колония начинает в разрухе, и разруха проходит", () => {
+  const sim = load("index.html", { seed: 4 });
+  let sawRough = false;
+  runYears(sim, 200, (st) => {
+    st.worlds.forEach((w) => {
+      if (w.founder < 0) { assert(!w.rough, "родина не бывает в разрухе"); return; }
+      if (w.rough > 0) sawRough = true;
+      assert(w.rough >= 0 && w.rough <= 120, w.body.name + ": разруха " + w.rough);
+    });
+  });
+  assert(sawRough, "ни одна колония не была в разрухе");
+  const st = sim.state();
+  st.worlds.filter((w) => w.founder >= 0 && st.tick - 0 > 0).forEach((w) => {
+    const age = st.tick / 12 - parseInt((w.born.match(/\d+/) || ["0"])[0], 10);
+    if (age > 12) assert(w.rough === 0, w.body.name + ": разруха не прошла за " + age.toFixed(0) + " лет");
+  });
+});
+
+test("колонии в основном выживают", () => {
+  const sim = load("index.html", { seed: 4 });
+  const st = runYears(sim, 200);
+  const cols = st.worlds.filter((w) => w.founder >= 0);
+  const dead = cols.filter((w) => sim.popOf(w) < 0.3).length;
+  assert(cols.length >= 3, "колоний всего " + cols.length);
+  assert(dead <= Math.max(1, Math.floor(cols.length / 3)), "вымерло " + dead + " из " + cols.length + " колоний");
+});
+
 // ── воспроизводимость ───────────────────────────────────────────────────────
 // Ради этого стенд и городился: увидел странную партию — вбил сейм и смотришь
 // ту же самую партию глазами.

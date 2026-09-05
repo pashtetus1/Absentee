@@ -170,6 +170,21 @@ Mk4 — до пятого. Дальние звёзды видно, но лини
 Правительство заказывает еду раньше и большей партией (порог 8 месяцев запаса,
 партия на 24), иначе хлебовоз годами не успевал к пустому складу.
 
+СВЕЖАЯ КОЛОНИЯ — ЭТО РАЗРУХА, десять лет (120 месяцев): урожай с необжитой
+земли 0.55 от нормального, цехов и лабораторий 0.35 от того, что компании
+готовы содержать, налоги правительству втрое меньше, желание уехать выше.
+Модуль везёт пятилетний запас провизии и стартовую казну от консорциума (120),
+иначе колония умирала раньше, чем первый хлебовоз успевал дойти — рейс идёт
+двенадцать-семнадцать лет. Бесплодный мир при этом голодает годами и живёт
+на 1-1.5 человечках, но живёт: в прогоне газовый гигант Тень десять лет без
+еды принял 22 хлебовоза и выжил. Вымирание всё же случается (0-1 колония на
+партию), и это осознанно: не всякая посадка удаётся.
+Хлебовоз для голодной колонии строится У ПОСТАВЩИКА еды, а платит колония:
+у неё цехов нет, и требование "детали в своей системе" убивало её с полным
+складом провизии. Партия еды ЧАСТИЧНАЯ: везут сколько есть, не дожидаясь
+излишка на три года. Вывоз дорожит еду у поставщика на 4 процента за рейс —
+так экспорт сам себя кормит: фермеру платят больше, в поле идут люди.
+
 ЕДА ВОЗИТСЯ, И У ПРАВИТЕЛЬСТВА МИРА СВОЙ КОШЕЛЁК И СВОЙ УМ. Оно собирает налог
 с филиалов, считает баланс, закупает еду у сытого мира, оплачивает перевозку и
 покупает корабли — у компаний, из их же деталей. Так у рынка деталей появляется
@@ -278,9 +293,13 @@ PTYPES[].cap   — предел населения, .farm — урожай с ф
                  0.7..2.2; после сделки +0.012, после срыва -0.02; потолок
                  покупателя 0.9 + срочность * 0.5 (+0.15 при кассе выше 1200);
                  ходовая цена подтягивается к сделке на 4 процента.
-Рейсы         — внутри системы 84-120 месяцев, между звёздами 150-210,
-                 грузовик с деталями 96-130, хлебовоз 36-48 внутри и 100-140
+Рейсы         — внутри системы 120-180 месяцев, между звёздами 220-300,
+                 грузовик с деталями 140-190, хлебовоз 54-72 внутри и 150-210
                  между звёздами; всё делится на скорость двигателей строителя.
+                 Еду заказывают при запасе меньше 12 месяцев партией до 36.
+Колония       — разруха 120 месяцев: урожай x0.55, найм x0.35, налог 0.3
+                 вместо 0.8 с рабочего и 0.35 вместо 1.2 подушной; на старте
+                 еда seed*60, цена еды 2.5, казна 120.
                  Межзвёздный рейс жжёт единицу межзвёздного топлива с
                  отправителя.
 ENGINES       — ходовые двигатели: diff 700, 1500, 2600, 4000, 5600; скорость
@@ -1001,7 +1020,14 @@ var THRESHOLD = (function () {
               pop:{ farm:seed * 0.6, prod:seed * 0.3, sci:seed * 0.05, free:seed * 0.05 },
               wage:{ farm:2.4, prod:3, sci:4.2 }, food:{ stock:seed * 2, price:1, short:0 },
               gov:{ cash:60 }, slots:2 + Math.round(body.type.cap / 4), rights:[], branches:[],
-              wantOut:0, wantIn:0, founder:founder, born:dateStr(), parts:[], flow:"" };
+              wantOut:0, wantIn:0, founder:founder, born:dateStr(), parts:[], flow:"",
+              // Свежая колония — это разруха: полпустого склада, дорогая еда, пустая
+              // казна, цеха не построены, урожай с необжитой земли вдвое меньше.
+              // Десять лет (120 месяцев) она живёт на привозном и на терпении.
+              rough: founder >= 0 ? 120 : 0 };
+    // модуль везёт трёхлетний запас провизии — иначе колония умирала раньше,
+    // чем первый хлебовоз успевал дойти (рейс идёт двенадцать-семнадцать лет)
+    if (founder >= 0) { w.food.stock = seed * 60; w.food.price = 2.5; w.gov.cash = 120; }
     body.world = w;
     worlds.push(w);
     return w;
@@ -1126,7 +1152,9 @@ var THRESHOLD = (function () {
     var p = w.pop, total = popOf(w);
     if (total <= 0.02) return;
 
-    var grown = p.farm * w.type.farm;
+    if (w.rough > 0) w.rough--;
+    var rough = w.rough > 0;
+    var grown = p.farm * w.type.farm * (rough ? 0.55 : 1);      // необжитая земля
     w.food.stock += grown - total;
     var hungry = w.food.stock < 0;
     if (hungry) w.food.stock = 0;
@@ -1137,8 +1165,8 @@ var THRESHOLD = (function () {
     var jp = 0, js = 0;
     w.branches.forEach(function (b) {
       var c = corps[b.corp], n = Math.max(1, c.branches.length);
-      b.jobs.prod = clamp(c.cash / (180 * n), 0.3, 8);
-      b.jobs.sci = clamp(c.cash / (420 * n), 0.1, 5);
+      b.jobs.prod = clamp(c.cash / (180 * n), 0.3, 8) * (rough ? 0.35 : 1);   // цехов ещё нет
+      b.jobs.sci = clamp(c.cash / (420 * n), 0.1, 5) * (rough ? 0.35 : 1);
       jp += b.jobs.prod; js += b.jobs.sci;
     });
     w.wage.prod = 3.0 * squeeze(jp, p.prod);
@@ -1187,20 +1215,24 @@ var THRESHOLD = (function () {
     // Желание уехать: теснота плюс безработица плюс голод. Это не приказ игрока
     // и не приказ компании — просто людям тут нечего ловить.
     var unemp = p.free / Math.max(0.05, total);
-    var push = Math.max(0, fill - 0.7) * 1.4 + Math.max(0, unemp - 0.12) * 1.2 + (hungry ? 0.5 : 0);
+    var push = Math.max(0, fill - 0.7) * 1.4 + Math.max(0, unemp - 0.12) * 1.2 + (hungry ? 0.5 : 0) + (rough ? 0.3 : 0);
     w.wantOut = clamp(push * total * 0.25, 0, p.free + p.farm * 0.3);
     w.wantIn = Math.max(0, w.cap * 0.85 - total);
   }
 
   // ===================== еда и переселение =====================
+  // Поставщик — мир с наибольшим излишком сверх двухмесячного запаса. Партия
+  // ЧАСТИЧНАЯ: везём сколько есть, а не ждём, пока накопится на всю. Раньше
+  // требовали излишек на 36 месяцев, дом столько не держал, заказ срывался
+  // почти каждый месяц — и бесплодные колонии вымирали при полной казне.
   function surplusWorld(need, from) {
     var best = null, bs = 0;
     worlds.forEach(function (w) {
       if (w === from) return;
-      var extra = w.food.stock - popOf(w) * 3;
+      var extra = w.food.stock - popOf(w) * 2;
       if (extra > bs) { bs = extra; best = w; }
     });
-    return bs >= need ? best : null;
+    return bs >= Math.min(need, 4) ? { w:best, extra:bs } : null;
   }
 
   // Правительство покупает корабль у компаний: те же детали, тот же рынок.
@@ -1212,23 +1244,27 @@ var THRESHOLD = (function () {
   // Правительство покупает только то, что лежит В ЕГО СИСТЕМЕ: возить детали
   // ради хлебовоза оно не умеет, и это правильно — окраина без своего цеха
   // сидит без транспорта, пока кто-нибудь не откроет там филиал.
-  function govBuyShip(w, need) {
+  // payer платит, at — чья система даёт детали и топливо. Хлебовоз для голодной
+  // колонии строится у ПОСТАВЩИКА еды: у колонии цехов нет, а без этого правила
+  // она умирала с полным складом провизии, не дождавшись первого рейса.
+  function govBuyShip(payer, at, need) {
+    var w = payer;
     var taken = [], cost = 0, ok = true;
     Object.keys(need).forEach(function (k) {
       for (var i = 0; i < need[k]; i++) {
         if (!ok) return;
         var seller = null;
         corps.forEach(function (c) {
-          if (stockAt(c, w.sys, k) > 0 && (!seller || stockAt(c, w.sys, k) > stockAt(seller, w.sys, k))) seller = c;
+          if (stockAt(c, at.sys, k) > 0 && (!seller || stockAt(c, at.sys, k) > stockAt(seller, at.sys, k))) seller = c;
         });
         if (!seller) { ok = false; return; }
-        addStock(seller, w.sys, k, -1);
+        addStock(seller, at.sys, k, -1);
         taken.push({ k:k, from:seller.id, price:askPrice(seller, k) });
         cost += taken[taken.length - 1].price * (1 + tradeFee);
       }
     });
     if (!ok || w.gov.cash < cost) {
-      taken.forEach(function (t) { addStock(corps[t.from], w.sys, t.k, 1); });
+      taken.forEach(function (t) { addStock(corps[t.from], at.sys, t.k, 1); });
       return null;
     }
     w.gov.cash -= cost;
@@ -1243,7 +1279,7 @@ var THRESHOLD = (function () {
     var v = { kind:kind, from:from, to:to, qty:qty, parts:parts,
               color: parts.length ? corps[parts[0].from].color : "#8894ae",
               // корабль летит на двигателях того, кто его построил
-              t:0, dur: (from.sys === to.sys ? 36 + Math.random() * 12 : 100 + Math.random() * 40) / speedOf(parts.length ? parts[0].from : -1),
+              t:0, dur: (from.sys === to.sys ? 54 + Math.random() * 18 : 150 + Math.random() * 60) / speedOf(parts.length ? parts[0].from : -1),
               born:dateStr(), captain:pickCaptain() };
     voyages.push(v);
     return v;
@@ -1256,18 +1292,23 @@ var THRESHOLD = (function () {
       var incoming = voyages.reduce(function (a, v) { return a + (v.kind === "food" && v.to === w ? v.qty : 0); }, 0);
       // порог и партия под долгие рейсы: хлебовоз идёт годами, и заказывать
       // надо задолго до того, как склад опустеет
-      if (w.food.stock + incoming > total * 8) return;
-      var qty = Math.ceil(deficit * 24);
-      var src = surplusWorld(qty, w);
-      if (!src || !canTravel(src.sys, w.sys)) return;   // дороги нет — мир голодает
+      if (w.food.stock + incoming > total * 12) return;
+      var want = Math.ceil(deficit * 36);
+      var pickSrc = surplusWorld(want, w);
+      if (!pickSrc) return;
+      var src = pickSrc.w, qty = Math.max(1, Math.min(want, Math.floor(pickSrc.extra)));
+      if (!canTravel(src.sys, w.sys)) return;          // дороги нет — мир голодает
       var price = qty * 1.2;
-      if (w.gov.cash < price + 40) return;
+      if (w.gov.cash < price + 10) return;
       var fk = src.sys === w.sys ? "fuel" : "sfuel";
-      if (!govFuelAvail(w, fk)) return;                 // без горючего хлебовоз не полетит
-      var parts = govBuyShip(w, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
+      if (!govFuelAvail(w, src, fk)) return;                 // без горючего хлебовоз не полетит
+      var parts = govBuyShip(w, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
       if (!parts) return;
-      govFuel(w, fk);
+      govFuel(w, src, fk);
       w.gov.cash -= price; src.gov.cash += price; src.food.stock -= qty;
+      // вывоз дорожит еду у поставщика: фермеру платят больше, в поле идут
+      // люди, излишек растёт — так экспорт сам себя кормит
+      src.food.price = Math.min(6, src.food.price * 1.04);
       dispatch(src, w, "food", qty, parts);
       shipped += qty;
       say("Правительство " + w.body.name + " закупило " + qty + " еды на " + src.body.name + ".");
@@ -1286,10 +1327,10 @@ var THRESHOLD = (function () {
       });
       if (!src) return;
       var fk2 = src.sys === w.sys ? "fuel" : "sfuel";
-      if (!govFuelAvail(w, fk2)) return;
-      var parts = govBuyShip(w, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
+      if (!govFuelAvail(w, src, fk2)) return;
+      var parts = govBuyShip(w, src, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
       if (!parts) return;
-      govFuel(w, fk2);
+      govFuel(w, src, fk2);
       var qty = Math.min(src.wantOut, w.wantIn, 1.6);
       var takeFree = Math.min(src.pop.free, qty);
       src.pop.free -= takeFree;
@@ -1484,23 +1525,23 @@ var THRESHOLD = (function () {
   }
   // есть ли в системе мира продавец топлива, и хватит ли казне — проверяется
   // ДО покупки корабля, чтобы не остаться с оплаченным корпусом без горючего
-  function govFuelAvail(w, k) {
+  function govFuelAvail(payer, at, k) {
     var price = market[k].price * (1 + tradeFee);
-    return w.gov.cash >= price + 10 && corps.some(function (s) { return stockAt(s, w.sys, k) > 0; });
+    return payer.gov.cash >= price + 10 && corps.some(function (s) { return stockAt(s, at.sys, k) > 0; });
   }
   // правительство мира жжёт своё топливо так же, только платит из своей казны
-  function govFuel(w, k) {
+  function govFuel(payer, at, k) {
     var seller = null;
     corps.forEach(function (s) {
-      if (stockAt(s, w.sys, k) <= 0) return;
-      if (!seller || stockAt(s, w.sys, k) > stockAt(seller, w.sys, k)) seller = s;
+      if (stockAt(s, at.sys, k) <= 0) return;
+      if (!seller || stockAt(s, at.sys, k) > stockAt(seller, at.sys, k)) seller = s;
     });
     if (!seller) return false;
     var price = market[k].price * (1 + tradeFee);
-    if (w.gov.cash < price + 10) return false;
-    w.gov.cash -= price; seller.cash += market[k].price; seller.sold++;
+    if (payer.gov.cash < price + 10) return false;
+    payer.gov.cash -= price; seller.cash += market[k].price; seller.sold++;
     treasury += price - market[k].price;
-    addStock(seller, w.sys, k, -1);
+    addStock(seller, at.sys, k, -1);
     trades++; turnover += price; burned++;
     return true;
   }
@@ -1679,7 +1720,7 @@ var THRESHOLD = (function () {
     }
     voyages.push({ kind:"parts", sysFrom:sysFrom, to:dest, k:k, qty:1, corp:seller.id,
                    color:corps[seller.id].color, forCorp:buyer.id, take:take,
-                   t:0, dur:(96 + Math.random() * 34) / speedOf(seller.id), born:dateStr(), captain:pickCaptain() });
+                   t:0, dur:(140 + Math.random() * 50) / speedOf(seller.id), born:dateStr(), captain:pickCaptain() });
     hauled++;
     return true;
   }
@@ -1996,18 +2037,18 @@ var THRESHOLD = (function () {
           if (!jumped && first) { jumped = true; say("Первый межзвёздный переход совершён."); }
         } else if (yd.vt.key === "jump" || yd.vt.key === "opener") {
           voyages.push({ kind:yd.vt.key, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color,
-                         parts:yd.parts, t:0, dur:(150 + Math.random()*60) / speedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
+                         parts:yd.parts, t:0, dur:(220 + Math.random()*80) / speedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
           say("<b>" + lead.name + "</b> вывела " + (yd.vt.key === "opener" ? "порталооткрыватель" : "прыжковый корабль") +
               " с верфи " + s.name + ".");
         } else if (yd.vt.key === "colony") {
           s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
-                         dur:(84 + Math.random()*36) / speedOf(yd.lead), body:yd.body, backers:yd.backers, parts:yd.parts,
+                         dur:(120 + Math.random()*60) / speedOf(yd.lead), body:yd.body, backers:yd.backers, parts:yd.parts,
                          trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain() });
           say("<b>" + lead.name + "</b> спустила колониальный модуль: курс на " + yd.body.name + ".");
         } else {
           yd.vent.building = false;
           s.ships.push({ kind:"mine", corp:yd.lead, color:yd.color, glyph:yd.glyph, size:8, t:0,
-                         dur:(84 + Math.random()*36) / speedOf(yd.lead), dest:yd.dest, vent:yd.vent, parts:yd.parts,
+                         dur:(120 + Math.random()*60) / speedOf(yd.lead), dest:yd.dest, vent:yd.vent, parts:yd.parts,
                          trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain() });
           say("<b>" + lead.name + "</b> спустила платформу: курс на " + yd.dest.label + ".");
         }
@@ -2040,6 +2081,7 @@ var THRESHOLD = (function () {
       sh.body.claimed = false;
       var w = makeWorld(sh.body, 1.2, sh.corp);
       w.parts = sh.parts;
+      say("На " + sh.body.name + " первые десять лет будут тяжёлыми: еда привозная, цехов нет, казна пуста.");
       sh.backers.forEach(function (b) { w.rights.push(b.corp); openBranch(corps[b.corp], w, true); });
       say("<b>" + corps[sh.corp].name + "</b> основала колонию на " + sh.body.name + " (" + sh.body.type.name +
           ", предел " + w.cap + "). Филиалы: " + w.branches.map(function (br) { return corps[br.corp].name; }).join(", ") + ".");
@@ -2093,7 +2135,7 @@ var THRESHOLD = (function () {
       c.branches.forEach(function (b) {
         earn += b.emp.prod * 6.5;
         wages += b.emp.prod * b.world.wage.prod + b.emp.sci * b.world.wage.sci;
-        b.world.gov.cash += b.emp.prod * 0.8;            // местный налог правительству мира
+        b.world.gov.cash += b.emp.prod * (b.world.rough > 0 ? 0.3 : 0.8);   // местный налог; в разруху собирать почти нечего
       });
       treasury += earn * tax;
       c.cash += earn * (1 - tax) - wages;
@@ -2101,7 +2143,7 @@ var THRESHOLD = (function () {
     });
     worlds.forEach(function (w) {
       treasury -= w.pop.free * dole;
-      w.gov.cash += 1.2;                                  // подушная подать
+      w.gov.cash += w.rough > 0 ? 0.35 : 1.2;             // подушная подать
     });
     if (treasury < 0) treasury = 0;
   }
@@ -2385,7 +2427,9 @@ var THRESHOLD = (function () {
       if (v.sysFrom !== undefined || v.from.sys !== s.id || v.to.sys !== s.id) return;
       var a = posOf(v.from.body, mx, my), b = posOf(v.to.body, mx, my), k = clamp(vis(v), 0, 1);
       var x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
-      ship("cargo", x, y, 6, 0, v.color);
+      var rotc = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;   // носом к цели, как все
+      flame(x, y, 6, rotc);
+      ship("cargo", x, y, 6, rotc, v.color);
       if (pick && pick.data === v) caption(x, y, windowLines(v, true), v.color);
       else tiny(x, y, v.captain, v.color);
       hits.push({ x:x, y:y, r:12, kind:"cargo", data:v });
@@ -2552,6 +2596,7 @@ var THRESHOLD = (function () {
       '<div class="sub" style="margin:7px 0 3px">Еда: своя ' + (p.farm * w.type.farm).toFixed(1) +
       ', надо ' + total.toFixed(1) + ', склад ' + w.food.stock.toFixed(1) +
       (w.food.short > 2 ? ' · <span style="color:var(--bad)">голод</span>' : '') + '</div>' +
+      (w.rough > 0 ? '<div class="sub" style="margin:0 0 3px;color:var(--bad)">Разруха: ещё ' + Math.ceil(w.rough / 12) + ' лет</div>' : '') +
       '<div class="sub" style="margin:0 0 3px">Казна мира ' + Math.round(w.gov.cash) +
       ' · уехать хотят ' + w.wantOut.toFixed(1) + ' · ' + w.flow + '</div>' +
       '<div class="sub" style="margin:0">Филиалы (' + w.branches.length + ' из ' + w.slots + '): ' +
