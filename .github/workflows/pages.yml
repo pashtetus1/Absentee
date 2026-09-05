@@ -2,20 +2,23 @@
 # отдаёт файлы прямо из репозитория. Сайт получается по адресу
 #   https://pashtetus1.github.io/Absentee/
 #
-# Публикуются ОБЕ ветки сразу, каждая в своём подкаталоге, потому что Pages
-# держит один сайт на репозиторий:
-#   /              — страничка со ссылками на обе версии
-#   /prototypes/   — свежий прототип из ветки prototypes
-#   /main/         — то, что лежит в main
+# Pages держит ОДИН сайт на репозиторий, поэтому каждая ветка кладётся в свой
+# подкаталог и адрес содержит её имя:
+#   /                     — список всех веток
+#   /prototypes/          — ветка prototypes
+#   /main/                — ветка main
+#   /что-угодно-ещё/      — любая ветка, которую запушили
+# Ветки не перечислены заранее: сайт собирается из того, что реально есть в
+# репозитории на момент запуска. Удалил ветку — она пропала и с сайта.
 #
-# Перед выкладкой прогоняются тесты. Если они падают, не публикуется ничего:
-# смысл пайплайна в том, чтобы наружу не уезжала сломанная версия.
+# Перед выкладкой прогоняются тесты ТОЙ ветки, в которую пушнули: остальные
+# проверялись, когда пушили их. Если тесты падают, не публикуется ничего.
 
 name: Pages
 
 on:
   push:
-    branches: [main, prototypes]
+    branches: ['**']
   workflow_dispatch:        # кнопка "запустить вручную" во вкладке Actions
 
 permissions:
@@ -32,60 +35,49 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Забрать main
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          ref: main
-          path: src-main
-
-      - name: Забрать prototypes
-        uses: actions/checkout@v4
-        with:
-          ref: prototypes
-          path: src-prototypes
+          fetch-depth: 0     # нужны все ветки, а не только та, куда пушнули
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Прогнать тесты
+      - name: Прогнать тесты ветки ${{ github.ref_name }}
         run: |
-          ran=0
-          for dir in src-prototypes src-main; do
-            if [ -f "$dir/test/run.js" ]; then
-              echo "== тесты в $dir =="
-              (cd "$dir" && node test/run.js)
-              ran=1
-            fi
-          done
-          [ "$ran" = 1 ] || echo "тестов нет ни в одной ветке — публикую как есть"
+          if [ -f test/run.js ]; then
+            node test/run.js
+          else
+            echo "в этой ветке тестов нет — публикую как есть"
+          fi
 
-      - name: Собрать сайт
+      - name: Собрать сайт из всех веток
         run: |
-          mkdir -p site/main site/prototypes
-          for br in main prototypes; do
-            if [ -f "src-$br/index.html" ]; then
-              cp "src-$br/index.html" "site/$br/index.html"
-            else
-              printf '%s\n' \
-                '<!doctype html><meta charset="utf-8"><title>Пусто</title>' \
-                "<body style=\"background:#0f1526;color:#8894ae;font:15px system-ui;padding:40px\">" \
-                "<p>В ветке <b>$br</b> нет index.html.</p>" \
-                '<p><a style="color:#f2b33d" href="../">← назад</a></p>' > "site/$br/index.html"
+          mkdir -p site
+          list=""
+          for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -v '^origin/HEAD$'); do
+            br="${ref#origin/}"
+            if ! git cat-file -e "$ref:index.html" 2>/dev/null; then
+              echo "пропускаю $br: нет index.html"
+              continue
             fi
+            mkdir -p "site/$br"
+            git show "$ref:index.html" > "site/$br/index.html"
+            sha=$(git rev-parse --short "$ref")
+            when=$(git log -1 --format=%cd --date=format:'%Y-%m-%d' "$ref")
+            mark=""
+            [ "$br" = "${{ github.ref_name }}" ] && mark=' · только что обновлена'
+            list="$list<p style=\"margin:14px 0\"><a style=\"color:#f2b33d;font-size:17px\" href=\"$br/\">$br</a><br><span style=\"color:#5d6881;font-size:13px\">$sha · $when$mark</span></p>"
+            echo "положил $br ($sha)"
           done
-          # корневая страничка со ссылками: Pages отдаёт один сайт,
-          # поэтому вход должен объяснять, что где лежит
+          # корневая страничка: вход должен объяснять, что где лежит
           {
             echo '<!doctype html><meta charset="utf-8"><title>Порог</title>'
             echo '<body style="background:#0f1526;color:#e4e9f4;font:15px/1.6 system-ui;padding:48px;max-width:60ch;margin:0 auto">'
-            echo '<h1 style="font-size:22px">Порог</h1>'
-            echo '<p style="color:#8894ae">Прототип игры про космическую империю, которой нельзя управлять напрямую.</p>'
-            echo '<p style="margin-top:24px"><a style="color:#f2b33d;font-size:18px" href="prototypes/">Свежая версия (ветка prototypes)</a><br>'
-            echo "<span style=\"color:#5d6881;font-size:13px\">коммит $(cd src-prototypes && git rev-parse --short HEAD)</span></p>"
-            echo '<p style="margin-top:16px"><a style="color:#f2b33d" href="main/">Версия из main</a><br>'
-            echo "<span style=\"color:#5d6881;font-size:13px\">коммит $(cd src-main && git rev-parse --short HEAD)</span></p>"
-            echo "<p style=\"color:#5d6881;font-size:13px;margin-top:32px\">Собрано $(date -u '+%Y-%m-%d %H:%M UTC')</p>"
+            echo '<h1 style="font-size:22px;margin-bottom:6px">Порог</h1>'
+            echo '<p style="color:#8894ae">Прототип игры про космическую империю, которой нельзя управлять напрямую. Каждая ветка репозитория выложена по своему адресу.</p>'
+            echo "<div style=\"margin-top:26px\">$list</div>"
+            echo "<p style=\"color:#5d6881;font-size:13px;margin-top:34px\">Собрано $(date -u '+%Y-%m-%d %H:%M UTC')</p>"
           } > site/index.html
 
       - uses: actions/upload-pages-artifact@v3
