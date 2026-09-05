@@ -448,6 +448,26 @@ test("торг не одинаков у всех: запросы расходя�
   assert(Math.max(...asks) - Math.min(...asks) > 0.03, "все просят одно и то же: торга нет");
 });
 
+// ── ходовые двигатели ───────────────────────────────────────────────────────
+// Пять марок, каждая быстрее; патентуются как всё остальное. База нарочно
+// медленная — ускорение должно ощущаться наградой.
+test("ходовые двигатели исследуются и ускоряют рейсы", () => {
+  const sim = load("index.html", { seed: 17 });
+  const st = runYears(sim, 200);
+  const known = sim.consts.ENGINES.filter((e) => st.corps.some((c) => c.known[e.key])).length;
+  assert(known >= 2, "за двести лет освоено всего " + known + " марок двигателей");
+  const fastest = Math.max(...st.corps.map((c) => sim.speedOf(c.id)));
+  assert(fastest > 1, "никто не летает быстрее базы");
+});
+
+test("длительность рейса всегда конечна и положительна", () => {
+  const sim = load("index.html", { seed: 19 });
+  runYears(sim, 150, (st) => {
+    st.voyages.forEach((v) => assert(v.dur > 0 && Number.isFinite(v.dur), "рейс с длительностью " + v.dur));
+    st.systems.forEach((s) => s.ships.forEach((sh) => assert(sh.dur > 0 && Number.isFinite(sh.dur), "корабль с длительностью " + sh.dur)));
+  });
+});
+
 // ── воспроизводимость ───────────────────────────────────────────────────────
 // Ради этого стенд и городился: увидел странную партию — вбил сейм и смотришь
 // ту же самую партию глазами.

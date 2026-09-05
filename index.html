@@ -145,6 +145,15 @@ Mk4 — до пятого. Дальние звёзды видно, но лини
 первая версия брала одного, и один упрямый держатель корпусов на годы
 останавливал подписки при девятнадцати корпусах на складах у остальных.
 
+ХОДОВЫЕ ДВИГАТЕЛИ Mk1..Mk5 — отдельная лестница технологий, каждая марка
+быстрее (x1.3, x1.6, x2.0, x2.5, x3.1). Патентуется как всё остальное:
+держатель Mk3 какое-то время летает вдвое быстрее соседей. Корабль летит на
+двигателях того, кто его построил — хлебовоз правительства наследует скорость
+от продавца корпуса. Базовые рейсы нарочно медленные (внутри системы 40-52
+месяца, между звёздами 105-150), чтобы ускорение ощущалось наградой, а не
+возвратом к норме. Наука ценит двигатели ровно настолько, насколько много
+всего летает. У каждого летящего корабля дрожащий огонёк за кормой.
+
 ЕДА ВОЗИТСЯ, И У ПРАВИТЕЛЬСТВА МИРА СВОЙ КОШЕЛЁК И СВОЙ УМ. Оно собирает налог
 с филиалов, считает баланс, закупает еду у сытого мира, оплачивает перевозку и
 покупает корабли — у компаний, из их же деталей. Так у рынка деталей появляется
@@ -253,8 +262,16 @@ PTYPES[].cap   — предел населения, .farm — урожай с ф
                  0.7..2.2; после сделки +0.012, после срыва -0.02; потолок
                  покупателя 0.9 + срочность * 0.5 (+0.15 при кассе выше 1200);
                  ходовая цена подтягивается к сделке на 4 процента.
-Грузовик      — 44-66 месяцев между звёздами, единица межзвёздного топлива с
-                 отправителя.
+Грузовик      — 66-96 месяцев между звёздами на базовых двигателях, единица
+                 межзвёздного топлива с отправителя.
+ENGINES       — ходовые двигатели: diff 700, 1500, 2600, 4000, 5600; скорость
+                 x1.3, x1.6, x2.0, x2.5, x3.1. Прогон на четырёх сеймах: Mk1 на
+                 63-76 году, Mk2 на 124-190, Mk3 на 177.
+Марки порталов сравниваются со СВОЕЙ дальностью компании, а не с лучшей в
+                 галактике: чужой патент летать не даёт. До этого все шли
+                 исследовать Mk4 за 5800, пока ни один корабль не мог выйти из
+                 дома, и галактика стояла двести лет. Наружу выходит всякий, у
+                 кого есть филиал хоть в одной колонии, а не только основатель.
 Отказы        — базовая склонность 0.14, плюс 0.30 за свой патент, 0.26 за
                  общую цель, 0.20 если покупатель впереди, 0.15 если делить
                  нечего; умножается на nerve и на дешевизну; помнится 24-60
@@ -589,6 +606,11 @@ threshold-market — эта ветка: население, рынок дета�
     </div>
 
     <div class="block">
+      <div class="lab">Ходовые двигатели</div>
+      <div id="engines"></div>
+    </div>
+
+    <div class="block">
       <div class="lab">Технологии колонизации</div>
       <div id="coltech"></div>
     </div>
@@ -795,8 +817,27 @@ var THRESHOLD = (function () {
   function makersOf(k){ return corps.filter(function (c) { return canBuild(c, k); }); }
   function anyKnows(k){ return corps.some(function (c) { return c.known[k]; }); }
   function anyMakes(k){ return makersOf(k).length > 0; }
-  function allTech(){ return COMPS.concat(COLTECH).concat(MARKS); }
-  function techOf(k){ return compOf(k) || colOf(k) || markOf(k); }
+  // Ходовые двигатели: пять марок, каждая быстрее. Патентуются как всё
+  // остальное — держатель Mk3 какое-то время летает вдвое быстрее соседей.
+  // Базовые рейсы нарочно медленные: ускорение должно ощущаться как награда,
+  // а не как возврат к норме.
+  var ENGINES = [
+    { key:"eng1", name:"Ходовые двигатели Mk1", short:"ход Mk1", diff:700,  mult:1.3 },
+    { key:"eng2", name:"Ходовые двигатели Mk2", short:"ход Mk2", diff:1500, mult:1.6 },
+    { key:"eng3", name:"Ходовые двигатели Mk3", short:"ход Mk3", diff:2600, mult:2.0 },
+    { key:"eng4", name:"Ходовые двигатели Mk4", short:"ход Mk4", diff:4000, mult:2.5 },
+    { key:"eng5", name:"Ходовые двигатели Mk5", short:"ход Mk5", diff:5600, mult:3.1 }
+  ];
+  function engOf(k){ for (var i=0;i<ENGINES.length;i++) if (ENGINES[i].key===k) return ENGINES[i]; }
+  // во сколько раз корабли этой компании быстрее базы (по лучшей доступной марке)
+  function speedOf(corpId) {
+    var c = corps[corpId], best = 1;
+    if (!c) return 1;
+    ENGINES.forEach(function (e) { if (canBuild(c, e.key)) best = Math.max(best, e.mult); });
+    return best;
+  }
+  function allTech(){ return COMPS.concat(COLTECH).concat(MARKS).concat(ENGINES); }
+  function techOf(k){ return compOf(k) || colOf(k) || markOf(k) || engOf(k); }
 
   // ===================== рычаги в localStorage =====================
   var LSKEY = "threshold.worlds.levers";
@@ -1174,7 +1215,8 @@ var THRESHOLD = (function () {
   function dispatch(from, to, kind, qty, parts) {
     var v = { kind:kind, from:from, to:to, qty:qty, parts:parts,
               color: parts.length ? corps[parts[0].from].color : "#8894ae",
-              t:0, dur: from.sys === to.sys ? 14 + Math.random() * 6 : 40 + Math.random() * 20,
+              // корабль летит на двигателях того, кто его построил
+              t:0, dur: (from.sys === to.sys ? 22 + Math.random() * 8 : 60 + Math.random() * 30) / speedOf(parts.length ? parts[0].from : -1),
               born:dateStr() };
     voyages.push(v);
     return v;
@@ -1241,14 +1283,24 @@ var THRESHOLD = (function () {
       var worth;
       if (markOf(f.key)) {
         // следующая марка стоит ровно столько, сколько звёзд она открывает
-        var m = markOf(f.key), have = galaxyRange();
-        if (m.range <= have) return;                       // эту дальность уже перекрыли
+        // Сравнивать надо со СВОЕЙ дальностью, не с лучшей в галактике: чужой
+        // патент на Mk1 не даёт тебе летать, а сравнение с ним гнало всех
+        // исследовать Mk4 за 5800, пока ни один корабль не мог выйти из дома.
+        var m = markOf(f.key), have = rangeOf(c);
+        if (m.range <= have) return;                       // эту дальность уже имеем сами
         var gain = 0;
         systems.forEach(function (s) {
           if (!s.unlocked) return;
           gain += within(s.id, m.range).filter(function (n) { return !systems[n].unlocked; }).length;
         });
         worth = 1.2 + Math.min(12, gain) * 0.45;
+      }
+      else if (engOf(f.key)) {
+        // ходовые двигатели ценны ровно настолько, насколько много всего летает
+        var e = engOf(f.key);
+        if (e.mult <= speedOf(c.id)) return;               // эту скорость уже имеем
+        var traffic = voyages.length + systems.reduce(function (a, s) { return a + s.ships.length; }, 0);
+        worth = 1.1 + Math.min(10, traffic) * 0.22;
       }
       else if (f.key === "fuel") worth = 2.8;                              // без него не взлетает ничего
       else if (f.key === "sfuel") {
@@ -1266,7 +1318,7 @@ var THRESHOLD = (function () {
         });
         worth = free ? 1.6 + free * 0.5 : 0.2;
       }
-      if (patLive(f.key)) worth *= 0.45;
+      if (patLive(f.key)) worth *= markOf(f.key) ? 0.75 : 0.45;   // чужая марка летать не даёт, своя нужна всё равно
       else if (anyKnows(f.key)) worth *= 0.7;
       var ev = worth * Math.pow(c.apt[f.key] || 0.5, 1.6) / (f.diff / 2200);
       ev *= 1 + c.spent[f.key] / f.diff * 0.9;
@@ -1598,7 +1650,7 @@ var THRESHOLD = (function () {
     }
     voyages.push({ kind:"parts", sysFrom:sysFrom, to:dest, k:k, qty:1, corp:seller.id,
                    color:corps[seller.id].color, forCorp:buyer.id, take:take,
-                   t:0, dur:44 + Math.random() * 22, born:dateStr() });
+                   t:0, dur:(66 + Math.random() * 30) / speedOf(seller.id), born:dateStr() });
     hauled++;
     return true;
   }
@@ -1710,7 +1762,10 @@ var THRESHOLD = (function () {
     Object.keys(vt.need).forEach(function (k) { sum += market[k].price * vt.need[k]; });
     return sum;
   }
-  function hasColonyAnywhere(c){ return worlds.some(function (w) { return w.founder === c.id; }); }
+  // Наружу выходят те, у кого есть филиал хоть в одной колонии — не только
+  // основатель. Иначе из пяти компаний расширяться могли две-три, и если
+  // держатель марки в их число не попадал, галактика стояла двести лет.
+  function hasColonyAnywhere(c){ return c.branches.length > 1; }
 
   function reviewOrders() {
     corps.forEach(function (c) {
@@ -1912,18 +1967,18 @@ var THRESHOLD = (function () {
           if (!jumped && first) { jumped = true; say("Первый межзвёздный переход совершён."); }
         } else if (yd.vt.key === "jump" || yd.vt.key === "opener") {
           voyages.push({ kind:yd.vt.key, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color,
-                         parts:yd.parts, t:0, dur:70 + Math.random()*30, born:dateStr() });
+                         parts:yd.parts, t:0, dur:(105 + Math.random()*45) / speedOf(yd.lead), born:dateStr() });
           say("<b>" + lead.name + "</b> вывела " + (yd.vt.key === "opener" ? "порталооткрыватель" : "прыжковый корабль") +
               " с верфи " + s.name + ".");
         } else if (yd.vt.key === "colony") {
           s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
-                         dur:26 + Math.random()*8, body:yd.body, backers:yd.backers, parts:yd.parts,
+                         dur:(40 + Math.random()*12) / speedOf(yd.lead), body:yd.body, backers:yd.backers, parts:yd.parts,
                          trail:[], x:0, y:0, ang:0, born:dateStr() });
           say("<b>" + lead.name + "</b> спустила колониальный модуль: курс на " + yd.body.name + ".");
         } else {
           yd.vent.building = false;
           s.ships.push({ kind:"mine", corp:yd.lead, color:yd.color, glyph:yd.glyph, size:8, t:0,
-                         dur:26 + Math.random()*8, dest:yd.dest, vent:yd.vent, parts:yd.parts,
+                         dur:(40 + Math.random()*12) / speedOf(yd.lead), dest:yd.dest, vent:yd.vent, parts:yd.parts,
                          trail:[], x:0, y:0, ang:0, born:dateStr() });
           say("<b>" + lead.name + "</b> спустила платформу: курс на " + yd.dest.label + ".");
         }
@@ -2047,6 +2102,21 @@ var THRESHOLD = (function () {
     cx.beginPath();
     for (var i = 0; i < pts.length; i += 2) i ? cx.lineTo(pts[i], pts[i+1]) : cx.moveTo(pts[i], pts[i+1]);
     cx.closePath(); cx.fill();
+  }
+  // Огонёк за кормой. Дрожит по glow, чтобы корабль читался живым, а не
+  // штампом; рисуется ДО корпуса, чтобы корпус его перекрывал.
+  function flame(x, y, s, rot) {
+    cx.save();
+    cx.translate(x, y); cx.rotate(rot || 0); cx.scale(s / 8, s / 8);
+    var flick = 1 + Math.sin(glow * 23 + x * 0.7 + y * 0.3) * 0.28;
+    var len = 9 * flick;
+    cx.globalAlpha = 0.55;
+    cx.fillStyle = "#ff8b3d";
+    cx.beginPath(); cx.moveTo(-2.6, 5.2); cx.lineTo(0, 5.2 + len); cx.lineTo(2.6, 5.2); cx.closePath(); cx.fill();
+    cx.globalAlpha = 0.85;
+    cx.fillStyle = "#ffe08a";
+    cx.beginPath(); cx.moveTo(-1.2, 5.2); cx.lineTo(0, 5.2 + len * 0.55); cx.lineTo(1.2, 5.2); cx.closePath(); cx.fill();
+    cx.restore();
   }
   function ship(kind, x, y, s, rot, col) {
     cx.save();
@@ -2195,6 +2265,7 @@ var THRESHOLD = (function () {
       cx.beginPath();
       sh.trail.forEach(function (p, j) { j ? cx.lineTo(p.x, p.y) : cx.moveTo(p.x, p.y); });
       cx.strokeStyle = sh.color; cx.globalAlpha = 0.22; cx.lineWidth = 1.3; cx.stroke(); cx.globalAlpha = 1;
+      flame(sh.x, sh.y, sh.size, sh.ang);
       ship(sh.glyph, sh.x, sh.y, sh.size, sh.ang, sh.color);
       hits.push({ x:sh.x, y:sh.y, r:13, kind:"ship", data:sh });
     });
@@ -2262,7 +2333,9 @@ var THRESHOLD = (function () {
       cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(x, y);
       cx.strokeStyle = v.color; cx.globalAlpha = 0.3; cx.lineWidth = 1.2; cx.stroke(); cx.globalAlpha = 1;
       var isJump = v.kind === "jump" || v.kind === "opener";
-      ship(isJump ? "jump" : "cargo", x, y, 6.5, Math.atan2(b.y - a.y, b.x - a.x) + 1.5708, v.color);
+      var rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
+      flame(x, y, 6.5, rot);
+      ship(isJump ? "jump" : "cargo", x, y, 6.5, rot, v.color);
       hits.push({ x:x, y:y, r:12, kind:isJump ? "jumpship" : "cargo", data:v });
     });
     systems.forEach(function (s) {
@@ -2484,6 +2557,18 @@ var THRESHOLD = (function () {
                (m.range <= range ? "" : " · недоступна") + '</span>' + dots + '</div>' +
                '<div class="rmeta">' + meta + '</div></div>';
       }).join("");
+
+    el("engines").innerHTML = ENGINES.map(function (e) {
+      var p = patents[e.key], holders = makersOf(e.key);
+      var dots = holders.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+      var meta = holders.length
+        ? (patLive(e.key) ? "патент " + corps[p.owner].name + " до " + (p.since + patTerm) + " · " : "") +
+          "рейсы в " + e.mult.toFixed(1) + " раза быстрее"
+        : "лучший на " + Math.round(Math.max.apply(null, corps.map(function (c) { return c.spent[e.key]; }))) +
+          " из " + e.diff + " · даст ×" + e.mult.toFixed(1);
+      return '<div class="row"><div class="rhead"><span class="rname">' + e.short + '</span>' + dots + '</div>' +
+             '<div class="rmeta">' + meta + '</div></div>';
+    }).join("");
 
     el("coltech").innerHTML = COLTECH.map(function (f) {
       var p = patents[f.key], makers = makersOf(f.key);
@@ -2803,7 +2888,9 @@ var THRESHOLD = (function () {
     // та же отрисовка моделек наружу: ею красится легенда, ею же можно
     // разглядывать силуэты крупно, не дублируя код
     icon: function (ctx, kind, x, y, s, col) { var keep = cx; cx = ctx; ship(kind, x, y, s, 0, col); cx = keep; },
-    consts: { COMPS:COMPS, COLTECH:COLTECH, PTYPES:PTYPES, VTYPES:VTYPES, MOVES:MOVES, get MARKS(){ return MARKS; } },
+    consts: { COMPS:COMPS, COLTECH:COLTECH, PTYPES:PTYPES, VTYPES:VTYPES, MOVES:MOVES, ENGINES:ENGINES,
+              get MARKS(){ return MARKS; } },
+    speedOf: speedOf,
     popOf: popOf,
     // для стенда: переключить вид, чтобы кадр отрисовал и карту, и систему
     setView: function (mode, sys) { view = { mode:mode, sys:sys || 0 }; }
