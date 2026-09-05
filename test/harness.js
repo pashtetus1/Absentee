@@ -29,6 +29,7 @@ function stubContext() {
     lineTo: noop, rect: noop, arc: noop, closePath: noop, fill: noop, stroke: noop, fillRect: noop,
     fillText: noop, setLineDash: noop, setTransform: noop,
     createRadialGradient: () => ({ addColorStop: noop }),
+    bezierCurveTo: noop, quadraticCurveTo: noop, arcTo: noop, scale: noop,
     fillStyle: "", strokeStyle: "", lineWidth: 1, globalAlpha: 1, font: "", textAlign: "", textBaseline: ""
   };
 }
@@ -55,6 +56,17 @@ function load(file, { withDom = false, seed = null } = {}) {
     const nodes = {};
     sandbox.document = {
       getElementById(id) { return nodes[id] || (nodes[id] = stubElement()); },
+      // значки в легенде рисуются теми же модельками, что и сцена, поэтому
+      // отдаём настоящие заглушки канвасов: пусть код отрисовки исполнится
+      querySelectorAll(sel) {
+        if (!/ikon/.test(sel)) return [];
+        return ["jump", "mine", "colony", "cargo"].map((kind) => {
+          const el = stubElement();
+          el.getContext = stubContext;
+          el.getAttribute = () => kind;
+          return el;
+        });
+      },
       addEventListener() {}
     };
     sandbox.document.getElementById("view").getContext = stubContext;

@@ -156,9 +156,23 @@ Dwarf Fortress и Rimworld держатся на этом.
 запоминать место; на неподвижной карте "платформа на Гвозде" через сто лет
 означает то же самое.
 
-Опознание разведено по двум осям: ФОРМА — тип корабля (треугольник прыжковый,
-ромб добывающий, круг колониальный, квадрат транспорт), ЦВЕТ — компания.
-Раньше форма означала и то и другое сразу и потому не означала ничего.
+Опознание разведено по двум осям: ФОРМА — тип корабля, ЦВЕТ — компания. Раньше
+форма означала и то и другое сразу и потому не означала ничего.
+Вместо абстрактных треугольников и ромбов у каждого типа своя моделька: дротик
+с отогнутыми крыльями — прыжковый, платформа с двумя бурами — добывающая,
+капсула с посадочной юбкой — колониальный модуль, коробка с контейнерами по
+бортам — транспорт. Между компаниями силуэт НЕ меняется, различает их только
+цвет. Модельки рисуются одной функцией ship(), ею же красятся значки в легенде
+под сценой — иначе легенда рано или поздно разойдётся со сценой.
+
+Способ межзвёздного перехода НЕ известен заранее. Пока никто не довёл первую
+марку, в панели написано "способ пока неизвестен", а марки называются
+обезличенно ("Межзвёздный переход Mk1"). Вкладываться приходится вслепую, и
+только в месяц первого открытия выясняется, ворота это, открыватели или движки.
+
+В системах больше нет кружка "выход". Он ничего не означал ни при движках, ни
+при открывателях и только сбивал; ворота рисуются лишь там, где они построены
+или строятся.
 
 Минимализм как стиль, но с условием: ФОРМА НЕСЁТ ИНФОРМАЦИЮ, а не украшает.
 Разница между Mini Metro и программерской графикой не в кружках, а в том, что
@@ -220,7 +234,9 @@ MARKRANGE     — дальности марок: 46, 66, 90, 130 (под кол�
 MARKDIFF      — их сложность: 1300, 2500, 4000, 5800.
 
 ПРОВЕРЕННЫЕ ПРОГОНОМ ТАЙМИНГИ (5 сеймов, средние):
-  марки       Mk1 на 24 году, Mk2 на 70, Mk3 на 125, Mk4 на 195;
+  марки       Mk1 на 30-48 году, Mk2 на 44-81, Mk3 на 106-140, Mk4 на 100-198;
+              марку иногда перепрыгивают: берут сразу старшую, если она
+              открывает заметно больше звёзд;
   первая новая система на 60-100 году, первая колония на 40-101;
   к 250 году  ворота 20 систем и 65 миров, движки 15.6 и 53.4,
               открыватели 13.0 и 44.4 — из пятидесяти звёзд;
@@ -397,6 +413,7 @@ threshold-market — эта ветка: население, рынок дета�
   .stage canvas { display:block; width:100%; height:auto; cursor:pointer; }
   .keys { display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--faint); padding:9px 4px 0; }
   .keys span { display:flex; align-items:center; gap:5px; }
+  .keys canvas.ikon { display:block; width:22px; height:20px; }
 
   .panel { border:1px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden; }
   .panel.below { margin-top:14px; }
@@ -490,10 +507,10 @@ threshold-market — эта ветка: население, рынок дета�
     </div>
     <div class="stage"><canvas id="view" width="840" height="680"></canvas></div>
     <div class="keys">
-      <span><svg width="14" height="12"><polygon points="7,1 12,11 2,11" fill="#8894ae"/></svg> прыжковый</span>
-      <span><svg width="14" height="12"><polygon points="7,1 12,6 7,11 2,6" fill="#8894ae"/></svg> добывающая платформа</span>
-      <span><svg width="14" height="12"><circle cx="7" cy="6" r="4.4" fill="#8894ae"/></svg> колониальный модуль</span>
-      <span><svg width="14" height="12"><rect x="2.5" y="2.5" width="9" height="8" fill="#8894ae"/></svg> транспорт: еда и люди</span>
+      <span><canvas class="ikon" data-kind="jump" width="22" height="20"></canvas> прыжковый</span>
+      <span><canvas class="ikon" data-kind="mine" width="22" height="20"></canvas> добывающая платформа</span>
+      <span><canvas class="ikon" data-kind="colony" width="22" height="20"></canvas> колониальный модуль</span>
+      <span><canvas class="ikon" data-kind="cargo" width="22" height="20"></canvas> транспорт: еда и люди</span>
       <span>карта: тащить мышью, Ctrl+колесо или кнопки — масштаб</span>
       <span>форма — что за корабль, цвет — чей он</span>
     </div>
@@ -630,13 +647,13 @@ var THRESHOLD = (function () {
   }
 
   var VTYPES = [
-    { key:"mine",   name:"разработка астероидов", need:{ drill:2, hold:1, hull:1 }, build:14, yield:3.1, term:1800, glyph:"dia" },
-    { key:"colony", name:"колония",               need:{ hull:2, life:1, goods:1 }, build:22, glyph:"cir" },
-    { key:"jump",   name:"межзвёздный прыжок",    need:{ drive:2, hull:1, life:1 }, build:30, glyph:"tri" },
-    { key:"opener", name:"порталооткрыватель",    need:{ drive:3, hull:1, life:1 }, build:34, glyph:"tri" },
-    { key:"gate",   name:"звёздные ворота",       need:{ hull:2, drive:1, life:1 }, build:38, glyph:"tri" },
-    { key:"cargo",  name:"грузовик",              need:{ hull:1, hold:1 },          build:8,  glyph:"sqr" },
-    { key:"liner",  name:"переселенческий",       need:{ hull:1, life:1 },          build:10, glyph:"sqr" }
+    { key:"mine",   name:"разработка астероидов", need:{ drill:2, hold:1, hull:1 }, build:14, yield:3.1, term:1800, glyph:"mine" },
+    { key:"colony", name:"колония",               need:{ hull:2, life:1, goods:1 }, build:22, glyph:"colony" },
+    { key:"jump",   name:"межзвёздный прыжок",    need:{ drive:2, hull:1, life:1 }, build:30, glyph:"jump" },
+    { key:"opener", name:"порталооткрыватель",    need:{ drive:3, hull:1, life:1 }, build:34, glyph:"jump" },
+    { key:"gate",   name:"звёздные ворота",       need:{ hull:2, drive:1, life:1 }, build:38, glyph:"jump" },
+    { key:"cargo",  name:"грузовик",              need:{ hull:1, hold:1 },          build:8,  glyph:"cargo" },
+    { key:"liner",  name:"переселенческий",       need:{ hull:1, life:1 },          build:10, glyph:"cargo" }
   ];
   function vtype(k){ for (var i=0;i<VTYPES.length;i++) if (VTYPES[i].key===k) return VTYPES[i]; }
 
@@ -675,6 +692,9 @@ var THRESHOLD = (function () {
     });
   }
   function markOf(k){ for (var i=0;i<MARKS.length;i++) if (MARKS[i].key===k) return MARKS[i]; }
+  // пока способ не выяснен, марки называются обезличенно
+  function markName(m){ return moveKnown ? m.name : "Межзвёздный переход " + m.short; }
+  function moveName(){ return moveKnown ? move.name : "способ пока неизвестен"; }
 
   var TEMPLATE = [
     { name:"Тайко Дриллинг",   color:"#6fd39b", craft:"буры",      nerve:0.9,
@@ -703,6 +723,10 @@ var THRESHOLD = (function () {
   var worlds = [], projects = [], home = null, move = null, routes = {};
   var tick = 0, treasury = 320, tax = 0.18, subKey = "drive", subYear = 90, tradeFee = 0.06, dole = 0.6, patTerm = 25;
   var jumped = false, trades = 0, turnover = 0, shipped = 0, movedPops = 0, refusals = 0, dropped = 0;
+  // Какой из трёх способов достался государству — заранее НЕИЗВЕСТНО. Это
+  // выясняется в тот месяц, когда кто-нибудь доводит первую марку до конца:
+  // до тех пор вкладываешься в межзвёздный переход вслепую.
+  var moveKnown = false;
   var timer = null, running = true, speed = 1, flash = {};
   var view = { mode:"system", sys:0 };
   var pick = null, hits = [];
@@ -902,10 +926,10 @@ var THRESHOLD = (function () {
     corps.forEach(function (c) { openBranch(c, home, true); });
 
     tick = 0; treasury = 320; jumped = false; trades = 0; turnover = 0; shipped = 0; movedPops = 0;
-    refusals = 0; dropped = 0;
+    refusals = 0; dropped = 0; moveKnown = false;
     view = { mode:"system", sys:0 };
     say("Тира: восемнадцать человечков, пять компаний и ни одной освоенной детали.");
-    say("Способ межзвёздного перехода в этом государстве один: <b>" + move.name + "</b>. " + move.hint);
+    say("Межзвёздный переход возможен, но какой именно — неизвестно: выяснится, когда кто-нибудь доведёт первую марку.");
   }
 
   // ---- правила перемещения между звёздами ------------------------------
@@ -1177,6 +1201,10 @@ var THRESHOLD = (function () {
       var over = (c.spent[c.target] - f.diff * 0.55) / f.diff;
       if (Math.random() < Math.min(0.06, over * (c.apt[c.target] || 0.5) * 0.05)) {
         c.known[c.target] = true; flash[c.target] = 1;
+        if (markOf(c.target) && !moveKnown) {
+          moveKnown = true;
+          say("Выяснилось, каким оказался межзвёздный переход: <b>" + move.name + "</b>. " + move.hint);
+        }
         var p = patents[c.target];
         if (p.owner < 0) {
           p.owner = c.id; p.since = Y();
@@ -1741,15 +1769,52 @@ var THRESHOLD = (function () {
   // ===================== сцена =====================
   var cv = null, cx = null, CW = 840, CH = 680, last = 0, glow = 0;
 
-  function shape(g, x, y, s, rot, col) {
-    cx.save(); cx.translate(x, y); cx.rotate(rot); cx.beginPath();
-    if (g === "tri") { cx.moveTo(0, -s); cx.lineTo(s*0.72, s*0.72); cx.lineTo(-s*0.72, s*0.72); }
-    else if (g === "dia") { cx.moveTo(0, -s); cx.lineTo(s*0.7, 0); cx.lineTo(0, s); cx.lineTo(-s*0.7, 0); }
-    else if (g === "sqr") { cx.rect(-s*0.66, -s*0.66, s*1.32, s*1.32); }
-    else { cx.arc(0, 0, s*0.78, 0, 6.2832); }
-    cx.closePath(); cx.fillStyle = col; cx.fill(); cx.restore();
-  }
   function posOf(o, mx, my) { return { x:mx + Math.cos(o.ang) * o.r, y:my + Math.sin(o.ang) * o.r }; }
+
+  // ---- модельки кораблей ------------------------------------------------
+  // Один силуэт на ТИП корабля; между компаниями он не меняется, различает их
+  // только цвет. Это прямое продолжение правила из журнала: форма отвечает на
+  // "что это", цвет — на "чьё это". Рисуется в поле восьми единиц, нос смотрит
+  // вверх (вызывающий код доворачивает на atan2 + 90 градусов).
+  function poly(pts) {
+    cx.beginPath();
+    for (var i = 0; i < pts.length; i += 2) i ? cx.lineTo(pts[i], pts[i+1]) : cx.moveTo(pts[i], pts[i+1]);
+    cx.closePath(); cx.fill();
+  }
+  function ship(kind, x, y, s, rot, col) {
+    cx.save();
+    cx.translate(x, y); cx.rotate(rot || 0); cx.scale(s / 8, s / 8);
+    cx.fillStyle = col; cx.lineJoin = "round";
+    if (kind === "jump") {
+      // стреловидный: длинный нос, отогнутые крылья, вырез под дюзы
+      poly([0,-9, 2.1,-1.5, 6.6,4.6, 2.4,3.4, 0,6.2, -2.4,3.4, -6.6,4.6, -2.1,-1.5]);
+      cx.fillStyle = "#0b1120"; poly([0,-5.4, 1.1,-1.8, 0,-0.6, -1.1,-1.8]);   // фонарь
+    } else if (kind === "mine") {
+      // буровая платформа: два бура вперёд, тяжёлое основание
+      poly([-3.4,-1.6, -2.2,-8.4, -1.1,-8.4, -1.5,-1.6]);
+      poly([3.4,-1.6, 2.2,-8.4, 1.1,-8.4, 1.5,-1.6]);
+      poly([-4.2,-2.2, 4.2,-2.2, 5.2,3.2, -5.2,3.2]);
+      poly([-6.4,3.2, 6.4,3.2, 6.4,5.6, -6.4,5.6]);
+      cx.fillStyle = "#0b1120"; poly([-2,-0.8, 2,-0.8, 2,1.8, -2,1.8]);
+    } else if (kind === "colony") {
+      // колониальный модуль: капсула с юбкой посадочного узла
+      cx.beginPath(); cx.moveTo(0,-8.4);
+      cx.bezierCurveTo(3.6,-6.2, 4,0.4, 3,3.4);
+      cx.lineTo(-3,3.4);
+      cx.bezierCurveTo(-4,0.4, -3.6,-6.2, 0,-8.4);
+      cx.closePath(); cx.fill();
+      poly([-5.6,3.4, 5.6,3.4, 4.4,6.4, -4.4,6.4]);
+      cx.fillStyle = "#0b1120"; cx.beginPath(); cx.arc(0, -3.2, 1.7, 0, 6.2832); cx.fill();
+    } else {
+      // грузовик: коробчатый корпус с контейнерами по бортам
+      poly([0,-8.4, 2.8,-4.6, -2.8,-4.6]);
+      poly([-2.8,-4.6, 2.8,-4.6, 2.8,5.4, -2.8,5.4]);
+      poly([-6.2,-2.2, -3.4,-2.2, -3.4,4.2, -6.2,4.2]);
+      poly([3.4,-2.2, 6.2,-2.2, 6.2,4.2, 3.4,4.2]);
+      cx.fillStyle = "#0b1120"; poly([-1.6,-3.4, 1.6,-3.4, 1.6,-1.4, -1.6,-1.4]);
+    }
+    cx.restore();
+  }
   function rock(x, y, rad, seed, col) {
     cx.beginPath();
     for (var i = 0; i < 9; i++) {
@@ -1780,7 +1845,7 @@ var THRESHOLD = (function () {
     hits = [];
     cx.fillStyle = "#080d19"; cx.fillRect(0, 0, CW, CH);
 
-    s.bodies.concat([s.gate]).forEach(function (o) {
+    s.bodies.forEach(function (o) {
       cx.beginPath(); cx.arc(mx, my, o.r, 0, 6.2832);
       cx.strokeStyle = "#131c2f"; cx.lineWidth = 1; cx.stroke();
     });
@@ -1822,20 +1887,25 @@ var THRESHOLD = (function () {
       cx.fillText(b.type.name + (w ? " · " + fmt(popOf(w)) : ""), p.x, p.y + b.rad + 21);
     });
 
-    var jp = posOf(s.gate, mx, my), jr = 9 + Math.sin(glow * 1.6) * 1.6;
-    var lit = move.key === "gates" ? s.gate.built : anyKnows("drive");
-    cx.beginPath(); cx.arc(jp.x, jp.y, jr, 0, 6.2832);
-    cx.strokeStyle = lit ? "#9aa8ff" : "#3a4460"; cx.lineWidth = 1.4; cx.stroke();
-    if (lit) { cx.beginPath(); cx.arc(jp.x, jp.y, jr * 0.42, 0, 6.2832); cx.fillStyle = "#9aa8ff"; cx.fill(); }
-    cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = lit ? "#8f9bc4" : "#4e5872";
-    cx.textAlign = "center"; cx.textBaseline = "top";
-    cx.fillText(move.key === "gates" ? (s.gate.built ? "ворота" : s.gate.building ? "ворота строятся" : "ворот нет")
-                                     : "выход", jp.x, jp.y + jr + 5);
+    // Ворота рисуются только там, где они есть на самом деле. Раньше в каждой
+    // системе висел кружок "выход" — он ничего не означал ни при движках, ни
+    // при открывателях и только сбивал.
+    if (move.key === "gates" && (s.gate.built || s.gate.building)) {
+      var jp = posOf(s.gate, mx, my), jr = 9 + Math.sin(glow * 1.6) * 1.6;
+      cx.beginPath(); cx.arc(jp.x, jp.y, jr, 0, 6.2832);
+      cx.strokeStyle = s.gate.built ? "#9aa8ff" : "#3a4460"; cx.lineWidth = 1.4; cx.stroke();
+      if (s.gate.built) {
+        cx.beginPath(); cx.arc(jp.x, jp.y, jr * 0.42, 0, 6.2832); cx.fillStyle = "#9aa8ff"; cx.fill();
+      }
+      cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = s.gate.built ? "#8f9bc4" : "#4e5872";
+      cx.textAlign = "center"; cx.textBaseline = "top";
+      cx.fillText(s.gate.built ? "ворота" : "ворота строятся", jp.x, jp.y + jr + 5);
+    }
 
     s.stations.forEach(function (st) {
       var t = st.dest.ref, base = posOf(t, mx, my);
       var x = base.x + Math.cos(st.ang) * (t.s + 7), y = base.y + Math.sin(st.ang) * (t.s + 7);
-      shape(st.glyph, x, y, st.size, 0, st.color);
+      ship(st.glyph, x, y, st.size, 0, st.color);
       hits.push({ x:x, y:y, r:11, kind:"vent", data:st.vent });
     });
 
@@ -1849,7 +1919,7 @@ var THRESHOLD = (function () {
       cx.beginPath(); cx.arc(x, y, 10, -1.5708, -1.5708 + 6.2832 * done);
       cx.strokeStyle = yd.color; cx.lineWidth = 2; cx.stroke();
       cx.globalAlpha = 0.35 + done * 0.65;
-      shape(yd.glyph, x, y, 5.4, 0, yd.color);
+      ship(yd.glyph, x, y, 6.2, 0, yd.color);
       cx.globalAlpha = 1;
       hits.push({ x:x, y:y, r:13, kind:"yard", data:yd });
     });
@@ -1858,7 +1928,7 @@ var THRESHOLD = (function () {
       cx.beginPath();
       sh.trail.forEach(function (p, j) { j ? cx.lineTo(p.x, p.y) : cx.moveTo(p.x, p.y); });
       cx.strokeStyle = sh.color; cx.globalAlpha = 0.22; cx.lineWidth = 1.3; cx.stroke(); cx.globalAlpha = 1;
-      shape(sh.glyph, sh.x, sh.y, sh.size, sh.ang, sh.color);
+      ship(sh.glyph, sh.x, sh.y, sh.size, sh.ang, sh.color);
       hits.push({ x:sh.x, y:sh.y, r:13, kind:"ship", data:sh });
     });
 
@@ -1866,7 +1936,7 @@ var THRESHOLD = (function () {
       if (v.kind === "jump" || v.from.sys !== s.id || v.to.sys !== s.id) return;
       var a = posOf(v.from.body, mx, my), b = posOf(v.to.body, mx, my), k = clamp(v.t, 0, 1);
       var x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
-      shape("sqr", x, y, 5.6, 0, v.color);
+      ship("cargo", x, y, 6, 0, v.color);
       hits.push({ x:x, y:y, r:12, kind:"cargo", data:v });
     });
   }
@@ -1922,8 +1992,8 @@ var THRESHOLD = (function () {
       var k = clamp(v.t, 0, 1), x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
       cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(x, y);
       cx.strokeStyle = v.color; cx.globalAlpha = 0.3; cx.lineWidth = 1.2; cx.stroke(); cx.globalAlpha = 1;
-      shape(v.kind === "jump" ? "tri" : "sqr", x, y, 6,
-            v.kind === "jump" ? Math.atan2(b.y - a.y, b.x - a.x) + 1.5708 : 0, v.color);
+      ship(v.kind === "food" || v.kind === "pops" ? "cargo" : "jump", x, y, 6.5,
+           Math.atan2(b.y - a.y, b.x - a.x) + 1.5708, v.color);
       hits.push({ x:x, y:y, r:12, kind:v.kind === "jump" ? "jumpship" : "cargo", data:v });
     });
     systems.forEach(function (s) {
@@ -2109,9 +2179,9 @@ var THRESHOLD = (function () {
 
     var range = galaxyRange();
     el("portal").innerHTML =
-      '<div class="row"><div class="rhead"><span class="rname">' + move.name + '</span>' +
+      '<div class="row"><div class="rhead"><span class="rname">' + moveName() + '</span>' +
       '<span class="price">дальность ' + Math.round(range) + '</span></div>' +
-      '<div class="rmeta">' + move.hint + '</div></div>' +
+      '<div class="rmeta">' + (moveKnown ? move.hint : "Пока никто не довёл первую марку, неизвестно даже, что именно откроется.") + '</div></div>' +
       MARKS.map(function (m) {
         var p = patents[m.key], holders = makersOf(m.key);
         var dots = holders.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
@@ -2126,7 +2196,7 @@ var THRESHOLD = (function () {
             "дальность " + m.range + " · достаёт звёзд " + opens
           : "лучший продвинулся на " + Math.round(Math.max.apply(null, corps.map(function (c) { return c.spent[m.key]; }))) +
             " из " + m.diff + " · дальность " + m.range;
-        return '<div class="row"><div class="rhead"><span class="rname">' + m.short +
+        return '<div class="row"><div class="rhead"><span class="rname">' + (moveKnown ? m.short : markName(m)) +
                (m.range <= range ? "" : " · недоступна") + '</span>' + dots + '</div>' +
                '<div class="rmeta">' + meta + '</div></div>';
       }).join("");
@@ -2247,7 +2317,7 @@ var THRESHOLD = (function () {
     el("sname").textContent = map ? "Галактика" : systems[view.sys].name;
     if (map) {
       var op = systems.filter(function (s) { return s.unlocked; }).length;
-      el("smeta").textContent = "открыто систем " + op + " из " + systems.length + " · миров " + worlds.length + " · " + move.name;
+      el("smeta").textContent = "открыто систем " + op + " из " + systems.length + " · миров " + worlds.length + " · " + moveName();
     } else {
       var s = systems[view.sys];
       el("smeta").textContent = "планет " + s.bodies.length + " · " +
@@ -2269,7 +2339,7 @@ var THRESHOLD = (function () {
   function subhint() {
     el("subhint").textContent = subYear === 0
       ? "Государство не вмешивается: кто во что верит, то и ищет."
-      : "Казна доплачивает всем, кто ищет «" + techOf(subKey).name.toLowerCase() + "».";
+      : "Казна доплачивает всем, кто ищет «" + (markOf(subKey) ? markName(markOf(subKey)) : techOf(subKey).name).toLowerCase() + "».";
   }
   function pathint() {
     el("pathint").textContent = patTerm <= 12
@@ -2369,7 +2439,9 @@ var THRESHOLD = (function () {
     });
 
     var sel = el("subfield");
-    sel.innerHTML = allTech().map(function (f) { return '<option value="' + f.key + '">' + f.name + '</option>'; }).join("");
+    sel.innerHTML = allTech().map(function (f) {
+      return '<option value="' + f.key + '">' + (markOf(f.key) ? markName(f) : f.name) + '</option>';
+    }).join("");
     sel.addEventListener("change", function (e) { subKey = e.target.value; subhint(); saveLevers(); });
 
     el("tax").addEventListener("input", function (e) {
@@ -2417,17 +2489,20 @@ var THRESHOLD = (function () {
       scene();
     });
 
+    Array.prototype.forEach.call(document.querySelectorAll("canvas.ikon"), function (c) {
+      API.icon(c.getContext("2d"), c.getAttribute("data-kind"), 11, 10, 8, "#8894ae");
+    });
+
     loadLevers(); syncControls();
     build(); scene(); taxhint(); subhint(); pathint(); feehint(); dolehint();
     requestAnimationFrame(frame);
     run();
   }
 
-  if (!headless) bindUI(); else build();
 
   // Стенд запускает ядро без браузера: см. test/. Отдаём только чтение
   // состояния и шаг — отрисовка в тестах не участвует принципиально.
-  return {
+  var API = {
     step: step,
     build: build,
     state: function () {
@@ -2439,9 +2514,16 @@ var THRESHOLD = (function () {
       if (k === "tax") tax = v; else if (k === "sub") subYear = v; else if (k === "subKey") subKey = v;
       else if (k === "fee") tradeFee = v; else if (k === "dole") dole = v; else if (k === "patTerm") patTerm = v;
     },
+    // та же отрисовка моделек наружу: ею красится легенда, ею же можно
+    // разглядывать силуэты крупно, не дублируя код
+    icon: function (ctx, kind, x, y, s, col) { var keep = cx; cx = ctx; ship(kind, x, y, s, 0, col); cx = keep; },
     consts: { COMPS:COMPS, COLTECH:COLTECH, PTYPES:PTYPES, VTYPES:VTYPES, MOVES:MOVES, get MARKS(){ return MARKS; } },
     popOf: popOf
   };
+  // Запуск ПОСЛЕ объявления API: легенда рисуется через него, и при обратном
+  // порядке падала бы на первой же загрузке.
+  if (!headless) bindUI(); else build();
+  return API;
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = THRESHOLD;
 </script>
