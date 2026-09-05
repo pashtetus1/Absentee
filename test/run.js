@@ -256,6 +256,74 @@ test("еда не берётся из ниоткуда", () => {
   });
 });
 
+// ── три способа межзвёздного перехода ───────────────────────────────────────
+// Способ выпадает партии один и случайно. Каждый обязан доводить партию до
+// расселения — иначе на трети сеймов игра просто стоит.
+["drives", "opener", "gates"].forEach((mode) => {
+  test("способ «" + mode + "»: системы открываются", () => {
+    const sim = load("threshold-market.html", { seed: 83 });
+    sim.build(mode);
+    const st = runYears(sim, 250);
+    assert(st.move.key === mode, "режим не установился");
+    const open = st.systems.filter((s) => s.unlocked).length;
+    assert(open > 1, "за двести пятьдесят лет открыта одна система: экспансия стоит");
+  });
+});
+
+test("под воротами хлебовоз летает только между воротами", () => {
+  const sim = load("threshold-market.html", { seed: 89 });
+  sim.build("gates");
+  runYears(sim, 200, (st) => {
+    st.voyages.forEach((v) => {
+      if (v.kind === "food" || v.kind === "pops") {
+        if (v.from.sys === v.to.sys) return;
+        assert(st.systems[v.from.sys].gate.built && st.systems[v.to.sys].gate.built,
+               "рейс между системами без ворот");
+      }
+    });
+  });
+});
+
+test("под порталооткрывателями рейсы идут только по прожжённым проходам", () => {
+  const sim = load("threshold-market.html", { seed: 97 });
+  sim.build("opener");
+  runYears(sim, 200, (st) => {
+    st.voyages.forEach((v) => {
+      if (v.kind !== "food" && v.kind !== "pops") return;
+      if (v.from.sys === v.to.sys) return;
+      // проходы складываются в сеть, поэтому маршрут может идти в несколько
+      // прыжков — проверяем связность по прожжённым, а не прямой отрезок
+      const seen = new Set([v.from.sys]), q = [v.from.sys];
+      let ok = false;
+      while (q.length && !ok) {
+        const i = q.shift();
+        if (i === v.to.sys) { ok = true; break; }
+        st.links.forEach((l) => {
+          const n = l.a === i ? l.b : l.b === i ? l.a : null;
+          if (n === null || seen.has(n)) return;
+          if (!st.routes[Math.min(i, n) + "-" + Math.max(i, n)]) return;
+          seen.add(n); q.push(n);
+        });
+      }
+      assert(ok, "рейс туда, куда нет цепочки прожжённых проходов");
+    });
+  });
+});
+
+test("под движками межзвёздный транспорт везёт двигатель", () => {
+  const sim = load("threshold-market.html", { seed: 103 });
+  sim.build("drives");
+  let checked = 0;
+  runYears(sim, 250, (st) => {
+    st.voyages.forEach((v) => {
+      if (v.kind !== "food" && v.kind !== "pops") return;
+      if (v.from.sys === v.to.sys) return;
+      checked++;
+      assert(v.parts.some((p) => p.k === "drive"), "межзвёздный рейс без двигателя на борту");
+    });
+  });
+});
+
 // ── воспроизводимость ───────────────────────────────────────────────────────
 // Ради этого стенд и городился: увидел странную партию — вбил сейм и смотришь
 // ту же самую партию глазами.

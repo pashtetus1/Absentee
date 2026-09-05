@@ -54,6 +54,26 @@
    Прогон на 200 лет: 150-310 отказов и 13-56 свёрнутых сборок за партию, а на
    отдельных сеймах экспансия душится вдвое (13 миров против обычных 28-34).
 
+3b. СПОСОБ МЕЖЗВЁЗДНОГО ПЕРЕХОДА ВЫПАДАЕТ ПАРТИИ ОДИН И СЛУЧАЙНО. Это не
+   ветка развития, а условие задачи, и оно делает партии непохожими сильнее
+   любого ползунка:
+     движки        — двигатель стоит на каждом корабле. Дёшево начать, платишь
+                     вечно: даже хлебовоз между звёздами везёт двигатель.
+     откр��ватели   — порталооткрыватель прожигает ПОСТОЯННЫЙ проход между парой
+                     систем (drive x3, дороже всех). Дорого за маршрут, дальше
+                     по нему летают даром, и проходы складываются в сеть.
+     ворота        — строятся В СИСТЕМЕ и простреливают коридор до всех соседей
+                     разом. Дорого за систему, зато рейсы между воротами даром;
+                     колония в системе без ворот не получит еду вообще.
+   Важно, что способ ограничивает не только открытие системы, но и ДОСТУП:
+   строить в открытой системе можно, только если до неё дотягивается сеть.
+   Без этого правила все три способа давали одинаковую партию — проверено
+   прогоном, разница была нулевой.
+   Прогон на восьми сеймах, средние: к 80 году под воротами 5.0 систем и 8.6
+   миров, под движками 2.5 и 5.1, под откр��вателями 2.1 и 4.0. К 250 году все
+   три сходятся к девяти системам — зрелая империя связна при любом способе,
+   и это правильно; разница живёт в первые полтора века.
+
 4. ФИЛИАЛ — ЭТО ЦЕХ НА ЧУЖОЙ ПЛАНЕТЕ. Компания нанимает там местных и делает
    детали. Без филиалов вся промышленность заперта на Тире.
 
@@ -358,10 +378,32 @@ var THRESHOLD = (function () {
     { key:"mine",   name:"разработка астероидов", need:{ drill:2, hold:1, hull:1 }, build:14, yield:3.1, term:1800, glyph:"dia" },
     { key:"colony", name:"колония",               need:{ hull:2, life:1, goods:1 }, build:22, glyph:"cir" },
     { key:"jump",   name:"межзвёздный прыжок",    need:{ drive:2, hull:1, life:1 }, build:30, glyph:"tri" },
+    { key:"opener", name:"порталооткрыватель",    need:{ drive:3, hull:1, life:1 }, build:34, glyph:"tri" },
+    { key:"gate",   name:"звёздные ворота",       need:{ hull:2, drive:1, life:1 }, build:38, glyph:"tri" },
     { key:"cargo",  name:"грузовик",              need:{ hull:1, hold:1 },          build:8,  glyph:"sqr" },
     { key:"liner",  name:"переселенческий",       need:{ hull:1, life:1 },          build:10, glyph:"sqr" }
   ];
   function vtype(k){ for (var i=0;i<VTYPES.length;i++) if (VTYPES[i].key===k) return VTYPES[i]; }
+
+  // Способ межзвёздного перемещения выпадает партии ОДИН и случайно. Это не
+  // ветка развития, а условие задачи: три способа дают три разные логистики,
+  // и то, что в одном государстве открывается только один, делает партии
+  // непохожими сильнее, чем любая настройка ползунков.
+  //   drives — двигатель стоит на каждом корабле. Дёшево начать, платишь вечно:
+  //            каждый межзвёздный рейс, включая хлебовоз, везёт двигатель.
+  //   opener — порталооткрыватель прожигает ПОСТОЯННЫЙ проход между парой
+  //            систем. Дорого за маршрут, дальше по нему летают даром.
+  //   gates  — ворота строятся В СИСТЕМЕ. Дорого за систему, зато система с
+  //            воротами сама дотягивается до соседей и до любых других ворот.
+  var MOVES = [
+    { key:"drives", name:"портальные движки", vt:"jump",
+      hint:"Двигатель на каждом корабле: экспансия по одному кораблю, перевозки между звёздами дороги навсегда." },
+    { key:"opener", name:"порталооткрыватели", vt:"opener",
+      hint:"Проход прожигается один раз и остаётся: дорого за маршрут, потом по нему летают даром." },
+    { key:"gates",  name:"звёздные ворота", vt:"gate",
+      hint:"Ворота строятся в системе: дорого за систему, зато она дотягивается до соседей и до других ворот." }
+  ];
+  function moveOf(k){ for (var i=0;i<MOVES.length;i++) if (MOVES[i].key===k) return MOVES[i]; }
 
   var TEMPLATE = [
     { name:"Тайко Дриллинг",   color:"#6fd39b", craft:"буры",      nerve:0.9,
@@ -387,7 +429,7 @@ var THRESHOLD = (function () {
 
   // ===================== состояние =====================
   var corps = [], systems = [], links = [], voyages = [], feed = [], market = {}, patents = {};
-  var worlds = [], projects = [], home = null;
+  var worlds = [], projects = [], home = null, move = null, routes = {};
   var tick = 0, treasury = 320, tax = 0.18, subKey = "drive", subYear = 90, tradeFee = 0.06, dole = 0.6, patTerm = 25;
   var jumped = false, trades = 0, turnover = 0, shipped = 0, movedPops = 0, refusals = 0, dropped = 0;
   var timer = null, running = true, speed = 1, flash = {};
@@ -519,7 +561,7 @@ var THRESHOLD = (function () {
     return b;
   }
 
-  function build() {
+  function build(forcedMove) {
     corps = TEMPLATE.map(function (t, i) {
       var c = { id:i, name:t.name, color:t.color, craft:t.craft, nerve:t.nerve, apt:t.apt,
                 cash:900, known:{}, spent:{}, stock:{}, wip:{}, target:null, order:null,
@@ -532,7 +574,8 @@ var THRESHOLD = (function () {
     COMPS.forEach(function (f) { market[f.key] = { price:f.base, last:f.base, want:0, stock:0 }; });
     allTech().forEach(function (f) { patents[f.key] = { owner:-1, since:0, told:false }; });
 
-    worlds = []; projects = []; voyages = []; feed = []; flash = {}; pick = null;
+    worlds = []; projects = []; voyages = []; feed = []; flash = {}; pick = null; routes = {};
+    move = forcedMove ? moveOf(forcedMove) : MOVES[Math.floor(Math.random() * MOVES.length)];
     makeGalaxy();
     home = makeWorld(systems[0].bodies[0], 18, -1);
     home.cap = 22;                       // родина обжита давно и держит больше
@@ -543,6 +586,51 @@ var THRESHOLD = (function () {
     refusals = 0; dropped = 0;
     view = { mode:"system", sys:0 };
     say("Тира: восемнадцать человечков, пять компаний и ни одной освоенной детали.");
+    say("Способ межзвёздного перехода в этом государстве один: <b>" + move.name + "</b>. " + move.hint);
+  }
+
+  // ---- правила перемещения между звёздами ------------------------------
+  function routeKey(a, b){ return Math.min(a, b) + "-" + Math.max(a, b); }
+  function routeOpen(a, b){ return !!routes[routeKey(a, b)]; }
+  function gated(i){ return !!systems[i].gate.built; }
+
+  // Можно ли отправить обычный рейс (еду, людей) из системы в систему.
+  // Под движками — можно всегда, но корабль обязан нести двигатель; под
+  // проходами — только по прожжённому; под воротами — только между воротами.
+  function canTravel(a, b) {
+    if (a === b) return true;
+    if (move.key === "drives") return true;
+    if (move.key === "gates") return gated(a) && gated(b);
+    // проходы складываются в сеть: можно и в несколько прыжков
+    var seen = {}, q = [a];
+    seen[a] = 1;
+    while (q.length) {
+      var i = q.shift();
+      if (i === b) return true;
+      var nb = neighbors(i);
+      for (var j = 0; j < nb.length; j++) {
+        if (!seen[nb[j]] && routeOpen(i, nb[j])) { seen[nb[j]] = 1; q.push(nb[j]); }
+      }
+    }
+    return false;
+  }
+
+  // Открыть систему мало — до неё надо ДОТЯНУТЬСЯ, иначе способ перемещения
+  // остаётся косметикой: первый прогон показал, что все три дают одинаковую
+  // партию, потому что в открытой системе можно было строить даром.
+  function reachable(id) {
+    if (id === 0 || move.key === "drives") return true;
+    if (move.key === "gates") return gated(id) || neighbors(id).some(gated);
+    return canTravel(0, id);
+  }
+  // Что должен нести межзвёздный транспорт сверх обычного набора.
+  function travelExtra(a, b) {
+    return (a !== b && move.key === "drives") ? { drive:1 } : null;
+  }
+  function needWith(vt, extra) {
+    var n = JSON.parse(JSON.stringify(vt.need));
+    if (extra) Object.keys(extra).forEach(function (k) { n[k] = (n[k] || 0) + extra[k]; });
+    return n;
   }
 
   // ===================== рынок труда на каждом мире =====================
@@ -632,10 +720,13 @@ var THRESHOLD = (function () {
   // Правительство покупает корабль у компаний: те же детали, тот же рынок.
   // Если собрать не удалось, все взятые детали возвращаются на склад — иначе
   // они пропадают, а деньги остаются, и рынок тихо худеет.
-  function govBuyShip(w, vt) {
+  // Правительствам не отказывают: они покупатели еды, а не соперники.
+  // need — уже готовый набор деталей, потому что под движками межзвёздный
+  // рейс обязан нести ещё и двигатель, а под воротами и проходами не обязан.
+  function govBuyShip(w, need) {
     var taken = [], cost = 0, ok = true;
-    Object.keys(vt.need).forEach(function (k) {
-      for (var i = 0; i < vt.need[k]; i++) {
+    Object.keys(need).forEach(function (k) {
+      for (var i = 0; i < need[k]; i++) {
         if (!ok) return;
         var seller = null;
         corps.forEach(function (c) { if (c.stock[k] > 0 && (!seller || c.stock[k] > seller.stock[k])) seller = c; });
@@ -674,10 +765,10 @@ var THRESHOLD = (function () {
       if (w.food.stock + incoming > total * 4) return;
       var qty = Math.ceil(deficit * 12);
       var src = surplusWorld(qty, w);
-      if (!src) return;
+      if (!src || !canTravel(src.sys, w.sys)) return;   // дороги нет — мир голодает
       var price = qty * 1.2;
       if (w.gov.cash < price + 40) return;
-      var parts = govBuyShip(w, vtype("cargo"));
+      var parts = govBuyShip(w, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
       if (!parts) return;
       w.gov.cash -= price; src.gov.cash += price; src.food.stock -= qty;
       dispatch(src, w, "food", qty, parts);
@@ -693,10 +784,11 @@ var THRESHOLD = (function () {
       var src = null, bs = 0;
       worlds.forEach(function (o) {
         if (o === w || o.wantOut < 0.25) return;
+        if (!canTravel(o.sys, w.sys)) return;
         if (o.wantOut > bs) { bs = o.wantOut; src = o; }
       });
       if (!src) return;
-      var parts = govBuyShip(w, vtype("liner"));
+      var parts = govBuyShip(w, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
       if (!parts) return;
       var qty = Math.min(src.wantOut, w.wantIn, 1.6);
       var takeFree = Math.min(src.pop.free, qty);
@@ -948,19 +1040,38 @@ var THRESHOLD = (function () {
   // ===================== заказы, консорциумы, филиалы =====================
   function freeRocks(s){ return s.rocks.filter(function (r) { return !r.taken; }); }
   function buildable(vt){ return Object.keys(vt.need).every(function (k) { return anyMakes(k); }); }
-  function anyRock(){ return systems.some(function (s) { return s.unlocked && freeRocks(s).length; }); }
+  function anyRock(){ return systems.some(function (s) { return s.unlocked && reachable(s.id) && freeRocks(s).length; }); }
   function jumpTarget() {
     var out = null;
     systems.forEach(function (s) {
       if (!s.unlocked || out) return;
       neighbors(s.id).forEach(function (n) {
         if (out || systems[n].unlocked) return;
-        if (voyages.some(function (v) { return v.kind === "jump" && v.to === n; })) return;
+        if (voyages.some(function (v) { return v.to === n && (v.kind === "jump" || v.kind === "opener"); })) return;
         out = { from:s.id, to:n };
       });
     });
     return out;
   }
+
+  // Ворота ставят там, где от них больше толку: где за системой лежат закрытые
+  // соседи и где колония сидит на привозной еде — без ворот хлебовоз до неё
+  // просто не долетит.
+  function gateTarget() {
+    var best = null;
+    systems.forEach(function (s) {
+      if (!s.unlocked || s.gate.built || s.gate.building) return;
+      var locked = neighbors(s.id).filter(function (n) { return !systems[n].unlocked; }).length;
+      var hungry = s.bodies.some(function (b) {
+        return b.world && b.world.pop.farm * b.world.type.farm < popOf(b.world);
+      });
+      var score = locked * 2 + (hungry ? 3 : 0);
+      if (score <= 0) return;
+      if (!best || score > best.score) best = { sys:s.id, score:score };
+    });
+    return best;
+  }
+  function expandTarget(){ return move.key === "gates" ? gateTarget() : jumpTarget(); }
   function orderCost(vt) {
     var sum = 0;
     Object.keys(vt.need).forEach(function (k) { sum += market[k].price * vt.need[k]; });
@@ -972,11 +1083,11 @@ var THRESHOLD = (function () {
     corps.forEach(function (c) {
       if (c.order || c.cool > 0) return;
       var best = null, top = -1;
-      [vtype("mine"), vtype("jump")].forEach(function (vt) {
+      [vtype("mine"), vtype(move.vt)].forEach(function (vt) {
         if (!buildable(vt)) return;
         if (vt.key === "mine" && !anyRock()) return;
-        if (vt.key === "jump" && (!hasColonyAnywhere(c) || !jumpTarget())) return;
-        var score = vt.key === "jump" ? 46 : (vt.yield * 0.55 * vt.term) / Math.max(20, orderCost(vt));
+        if (vt.key !== "mine" && (!hasColonyAnywhere(c) || !expandTarget())) return;
+        var score = vt.key !== "mine" ? 46 : (vt.yield * 0.55 * vt.term) / Math.max(20, orderCost(vt));
         var own = 0, all = 0;
         Object.keys(vt.need).forEach(function (k) { all += vt.need[k]; if (canBuild(c, k)) own += vt.need[k]; });
         score *= 1 + own / all * 0.6;
@@ -999,7 +1110,7 @@ var THRESHOLD = (function () {
       if (c.cash < 200) return;
       var target = null, top = -1;
       systems.forEach(function (s) {
-        if (!s.unlocked) return;
+        if (!s.unlocked || !reachable(s.id)) return;
         s.bodies.forEach(function (b) {
           // claimed держится от начала подписки до посадки модуля. Без него
           // вторая компания открывала подписку на ту же планету, пока первый
@@ -1054,7 +1165,13 @@ var THRESHOLD = (function () {
     corps.forEach(function (c) {
       if (!c.order || !full(c.order.need, c.order.got)) return;
       var vt = vtype(c.order.type);
-      if (vt.key === "jump") {
+      if (vt.key === "gate") {
+        var gt = gateTarget();
+        if (!gt) return;
+        systems[gt.sys].gate.building = true;
+        systems[gt.sys].yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, gateHere:gt.sys,
+                                     parts:c.order.parts.slice(), left:vt.build, total:vt.build });
+      } else if (vt.key === "jump" || vt.key === "opener") {
         var jt = jumpTarget();
         if (!jt) return;
         systems[jt.from].yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:jt.to,
@@ -1062,7 +1179,7 @@ var THRESHOLD = (function () {
       } else {
         var pickS = null, top = -1;
         systems.forEach(function (s) {
-          if (!s.unlocked || !freeRocks(s).length) return;
+          if (!s.unlocked || !reachable(s.id) || !freeRocks(s).length) return;
           var score = 1 / (1 + s.depth * 0.25);
           if (score > top) { top = score; pickS = s; }
         });
@@ -1106,10 +1223,24 @@ var THRESHOLD = (function () {
         if (--yd.left > 0) continue;
         s.yards.splice(y, 1);
         var lead = corps[yd.lead];
-        if (yd.vt.key === "jump") {
-          voyages.push({ kind:"jump", sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color,
+        if (yd.vt.key === "gate") {
+          // Ворота никуда не летят: они простреливают коридор до соседей прямо
+          // отсюда. Поэтому под воротами экспансия идёт кольцами, а не ниточкой.
+          var g = systems[yd.gateHere];
+          g.gate.built = true; g.gate.building = false; g.gate.owner = yd.lead; g.pulse = 1;
+          var opened = [];
+          neighbors(g.id).forEach(function (n) {
+            if (systems[n].unlocked) return;
+            systems[n].unlocked = true; systems[n].pulse = 1; opened.push(systems[n].name);
+          });
+          say("<b>" + lead.name + "</b> открыла звёздные ворота в " + g.name +
+              (opened.length ? ". Коридор дотянулся до: " + opened.join(", ") + "." : "."));
+          if (!jumped && opened.length) { jumped = true; say("Первый межзвёздный переход совершён."); }
+        } else if (yd.vt.key === "jump" || yd.vt.key === "opener") {
+          voyages.push({ kind:yd.vt.key, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color,
                          parts:yd.parts, t:0, dur:70 + Math.random()*30, born:dateStr() });
-          say("<b>" + lead.name + "</b> вывела прыжковый корабль с верфи " + s.name + ".");
+          say("<b>" + lead.name + "</b> вывела " + (yd.vt.key === "opener" ? "порталооткрыватель" : "прыжковый корабль") +
+              " с верфи " + s.name + ".");
         } else if (yd.vt.key === "colony") {
           s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
                          dur:26 + Math.random()*8, body:yd.body, backers:yd.backers, parts:yd.parts,
@@ -1157,14 +1288,16 @@ var THRESHOLD = (function () {
   }
 
   function arriveVoyage(v) {
-    if (v.kind === "jump") {
+    if (v.kind === "jump" || v.kind === "opener") {
       var t = systems[v.to];
       t.pulse = 1;
+      if (v.kind === "opener") routes[routeKey(v.sysFrom, v.to)] = true;   // проход остаётся навсегда
       if (!t.unlocked) {
         t.unlocked = true;
         say("<b>" + corps[v.corp].name + "</b> открыла систему " + t.name + ": " +
-            t.bodies.map(function (b) { return b.type.name; }).join(", ") + ".");
-        if (!jumped) { jumped = true; say("Первый межзвёздный прыжок совершён."); }
+            t.bodies.map(function (b) { return b.type.name; }).join(", ") + "." +
+            (v.kind === "opener" ? " Проход прожжён и остаётся открытым." : ""));
+        if (!jumped) { jumped = true; say("Первый межзвёздный переход совершён."); }
       }
       return;
     }
@@ -1312,11 +1445,14 @@ var THRESHOLD = (function () {
     });
 
     var jp = posOf(s.gate, mx, my), jr = 9 + Math.sin(glow * 1.6) * 1.6;
+    var lit = move.key === "gates" ? s.gate.built : anyKnows("drive");
     cx.beginPath(); cx.arc(jp.x, jp.y, jr, 0, 6.2832);
-    cx.strokeStyle = anyKnows("drive") ? "#9aa8ff" : "#3a4460"; cx.lineWidth = 1.4; cx.stroke();
-    cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
+    cx.strokeStyle = lit ? "#9aa8ff" : "#3a4460"; cx.lineWidth = 1.4; cx.stroke();
+    if (lit) { cx.beginPath(); cx.arc(jp.x, jp.y, jr * 0.42, 0, 6.2832); cx.fillStyle = "#9aa8ff"; cx.fill(); }
+    cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = lit ? "#8f9bc4" : "#4e5872";
     cx.textAlign = "center"; cx.textBaseline = "top";
-    cx.fillText("ворота", jp.x, jp.y + jr + 5);
+    cx.fillText(move.key === "gates" ? (s.gate.built ? "ворота" : s.gate.building ? "ворота строятся" : "ворот нет")
+                                     : "выход", jp.x, jp.y + jr + 5);
 
     s.stations.forEach(function (st) {
       var t = st.dest.ref, base = posOf(t, mx, my);
@@ -1367,9 +1503,11 @@ var THRESHOLD = (function () {
       var a = systems[l.a], b = systems[l.b];
       var both = a.unlocked && b.unlocked;
       if (!both && !a.unlocked && !b.unlocked) return;
+      var open = routeOpen(l.a, l.b);
       cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y);
-      cx.strokeStyle = both ? "#26314f" : "#182140";
-      cx.setLineDash(both ? [] : [3, 5]); cx.lineWidth = 1; cx.stroke(); cx.setLineDash([]);
+      cx.strokeStyle = open ? "#5b6bb0" : both ? "#26314f" : "#182140";
+      cx.setLineDash(both || open ? [] : [3, 5]);
+      cx.lineWidth = open ? 2 : 1; cx.stroke(); cx.setLineDash([]);
     });
     voyages.forEach(function (v) {
       var a, b;
@@ -1403,6 +1541,13 @@ var THRESHOLD = (function () {
       if (view.sys === s.id) {
         cx.beginPath(); cx.arc(s.x, s.y, r + 10, 0, 6.2832);
         cx.strokeStyle = "#3d4a70"; cx.lineWidth = 1; cx.stroke();
+      }
+      if (s.gate.built) {            // ворота: система в сети, до неё долетит хлебовоз
+        cx.beginPath(); cx.arc(s.x, s.y, r + 6, 0, 6.2832);
+        cx.strokeStyle = "#9aa8ff"; cx.lineWidth = 1.6; cx.stroke();
+      } else if (s.gate.building) {
+        cx.beginPath(); cx.arc(s.x, s.y, r + 6, 0, 6.2832);
+        cx.strokeStyle = "#3f4a78"; cx.setLineDash([2, 4]); cx.lineWidth = 1.4; cx.stroke(); cx.setLineDash([]);
       }
       var g = cx.createRadialGradient(s.x, s.y, 1, s.x, s.y, r + 9);
       g.addColorStop(0, "#fff3d0"); g.addColorStop(0.45, "rgba(242,179,61,0.55)"); g.addColorStop(1, "rgba(242,179,61,0)");
@@ -1666,7 +1811,7 @@ var THRESHOLD = (function () {
     el("sname").textContent = map ? "Галактика" : systems[view.sys].name;
     if (map) {
       var op = systems.filter(function (s) { return s.unlocked; }).length;
-      el("smeta").textContent = "открыто систем " + op + " из " + systems.length + " · миров " + worlds.length;
+      el("smeta").textContent = "открыто систем " + op + " из " + systems.length + " · миров " + worlds.length + " · " + move.name;
     } else {
       var s = systems[view.sys];
       el("smeta").textContent = "планет " + s.bodies.length + " · " +
@@ -1806,7 +1951,7 @@ var THRESHOLD = (function () {
     step: step,
     build: build,
     state: function () {
-      return { tick:tick, treasury:treasury, corps:corps, worlds:worlds, systems:systems,
+      return { tick:tick, treasury:treasury, corps:corps, worlds:worlds, systems:systems, links:links, move:move, routes:routes,
                market:market, patents:patents, voyages:voyages, projects:projects,
                trades:trades, shipped:shipped, movedPops:movedPops, refusals:refusals, dropped:dropped, feed:feed };
     },
