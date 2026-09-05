@@ -161,6 +161,9 @@ Mk4 — до пятого. Дальние звёзды видно, но лини
 полное окно: кто и что, куда и сколько ещё, командир, что везёт, и из чего
 собран корабль с изготовителем каждой детали. Наведение мышью окно не
 открывает — только клик: окошки у всех сразу превращали карту в кашу.
+Корабли идут ПЛАВНО на любой скорости: тик — раз в месяц, а кадр рисует
+положение между прошлым и нынешним t по настенным часам (какая доля месяца
+прошла, на столько и продвинулся). Без этого корабль стоял 300 мс и прыгал.
 Ускорение двигателями ощущается наградой, а не
 возвратом к норме. Наука ценит двигатели ровно настолько, насколько много
 всего летает. У каждого летящего корабля дрожащий огонёк за кормой.
@@ -2011,13 +2014,13 @@ var THRESHOLD = (function () {
       }
       for (var i = s.ships.length - 1; i >= 0; i--) {
         var sh = s.ships[i];
-        sh.t += 1 / sh.dur;
+        sh.tp = sh.t; sh.t += 1 / sh.dur;
         if (sh.t >= 1) { arriveShip(sh, s); s.ships.splice(i, 1); }
       }
     });
     for (var j = voyages.length - 1; j >= 0; j--) {
       var v = voyages[j];
-      v.t += 1 / v.dur;
+      v.tp = v.t; v.t += 1 / v.dur;
       if (v.t >= 1) { arriveVoyage(v); voyages.splice(j, 1); }
     }
   }
@@ -2103,8 +2106,18 @@ var THRESHOLD = (function () {
     if (treasury < 0) treasury = 0;
   }
 
+  // Кадры идут шестьдесят раз в секунду, а тик — раз в месяц (300 мс на x1).
+  // Если считать положение прямо от t, корабль стоит и прыгает. Поэтому кадр
+  // рисует положение МЕЖДУ прошлым и нынешним t, по настенным часам: какая
+  // доля месяца уже прошла, на столько и продвинулся.
+  var tickAt = 0, tickMs = 300;
+  function vis(o) {
+    var f = clamp((Date.now() - tickAt) / tickMs, 0, 1), tp = o.tp === undefined ? o.t : o.tp;
+    return tp + (o.t - tp) * f;
+  }
+
   function step() {
-    tick++;
+    tick++; tickAt = Date.now();
     worlds.forEach(labour);
     economy(); research(); produce(); trade(); stalledOrders(); stalledProjects();
     if (tick % 3 === 0) patentsExpire();
@@ -2263,7 +2276,7 @@ var THRESHOLD = (function () {
     var mx = CW/2, my = CH/2, op = posOf(s.bodies[0], mx, my);
     s.ships.forEach(function (sh) {
       var tp = posOf(sh.kind === "colony" ? sh.body : sh.dest.ref, mx, my);
-      var k = clamp(sh.t, 0, 1), e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
+      var k = clamp(vis(sh), 0, 1), e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
       sh.x = op.x + (tp.x - op.x) * e; sh.y = op.y + (tp.y - op.y) * e;
       sh.ang = Math.atan2(tp.y - op.y, tp.x - op.x) + 1.5708;
       var tl = sh.trail, lp = tl[tl.length - 1];
@@ -2370,7 +2383,7 @@ var THRESHOLD = (function () {
 
     voyages.forEach(function (v) {
       if (v.sysFrom !== undefined || v.from.sys !== s.id || v.to.sys !== s.id) return;
-      var a = posOf(v.from.body, mx, my), b = posOf(v.to.body, mx, my), k = clamp(v.t, 0, 1);
+      var a = posOf(v.from.body, mx, my), b = posOf(v.to.body, mx, my), k = clamp(vis(v), 0, 1);
       var x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
       ship("cargo", x, y, 6, 0, v.color);
       if (pick && pick.data === v) caption(x, y, windowLines(v, true), v.color);
@@ -2429,7 +2442,7 @@ var THRESHOLD = (function () {
       // несут sysFrom/to; хлебовозы и переселенцы — между мирами
       if (v.sysFrom !== undefined) { a = systems[v.sysFrom]; b = systems[v.to]; }
       else { a = systems[v.from.sys]; b = systems[v.to.sys]; if (a === b) return; }
-      var k = clamp(v.t, 0, 1), x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
+      var k = clamp(vis(v), 0, 1), x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
       cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(x, y);
       cx.strokeStyle = v.color; cx.globalAlpha = 0.3; cx.lineWidth = 1.2; cx.stroke(); cx.globalAlpha = 1;
       var isJump = v.kind === "jump" || v.kind === "opener";
@@ -2834,7 +2847,7 @@ var THRESHOLD = (function () {
       : dole > 1.6 ? "Щедрое пособие: люди не спешат наниматься, зарплаты растут, казна пустеет."
       : "Пособие держит зарплаты чуть выше дна.";
   }
-  function run() { if (timer) clearInterval(timer); timer = setInterval(step, 300 / speed); }
+  function run() { if (timer) clearInterval(timer); tickMs = 300 / speed; timer = setInterval(step, tickMs); }
 
   function syncControls() {
     el("tax").value = Math.round(tax * 100);
