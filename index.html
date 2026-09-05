@@ -155,10 +155,13 @@ Mk4 — до пятого. Дальние звёзды видно, но лини
 от продавца корпуса. Базовые рейсы нарочно ОЧЕНЬ медленные: внутри системы
 84-120 месяцев, между звёздами 150-210, грузовик с деталями 96-130. Полёт к
 соседней планете занимает семь-десять лет, и смысл этой длины в том, чтобы
-захотелось посмотреть, кто летит: за каждым кораблём в системе тащится
-окошко — кто и что, куда и сколько ещё. На карте окошко только у выбранного
-рейса и у того, над которым мышь: рейсов там десятки, и подписи у всех
-превращают карту в кашу. Ускорение двигателями ощущается наградой, а не
+захотелось посмотреть, кто летит. У каждого корабля и рейса есть КОМАНДИР;
+без клика над кораблём видно только его имя, мелко и тускло — этого хватает,
+чтобы узнать "тот самый" корабль через годы. По клику за кораблём тащится
+полное окно: кто и что, куда и сколько ещё, командир, что везёт, и из чего
+собран корабль с изготовителем каждой детали. Наведение мышью окно не
+открывает — только клик: окошки у всех сразу превращали карту в кашу.
+Ускорение двигателями ощущается наградой, а не
 возвратом к норме. Наука ценит двигатели ровно настолько, насколько много
 всего летает. У каждого летящего корабля дрожащий огонёк за кормой.
 Правительство заказывает еду раньше и большей партией (порог 8 месяцев запаса,
@@ -797,6 +800,13 @@ var THRESHOLD = (function () {
   var SYSNAMES = ["Тира","Скальд","Эреб","Полынь","Ирис","Корвус","Синдри","Лето","Танат","Ольха","Вега","Морок"];
   var BODYNAMES = ["Кадм","Валун","Мора","Сель","Хорь","Гарь","Тишь","Плёс","Овод","Стынь","Зной","Кром","Луда","Смоль","Вьюга","Наволок","Осока","Кипень","Тропа","Веха","Порог","Клин","Ржа","Соль","Тень","Уголь","Ярь","Бель","Гуж","Дым","Ель","Жар","Зов","Ил","Кол","Мох"];
   var ROCKNAMES = ["Гвоздь","Слюда","Пест","Кремень","Обух","Жернов","Скол","Дресва"];
+  // У каждого корабля есть командир. Без клика над кораблём видно только его
+  // имя, мелко: этого хватает, чтобы узнать "тот самый" корабль через годы.
+  var CAPTAINS = ["Орлов","Вязов","Рахимова","Ли","Штерн","Данко","Мирра","Косой","Ясень","Тагир","Велес",
+                  "Ниязи","Круг","Селин","Хольм","Арно","Петля","Сойка","Грач","Тихон","Бекет","Ланге","Уза",
+                  "Кайя","Чибис","Строк","Драга","Инга","Марей","Стужа","Роник","Валь","Есаул","Йорк","Лада"];
+  var capSeq = 0;
+  function pickCaptain(){ return CAPTAINS[Math.floor(Math.random() * CAPTAINS.length)] + " " + (++capSeq); }
 
   // ===================== состояние =====================
   var corps = [], systems = [], links = [], voyages = [], feed = [], market = {}, patents = {};
@@ -1231,7 +1241,7 @@ var THRESHOLD = (function () {
               color: parts.length ? corps[parts[0].from].color : "#8894ae",
               // корабль летит на двигателях того, кто его построил
               t:0, dur: (from.sys === to.sys ? 36 + Math.random() * 12 : 100 + Math.random() * 40) / speedOf(parts.length ? parts[0].from : -1),
-              born:dateStr() };
+              born:dateStr(), captain:pickCaptain() };
     voyages.push(v);
     return v;
   }
@@ -1666,7 +1676,7 @@ var THRESHOLD = (function () {
     }
     voyages.push({ kind:"parts", sysFrom:sysFrom, to:dest, k:k, qty:1, corp:seller.id,
                    color:corps[seller.id].color, forCorp:buyer.id, take:take,
-                   t:0, dur:(96 + Math.random() * 34) / speedOf(seller.id), born:dateStr() });
+                   t:0, dur:(96 + Math.random() * 34) / speedOf(seller.id), born:dateStr(), captain:pickCaptain() });
     hauled++;
     return true;
   }
@@ -1983,19 +1993,19 @@ var THRESHOLD = (function () {
           if (!jumped && first) { jumped = true; say("Первый межзвёздный переход совершён."); }
         } else if (yd.vt.key === "jump" || yd.vt.key === "opener") {
           voyages.push({ kind:yd.vt.key, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color,
-                         parts:yd.parts, t:0, dur:(150 + Math.random()*60) / speedOf(yd.lead), born:dateStr() });
+                         parts:yd.parts, t:0, dur:(150 + Math.random()*60) / speedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
           say("<b>" + lead.name + "</b> вывела " + (yd.vt.key === "opener" ? "порталооткрыватель" : "прыжковый корабль") +
               " с верфи " + s.name + ".");
         } else if (yd.vt.key === "colony") {
           s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
                          dur:(84 + Math.random()*36) / speedOf(yd.lead), body:yd.body, backers:yd.backers, parts:yd.parts,
-                         trail:[], x:0, y:0, ang:0, born:dateStr() });
+                         trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain() });
           say("<b>" + lead.name + "</b> спустила колониальный модуль: курс на " + yd.body.name + ".");
         } else {
           yd.vent.building = false;
           s.ships.push({ kind:"mine", corp:yd.lead, color:yd.color, glyph:yd.glyph, size:8, t:0,
                          dur:(84 + Math.random()*36) / speedOf(yd.lead), dest:yd.dest, vent:yd.vent, parts:yd.parts,
-                         trail:[], x:0, y:0, ang:0, born:dateStr() });
+                         trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain() });
           say("<b>" + lead.name + "</b> спустила платформу: курс на " + yd.dest.label + ".");
         }
       }
@@ -2176,6 +2186,34 @@ var THRESHOLD = (function () {
       return ["Хлебовоз · " + v.qty + " еды", v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
     return ["Переселенцы · " + v.qty.toFixed(1) + " чел.", v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
   }
+  // Без клика — только имя командира, мелко и тускло. Полное окно с деталями
+  // и их изготовителями тащится за кораблём лишь после клика по нему: карта с
+  // окошками у всех превращалась в кашу, а имя узнаётся и на 8 пикселях.
+  function tiny(x, y, text, col) {
+    cx.save();
+    cx.font = "500 8px system-ui, sans-serif"; cx.textAlign = "left"; cx.textBaseline = "middle";
+    cx.fillStyle = col; cx.globalAlpha = 0.75;
+    cx.fillText(text, x + 9, y + 1);
+    cx.restore();
+  }
+  // строки полного окна: кто и что, куда и когда, командир, изготовители деталей
+  function makersOfParts(parts, ownerId) {
+    var by = {};
+    (parts || []).forEach(function (p) { var k = p.k + "|" + p.from; by[k] = (by[k] || 0) + 1; });
+    return Object.keys(by).map(function (k) {
+      var bits = k.split("|"), f = compOf(bits[0]), from = corps[+bits[1]];
+      return f.short + (by[k] > 1 ? " ×" + by[k] : "") + " — " + (+bits[1] === ownerId ? "своё" : from.name);
+    });
+  }
+  function windowLines(o, isVoyage) {
+    var head = isVoyage ? voyageLines(o) : shipLines(o);
+    var owner = isVoyage ? (o.forCorp !== undefined ? o.forCorp : o.corp) : o.corp;
+    var lines = head.concat(["командир " + o.captain]);
+    if (isVoyage && o.kind === "parts") lines.push("везёт: " + compOf(o.k).short + " — " + corps[o.corp].name);
+    var mk = makersOfParts(o.parts, owner);
+    if (mk.length) lines = lines.concat(["из чего собран:"]).concat(mk);
+    return lines;
+  }
   function ship(kind, x, y, s, rot, col) {
     cx.save();
     cx.translate(x, y); cx.rotate(rot || 0); cx.scale(s / 8, s / 8);
@@ -2325,7 +2363,8 @@ var THRESHOLD = (function () {
       cx.strokeStyle = sh.color; cx.globalAlpha = 0.22; cx.lineWidth = 1.3; cx.stroke(); cx.globalAlpha = 1;
       flame(sh.x, sh.y, sh.size, sh.ang);
       ship(sh.glyph, sh.x, sh.y, sh.size, sh.ang, sh.color);
-      caption(sh.x, sh.y, shipLines(sh), sh.color);
+      if (pick && pick.data === sh) caption(sh.x, sh.y, windowLines(sh, false), sh.color);
+      else tiny(sh.x, sh.y, sh.captain, sh.color);
       hits.push({ x:sh.x, y:sh.y, r:13, kind:"ship", data:sh });
     });
 
@@ -2334,7 +2373,8 @@ var THRESHOLD = (function () {
       var a = posOf(v.from.body, mx, my), b = posOf(v.to.body, mx, my), k = clamp(v.t, 0, 1);
       var x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
       ship("cargo", x, y, 6, 0, v.color);
-      caption(x, y, voyageLines(v), v.color);
+      if (pick && pick.data === v) caption(x, y, windowLines(v, true), v.color);
+      else tiny(x, y, v.captain, v.color);
       hits.push({ x:x, y:y, r:12, kind:"cargo", data:v });
     });
   }
@@ -2398,7 +2438,8 @@ var THRESHOLD = (function () {
       ship(isJump ? "jump" : "cargo", x, y, 6.5, rot, v.color);
       // на карте рейсов десятки — подпись только у выбранного и у того, над
       // которым мышь, иначе карта превращается в кашу из окошек
-      if ((pick && pick.data === v) || hover === v) caption(x, y, voyageLines(v), v.color);
+      if (pick && pick.data === v) caption(x, y, windowLines(v, true), v.color);
+      else tiny(x, y, v.captain, v.color);
       hits.push({ x:x, y:y, r:12, kind:isJump ? "jumpship" : "cargo", data:v });
     });
     systems.forEach(function (s) {
