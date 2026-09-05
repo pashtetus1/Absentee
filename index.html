@@ -417,6 +417,9 @@ var THRESHOLD = (function () {
   var tick = 0, treasury = 320, tax = 0.18, subKey = "drive", subYear = 90, tradeFee = 0.06, dole = 0.6, patTerm = 25;
   var jumped = false, trades = 0, turnover = 0, shipped = 0, movedPops = 0, refusals = 0, dropped = 0;
   var hauled = 0, burned = 0, raids = 0;             // деталей отправлено грузовиком; топлива сожжено
+  // Содержание мира: сколько казна мира тратит на человека в месяц. Не рычаг —
+  // игрок не может это крутить, это цена существования людей.
+  var UPKEEP = 0.25;
   // Какой из трёх способов достался государству — заранее НЕИЗВЕСТНО. Это
   // выясняется в тот месяц, когда кто-нибудь доводит первую марку до конца:
   // до тех пор вкладываешься в межзвёздный переход вслепую.
@@ -2138,6 +2141,17 @@ var THRESHOLD = (function () {
     worlds.forEach(function (w) {
       treasury -= w.pop.free * dole;
       w.gov.cash += w.rough > 0 ? 0.35 : 1.2;             // подушная подать
+      // Содержание: люди стоят денег просто тем, что они есть. Раньше касса мира
+      // была почти закрытым накопителем — приход капал полтора века, а тратить
+      // его было почти не на что: родина приходила к тринадцати тысячам при
+      // корабле за 66, и никакая цена ничего не значила. Приход идёт от ЗАНЯТЫХ
+      // (emp.prod * 0.8), расход — от ВСЕХ, поэтому мир, где людям нечего
+      // делать, начинает течь. По населению, а не по пределу: предел у родины
+      // 360 и не меняется, а население отвечает на то, как идут дела.
+      // Пол на нуле обязателен: до сих пор w.gov.cash не мог стать
+      // отрицательным (все списания идут через проверки "хватает ли"), и весь
+      // код покупок на это опирается.
+      w.gov.cash = Math.max(0, w.gov.cash - popOf(w) * UPKEEP);
     });
     if (treasury < 0) treasury = 0;
   }
@@ -2693,6 +2707,7 @@ var THRESHOLD = (function () {
       (w.rough > 0 ? '<div class="sub" style="margin:0 0 3px;color:var(--bad)">Разруха: ещё ' + Math.ceil(w.rough / 12) + ' лет</div>' : '') +
       (w.blight > 0 ? '<div class="sub" style="margin:0 0 3px;color:var(--bad)">Неурожай: ещё ' + w.blight + ' мес.</div>' : '') +
       '<div class="sub" style="margin:0 0 3px">Казна мира ' + Math.round(w.gov.cash) +
+      ' · содержание ' + (popOf(w) * UPKEEP).toFixed(1) + '/мес' +
       ' · уехать хотят ' + w.wantOut.toFixed(1) + ' · ' + w.flow + '</div>' +
       '<div class="sub" style="margin:0">Филиалы (' + w.branches.length + ' из ' + w.slots + '): ' +
       (w.branches.length ? w.branches.map(function (b) { return corps[b.corp].name; }).join(", ") : "нет") + '</div>' +
