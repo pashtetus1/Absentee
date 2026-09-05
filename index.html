@@ -14,7 +14,10 @@
 0. КАК ПОЛЬЗОВАТЬСЯ
 ────────────────────────────────────────────────────────────────────────────────
 Открыть в браузере, ничего не требуется. Симуляция крутится сама, игрок только
-двигает пять рычагов справа и тыкает в объекты на сцене. Правка чисел и F5 —
+двигает пять рычагов справа и тыкает в объекты на сцене. Скорость по кругу
+x1, x2, x4, x10, x20 (на x20 месяц идёт 15 мс, проверено: 201 месяц за три
+секунды); на x10 и x20 панели перерисовываются не каждый шаг, а не чаще восьми
+раз в секунду — innerHTML десятка блоков по 66 раз в секунду душил вкладку. Правка чисел и F5 —
 секунды, поэтому пока дизайн шевелится, переезжать на движок рано (см. п. 9).
 
 Тесты: node test/run.js. Тридцать проверок на 150-250 симулированных лет.
@@ -807,7 +810,7 @@ var THRESHOLD = (function () {
   var moveKnown = false;
   var timer = null, running = true, speed = 1, flash = {};
   var view = { mode:"system", sys:0 };
-  var pick = null, hits = [], hover = null;
+  var pick = null, hits = [], hover = null, lastPanel = 0;
   var cam = { x:0, y:0, k:1 };            // камера карты: перетаскивание и зум
   var headless = typeof document === "undefined";
 
@@ -866,7 +869,7 @@ var THRESHOLD = (function () {
     if (typeof v.dole === "number" && v.dole >= 0 && v.dole <= 3) dole = v.dole;
     if (typeof v.patTerm === "number" && v.patTerm >= 5 && v.patTerm <= 70) patTerm = v.patTerm;
     if (techOf(v.subKey)) subKey = v.subKey;
-    if (v.speed === 1 || v.speed === 2 || v.speed === 4) speed = v.speed;
+    if ([1, 2, 4, 10, 20].indexOf(v.speed) >= 0) speed = v.speed;
   }
 
   // ===================== галактика =====================
@@ -2098,7 +2101,7 @@ var THRESHOLD = (function () {
     if (tick % 6 === 0) { foodRun(); migrationRun(); }
     if (tick % 12 === 0) { reviewOrders(); reviewProjects(); branchTrade(); }
     assemble(); moveShips(); ventureIncome();
-    if (!headless) panels();
+    if (!headless && (speed <= 4 || Date.now() - lastPanel > 120)) { panels(); lastPanel = Date.now(); }
   }
 
   // ===================== сцена =====================
@@ -2909,7 +2912,8 @@ var THRESHOLD = (function () {
       if (running) run(); else clearInterval(timer);
     });
     el("speed").addEventListener("click", function () {
-      speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
+      var ladder = [1, 2, 4, 10, 20];
+      speed = ladder[(ladder.indexOf(speed) + 1) % ladder.length];
       this.textContent = "×" + speed; if (running) run(); saveLevers();
     });
     el("map").addEventListener("click", function () { view.mode = "map"; scene(); });
