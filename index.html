@@ -185,6 +185,19 @@ Mk4 — до пятого. Дальние звёзды видно, но лини
 излишка на три года. Вывоз дорожит еду у поставщика на 4 процента за рейс —
 так экспорт сам себя кормит: фермеру платят больше, в поле идут люди.
 
+МЕЖЗВЁЗДНЫЙ РЕЙС ВИДЕН И ИЗНУТРИ СИСТЕМЫ: первые 15% пути корабль уходит от
+планеты к краю в сторону целевой звезды, последние 15% — приходит с края к
+цели. Раньше такой корабль жил только на карте, и из системы не было видно
+ни вылета, ни прилёта.
+
+КОМПАНИИ САМИ КОРМЯТ ГОЛОДАЮЩИЕ МИРЫ, где стоит их филиал, — из корысти, не
+из милосердия: семь лет голода, и мир отделяется, забирая филиал. Компания
+покупает еду у сытого мира и хлебовоз у поставщика, жжёт своё топливо; не чаще
+раза в два года на мир и только при кассе выше 260. На хлебовозе так и
+написано: "помощь от Тайко". Голод при этом случается ЧАЩЕ, чем раньше: модуль
+везёт двухлетний запас вместо пятилетнего, казна колонии 80 вместо 120 —
+прогон даёт 14-45% голодных колоние-месяцев против единичных.
+
 ГОЛОДНЫЙ МИР ОТДЕЛЯЕТСЯ. Семь лет голода подряд при населении от 0.7 — и
 правительство становится НОВОЙ компанией "Свободный <мир>". Она забирает все
 филиалы на планете (их хозяева теряют место: они этот мир не кормили),
@@ -193,6 +206,17 @@ Mk4 — до пятого. Дальние звёзды видно, но лини
 Это старая идея из star-empire-sprawl — колония отделяется и становится
 игроком, — только теперь её рождает не расстояние, а голод. Прогон на шести
 сеймах, 300 лет: 3-13 отделений, компаний становится 8-18.
+
+ВОЛЬНИЦА. Независимый мир, который голодает ещё пять лет ПОСЛЕ отделения,
+бросает торговать и уходит в разбой (жребий 3% в месяц, пока голод длится):
+"Вольница <мир>" сидит у своей звезды и перехватывает всё, что летит мимо в
+зоне 45 — еду везёт домой, детали на склад, переселенцев забирает. Прыжковые
+и открыватели не трогает, свои же хлебовозы тоже. Это единственная сила в
+игре, которая ОТНИМАЕТ, а не покупает. Шанс перехвата 0.25% в месяц: рейс
+идёт двести месяцев и десятки из них торчит в зоне, при 6% пираты выжигали
+всю торговлю (1900 перехватов за партию). На карте логово — красное кольцо.
+Прогон, 300 лет: вольниц 0-5 из 2-10 отделений, перехватов 0-650.
+Защиты от вольницы пока нет никакой — ни конвоев, ни обхода: это дыра.
 
 ОСВОЕНИЕ МИРОВ ПО КЛАССАМ, Mk1 И ДО БЕСКОНЕЧНОСТИ. Каждая марка даёт +12%
 урожая и +1 к пределу населения на мирах этого класса — там, где у знающей
@@ -876,7 +900,7 @@ var THRESHOLD = (function () {
   var worlds = [], projects = [], home = null, move = null, routes = {};
   var tick = 0, treasury = 320, tax = 0.18, subKey = "drive", subYear = 90, tradeFee = 0.06, dole = 0.6, patTerm = 25;
   var jumped = false, trades = 0, turnover = 0, shipped = 0, movedPops = 0, refusals = 0, dropped = 0;
-  var hauled = 0, burned = 0;             // деталей отправлено грузовиком; топлива сожжено
+  var hauled = 0, burned = 0, raids = 0;             // деталей отправлено грузовиком; топлива сожжено
   // Какой из трёх способов достался государству — заранее НЕИЗВЕСТНО. Это
   // выясняется в тот месяц, когда кто-нибудь доводит первую марку до конца:
   // до тех пор вкладываешься в межзвёздный переход вслепую.
@@ -1098,7 +1122,7 @@ var THRESHOLD = (function () {
               rough: founder >= 0 ? 120 : 0 };
     // модуль везёт трёхлетний запас провизии — иначе колония умирала раньше,
     // чем первый хлебовоз успевал дойти (рейс идёт двенадцать-семнадцать лет)
-    if (founder >= 0) { w.food.stock = seed * 60; w.food.price = 2.5; w.gov.cash = 120; }
+    if (founder >= 0) { w.food.stock = seed * 24; w.food.price = 2.5; w.gov.cash = 80; }   // два года провизии: голод должен случаться
     body.world = w;
     worlds.push(w);
     return w;
@@ -1162,7 +1186,7 @@ var THRESHOLD = (function () {
     corps.forEach(function (c) { openBranch(c, home, true); });
 
     tick = 0; treasury = 320; jumped = false; trades = 0; turnover = 0; shipped = 0; movedPops = 0;
-    refusals = 0; dropped = 0; moveKnown = false; hauled = 0; burned = 0;
+    refusals = 0; dropped = 0; moveKnown = false; hauled = 0; burned = 0; raids = 0; pirateCount = 0;
     view = { mode:"system", sys:0 };
     say("Тира: восемнадцать человечков, пять компаний и ни одной освоенной детали.");
     say("Межзвёздный переход возможен, но какой именно — неизвестно: выяснится, когда кто-нибудь доведёт первую марку.");
@@ -1303,6 +1327,7 @@ var THRESHOLD = (function () {
   // освоении именно своего класса миров. Это старая идея из star-empire-sprawl
   // (колония отделяется и становится игроком), только теперь её рождает голод.
   var EXTRA = ["#c9a0ff","#8ef0d0","#ffd27a","#ff9ecf","#9ad4ff","#d4ff7a","#ffb4a0","#a0ffe0"];
+  var PIRATES = ["#ff5c5c","#ff8c42","#e04f8f","#ff3b6b"], pirateCount = 0;
   function spawnCorp(w) {
     var founder = corps[w.founder >= 0 ? w.founder : 0];
     var c = { id:corps.length, name:"Свободн" + (/[аяь]$/.test(w.body.name.replace(/ [IVX]+$/, "")) ? "ая " : "ый ") + w.body.name,
@@ -1427,6 +1452,114 @@ var THRESHOLD = (function () {
       dispatch(src, w, "food", qty, parts);
       shipped += qty;
       say("Правительство " + w.body.name + " закупило " + qty + " еды на " + src.body.name + ".");
+    });
+  }
+
+  // ---- частная помощь ---------------------------------------------------
+  // Компания с филиалом на голодающем мире не ждёт правительство: она сама
+  // покупает еду и хлебовоз и шлёт их — из корысти, не из милосердия. Семь лет
+  // голода — и мир отделяется, забирая филиал; дешевле накормить. Помощь идёт
+  // не чаще раза в два года на мир, и только пока у компании есть деньги.
+  function corpBuyShip(c, at, need) {
+    var taken = [], ok = true;
+    Object.keys(need).forEach(function (k) {
+      for (var i = 0; i < need[k]; i++) {
+        if (!ok) return;
+        if (stockAt(c, at.sys, k) > 0) { addStock(c, at.sys, k, -1); taken.push({ k:k, from:c.id, price:0 }); continue; }
+        var seller = null;
+        corps.forEach(function (s) {
+          if (s.id === c.id || stockAt(s, at.sys, k) <= 0) return;
+          if (!seller || stockAt(s, at.sys, k) > stockAt(seller, at.sys, k)) seller = s;
+        });
+        if (!seller) { ok = false; return; }
+        var p = askPrice(seller, k) * (1 + tradeFee);
+        if (c.cash < p + 20) { ok = false; return; }
+        c.cash -= p; seller.cash += p / (1 + tradeFee); seller.sold++; treasury += p - p / (1 + tradeFee);
+        addStock(seller, at.sys, k, -1); trades++; turnover += p;
+        taken.push({ k:k, from:seller.id, price:p });
+      }
+    });
+    if (!ok) { taken.forEach(function (t) { addStock(corps[t.from], at.sys, t.k, 1); corps[t.from].cash -= t.price / (1 + tradeFee); c.cash += t.price; }); return null; }
+    return taken.map(function (t) { return { k:t.k, from:t.from }; });
+  }
+
+  function corpRelief() {
+    worlds.forEach(function (w) {
+      if (w.founder < 0) return;
+      var total = popOf(w);
+      if (w.food.short < 2 && w.food.stock > total * 4) return;         // не голодает
+      if (w.reliefAt && tick - w.reliefAt < 24) return;
+      if (voyages.some(function (v) { return v.kind === "food" && v.to === w; })) return;
+      // кто тут стоит и при деньгах: тот и платит
+      var payer = null;
+      w.branches.forEach(function (b) { var c = corps[b.corp]; if (c.cash > 260 && (!payer || c.cash > payer.cash)) payer = c; });
+      if (!payer) return;
+      var want = Math.ceil(Math.max(1, total - w.pop.farm * w.type.farm * devMult(w)) * 24);
+      var pickSrc = surplusWorld(want, w);
+      if (!pickSrc) return;
+      var src = pickSrc.w, qty = Math.max(1, Math.min(want, Math.floor(pickSrc.extra)));
+      if (!canTravel(src.sys, w.sys)) return;
+      var price = qty * 1.2, fk = src.sys === w.sys ? "fuel" : "sfuel";
+      if (payer.cash < price + 60) return;
+      var parts = corpBuyShip(payer, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
+      if (!parts) return;
+      if (!takeFuel(payer, src.sys, fk, true)) {           // нет горючего у отправителя — вернуть детали
+        parts.forEach(function (p) { addStock(corps[p.from], src.sys, p.k, 1); });
+        return;
+      }
+      payer.cash -= price; src.gov.cash += price; src.food.stock -= qty;
+      src.food.price = Math.min(6, src.food.price * 1.04);
+      var v = dispatch(src, w, "food", qty, parts);
+      v.relief = payer.id; w.reliefAt = tick; shipped += qty;
+      say("<b>" + payer.name + "</b> шлёт " + qty + " еды на голодающий " + w.body.name + " — там её филиал.");
+    });
+  }
+
+  // ---- вольница ---------------------------------------------------------
+  // Независимый мир, который голодает ещё четыре года ПОСЛЕ отделения, бросает
+  // торговать и уходит в разбой: вольница сидит у своей звезды и перехватывает
+  // всё, что летит мимо — еду везёт домой, детали на склад, переселенцев
+  // забирает. Это единственная сила в игре, которая ОТНИМАЕТ, а не покупает.
+  // Прыжковые и открыватели не трогает: с них нечего взять.
+  function piracy() {
+    corps.forEach(function (p) {
+      if (!p.home || p.pirate) return;
+      // пять лет голода после независимости и жребий: не всякий голодный мир
+      // становится разбойником, но чем дольше голод, тем вернее
+      if (p.home.food.short < 60 || popOf(p.home) < 0.5 || Math.random() > 0.03) return;
+      p.pirate = true; p.craft = "разбой"; p.nerve = 1.6;
+      p.name = "Вольница " + p.home.body.name;
+      p.color = PIRATES[pirateCount++ % PIRATES.length];
+      p.home.food.short = 0;
+      say("<b>" + p.home.body.name + "</b> голодает и после независимости — и уходит в разбой: теперь это «" +
+          p.name + "», и всё, что летит мимо " + systems[p.home.sys].name + ", в опасности.");
+    });
+    corps.forEach(function (p) {
+      if (!p.pirate || !p.home) return;
+      var ps = systems[p.home.sys];
+      for (var i = voyages.length - 1; i >= 0; i--) {
+        var v = voyages[i];
+        if (v.kind === "jump" || v.kind === "opener") continue;
+        var owner = v.kind === "parts" ? v.forCorp : (v.relief !== undefined ? v.relief : -1);
+        if (owner === p.id) continue;
+        var a = v.sysFrom !== undefined ? systems[v.sysFrom] : systems[v.from.sys];
+        var b = v.sysFrom !== undefined ? systems[v.to] : systems[v.to.sys];
+        if (a === b) continue;
+        var t = clamp(v.t, 0, 1), x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+        if (v.to === p.home) continue;                                   // свой же хлебовоз
+        if (Math.hypot(x - ps.x, y - ps.y) > 45) continue;               // не в зоне охоты
+        // рейс идёт двести месяцев и десятки из них — в зоне; чтобы перехватывали
+        // примерно каждый четвёртый, шанс в месяц должен быть крошечным
+        if (Math.random() > 0.0025) continue;
+        var loot;
+        if (v.kind === "food") { p.home.food.stock += v.qty; loot = v.qty + " еды"; }
+        else if (v.kind === "pops") { p.home.pop.free += v.qty; loot = v.qty.toFixed(1) + " человечков"; }
+        else { addStock(p, ps.id, v.k, v.qty); loot = compOf(v.k).short; }
+        raids++;
+        if (pick && pick.data === v) pick = null;
+        say("<b>" + p.name + "</b> перехватила рейс командира " + v.captain + " у " + ps.name + ": взято " + loot + ".");
+        voyages.splice(i, 1);
+      }
     });
   }
 
@@ -2292,7 +2425,8 @@ var THRESHOLD = (function () {
     worlds.forEach(labour);
     economy(); research(); produce(); trade(); stalledOrders(); stalledProjects();
     if (tick % 3 === 0) patentsExpire();
-    if (tick % 6 === 0) { foodRun(); migrationRun(); secessions(); }
+    if (tick % 6 === 0) { foodRun(); corpRelief(); migrationRun(); secessions(); }
+    piracy();
     if (tick % 12 === 0) { reviewOrders(); reviewProjects(); branchTrade(); }
     assemble(); moveShips(); ventureIncome();
     if (!headless && (speed <= 4 || Date.now() - lastPanel > 120)) { panels(); lastPanel = Date.now(); }
@@ -2367,7 +2501,8 @@ var THRESHOLD = (function () {
       return ["Грузовик · " + compOf(v.k).name.toLowerCase() + " для " + corps[v.forCorp].name,
               systems[v.sysFrom].name + " → " + systems[v.to].name + " · " + eta(v.t, v.dur)];
     if (v.kind === "food")
-      return ["Хлебовоз · " + v.qty + " еды", v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
+      return ["Хлебовоз · " + v.qty + " еды" + (v.relief !== undefined ? " · помощь от " + corps[v.relief].name : ""),
+              v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
     return ["Переселенцы · " + v.qty.toFixed(1) + " чел.", v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
   }
   // Без клика — только имя командира, мелко и тускло. Полное окно с деталями
@@ -2563,6 +2698,40 @@ var THRESHOLD = (function () {
       else tiny(x, y, v.captain, v.color);
       hits.push({ x:x, y:y, r:12, kind:"cargo", data:v });
     });
+
+    // Межзвёздные рейсы, пока они ещё ВНУТРИ этой системы. Первые 15% пути —
+    // уход от планеты к краю в сторону целевой звезды, последние 15% — приход
+    // с края к цели. Раньше такой корабль жил только на карте, и из системы
+    // было не видно ни вылета, ни прилёта.
+    var LEG = 0.15;
+    voyages.forEach(function (v) {
+      var fromSys = v.sysFrom !== undefined ? v.sysFrom : v.from.sys;
+      var toSys = v.sysFrom !== undefined ? v.to : v.to.sys;
+      if (fromSys === toSys) return;                        // внутрисистемные уже нарисованы
+      var t = clamp(vis(v), 0, 1), leg = null, a, b;
+      if (s.id === fromSys && t < LEG) {
+        var origin = v.sysFrom !== undefined ? s.bodies[0] : v.from.body;
+        var ang = Math.atan2(systems[toSys].y - s.y, systems[toSys].x - s.x);
+        a = posOf(origin, mx, my);
+        b = { x:mx + Math.cos(ang) * 330, y:my + Math.sin(ang) * 330 };
+        leg = t / LEG;
+      } else if (s.id === toSys && t > 1 - LEG) {
+        var target = v.sysFrom !== undefined ? s.bodies[0] : v.to.body;
+        var ang2 = Math.atan2(systems[fromSys].y - s.y, systems[fromSys].x - s.x);
+        a = { x:mx + Math.cos(ang2) * 330, y:my + Math.sin(ang2) * 330 };
+        b = posOf(target, mx, my);
+        leg = (t - (1 - LEG)) / LEG;
+      }
+      if (leg === null) return;
+      var x = a.x + (b.x - a.x) * leg, y = a.y + (b.y - a.y) * leg;
+      var rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
+      var isJump = v.kind === "jump" || v.kind === "opener";
+      flame(x, y, 6.5, rot);
+      ship(isJump ? "jump" : "cargo", x, y, 6.5, rot, v.color);
+      if (pick && pick.data === v) caption(x, y, windowLines(v, true), v.color);
+      else tiny(x, y, v.captain, v.color);
+      hits.push({ x:x, y:y, r:12, kind:isJump ? "jumpship" : "cargo", data:v });
+    });
   }
 
   function nodeR(s) { return 5 + Math.min(5, (s.mines + s.bodies.filter(function (b) { return b.world; }).length) * 1.2); }
@@ -2652,6 +2821,12 @@ var THRESHOLD = (function () {
       if (view.sys === s.id) {
         cx.beginPath(); cx.arc(s.x, s.y, r + 10, 0, 6.2832);
         cx.strokeStyle = "#3d4a70"; cx.lineWidth = 1; cx.stroke();
+      }
+      // логово вольницы: красное кольцо — зона охоты, мимо лучше не летать
+      if (corps.some(function (c) { return c.pirate && c.home && c.home.sys === s.id; })) {
+        cx.beginPath(); cx.arc(s.x, s.y, 45, 0, 6.2832);
+        cx.strokeStyle = "#ff5c5c"; cx.globalAlpha = 0.35; cx.setLineDash([4, 6]); cx.lineWidth = 1.2;
+        cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
       }
       if (s.gate.built) {            // ворота: система в сети, до неё долетит хлебовоз
         cx.beginPath(); cx.arc(s.x, s.y, r + 6, 0, 6.2832);
@@ -3192,7 +3367,7 @@ var THRESHOLD = (function () {
       return { tick:tick, treasury:treasury, corps:corps, worlds:worlds, systems:systems, links:links, move:move, routes:routes,
                market:market, patents:patents, voyages:voyages, projects:projects,
                trades:trades, shipped:shipped, movedPops:movedPops, refusals:refusals, dropped:dropped,
-               hauled:hauled, burned:burned, feed:feed };
+               hauled:hauled, burned:burned, raids:raids, feed:feed };
     },
     setLever: function (k, v) {
       if (k === "tax") tax = v; else if (k === "sub") subYear = v; else if (k === "subKey") subKey = v;

@@ -522,7 +522,7 @@ test("голодный мир отделяется и становится ко�
   st.corps.slice(5).forEach((c) => {
     assert(c.native, c.name + ": у отделившейся компании нет своего класса миров");
     assert(c.branches.length >= 1, c.name + ": у отделившейся компании нет филиала");
-    assert(/^Свободн(ый|ая) /.test(c.name), "странное имя: " + c.name);
+    assert(/^(Свободн(ый|ая)|Вольница) /.test(c.name), "странное имя: " + c.name);
   });
   // чужие филиалы отбираются в момент отделения, но позже независимый мир
   // вправе снова продать место — поэтому проверяем только свой филиал
@@ -550,6 +550,36 @@ test("на карте много типов планет", () => {
   const types = new Set();
   sim.state().systems.forEach((s) => s.bodies.forEach((b) => types.add(b.type.key)));
   assert(types.size >= 12, "типов планет всего " + types.size);
+});
+
+// ── частная помощь и вольница ───────────────────────────────────────────────
+// Компания с филиалом на голодающем мире сама шлёт хлебовоз — из корысти:
+// семь лет голода, и мир отделяется, забирая филиал. А независимый мир,
+// голодающий ещё четыре года, уходит в разбой и перехватывает рейсы.
+test("компании сами шлют еду голодающим мирам с их филиалами", () => {
+  const sim = load("index.html", { seed: 3 });
+  let relief = 0;
+  const seen = new Set();
+  runYears(sim, 300, (st) => {
+    st.voyages.forEach((v) => { if (v.kind === "food" && !seen.has(v)) { seen.add(v); if (v.relief !== undefined) relief++; } });
+  });
+  assert(relief > 0, "за триста лет ни одного частного хлебовоза");
+});
+
+test("вольница появляется от голода и грабит", () => {
+  let pirates = 0, raids = 0;
+  for (const seed of [3, 6, 1]) {
+    const sim = load("index.html", { seed });
+    const st = runYears(sim, 300);
+    pirates += st.corps.filter((c) => c.pirate).length;
+    raids += st.raids;
+    st.corps.filter((c) => c.pirate).forEach((c) => {
+      assert(/^Вольница /.test(c.name), "странное имя вольницы: " + c.name);
+      assert(c.home, c.name + ": у вольницы нет логова");
+    });
+  }
+  assert(pirates > 0, "на трёх сеймах не появилось ни одной вольницы");
+  assert(raids > 0, "вольницы есть, а перехватов нет");
 });
 
 // ── воспроизводимость ───────────────────────────────────────────────────────
