@@ -158,6 +158,44 @@ test("корабли собираются из чужих деталей", () =>
   assert(mixed > 0, "все предприятия построены в одиночку: кооперации нет");
 });
 
+// ── отказы продавать ────────────────────────────────────────────────────────
+// Деталь на складе — рычаг, а не товар: продать двигатель тому, кто рвётся к
+// последнему астероиду, значит устроить его рывок своими руками.
+test("компании отказывают друг другу", () => {
+  const sim = load("threshold-market.html", { seed: 61 });
+  const st = runYears(sim, 150);
+  assert(st.refusals > 0, "за сто пятьдесят лет ни одного отказа: рычаг не работает");
+});
+
+test("отказ помнится годами, а не перерешается каждый месяц", () => {
+  const sim = load("threshold-market.html", { seed: 67 });
+  let seen = false;
+  runYears(sim, 120, (st) => {
+    st.corps.forEach((c) => {
+      Object.keys(c.embargo).forEach((k) => {
+        if (c.embargo[k] > st.tick + 12) seen = true;      // запрет живёт больше года
+      });
+    });
+  });
+  assert(seen, "эмбарго не держится дольше года — отказ ничего не значит");
+});
+
+test("отказы не душат экономику насмерть", () => {
+  const sim = load("threshold-market.html", { seed: 71 });
+  const st = runYears(sim, 200);
+  assert(st.trades > 50, "всего " + st.trades + " сделок: рынок задушен отказами");
+  assert(st.worlds.length > 1, "из-за отказов не основано ни одной колонии");
+});
+
+test("свёрнутая сборка возвращает детали на склад", () => {
+  const sim = load("threshold-market.html", { seed: 73 });
+  runYears(sim, 200, (st) => {
+    st.corps.forEach((c) => {
+      Object.keys(c.stock).forEach((k) => assert(c.stock[k] >= 0, c.name + ": отрицательный склад после отмены"));
+    });
+  });
+});
+
 // ── корабли долетают ────────────────────────────────────────────────────────
 test("флот не зависает в пути", () => {
   const sim = load("threshold-market.html", { seed: 41 });

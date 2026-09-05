@@ -39,6 +39,21 @@
    жизнеобеспечение. Опоздавший может позже КУПИТЬ место у правительства
    колонии, если свободные места остались.
 
+3a. ДЕТАЛЬ НА СКЛАДЕ — РЫЧАГ, А НЕ ТОВАР. Продавец не обязан продавать и
+   отказывает, если сделка сильнее помогает покупателю, чем деньги ему самому:
+   когда деталь под его патентом, когда оба метят в одно и то же, когда
+   покупатель и так впереди, когда делить осталось нечего. Смелый душит
+   охотнее (множитель nerve), бедный продаёт кому угодно, а высокая цена
+   перебивает опасения — врагу продадут, но дорого.
+   Отказ ЗАПОМИНАЕТСЯ на два-пять лет. Без памяти он ничего не значил бы:
+   монетка перекидывалась бы каждый месяц и рано или поздно выпадало бы «да».
+   Заказ, который некому снабдить, через шесть лет сворачивается, купленное
+   возвращается на склад. Отсюда и следствие: запустить может не каждый.
+   Правительствам миров не отказывают — они не соперники, а покупатели еды.
+   Вкладчики консорциума своему проекту тоже продают всегда: они в доле.
+   Прогон на 200 лет: 150-310 отказов и 13-56 свёрнутых сборок за партию, а на
+   отдельных сеймах экспансия душится вдвое (13 миров против обычных 28-34).
+
 4. ФИЛИАЛ — ЭТО ЦЕХ НА ЧУЖОЙ ПЛАНЕТЕ. Компания нанимает там местных и делает
    детали. Без филиалов вся промышленность заперта на Тире.
 
@@ -374,7 +389,7 @@ var THRESHOLD = (function () {
   var corps = [], systems = [], links = [], voyages = [], feed = [], market = {}, patents = {};
   var worlds = [], projects = [], home = null;
   var tick = 0, treasury = 320, tax = 0.18, subKey = "drive", subYear = 90, tradeFee = 0.06, dole = 0.6, patTerm = 25;
-  var jumped = false, trades = 0, turnover = 0, shipped = 0, movedPops = 0;
+  var jumped = false, trades = 0, turnover = 0, shipped = 0, movedPops = 0, refusals = 0, dropped = 0;
   var timer = null, running = true, speed = 1, flash = {};
   var view = { mode:"system", sys:0 };
   var pick = null, hits = [];
@@ -508,7 +523,7 @@ var THRESHOLD = (function () {
     corps = TEMPLATE.map(function (t, i) {
       var c = { id:i, name:t.name, color:t.color, craft:t.craft, nerve:t.nerve, apt:t.apt,
                 cash:900, known:{}, spent:{}, stock:{}, wip:{}, target:null, order:null,
-                branches:[], sold:0, bought:0, cool:0 };
+                branches:[], sold:0, bought:0, cool:0, embargo:{} };
       allTech().forEach(function (f) { c.spent[f.key] = 0; });
       COMPS.forEach(function (f) { c.stock[f.key] = 0; c.wip[f.key] = 0; });
       return c;
@@ -525,6 +540,7 @@ var THRESHOLD = (function () {
     corps.forEach(function (c) { openBranch(c, home, true); });
 
     tick = 0; treasury = 320; jumped = false; trades = 0; turnover = 0; shipped = 0; movedPops = 0;
+    refusals = 0; dropped = 0;
     view = { mode:"system", sys:0 };
     say("Тира: восемнадцать человечков, пять компаний и ни одной освоенной детали.");
   }
@@ -796,13 +812,91 @@ var THRESHOLD = (function () {
       m.stock = stock; m.want = want;
     });
   }
-  function bestSeller(k, buyerId) {
+  // ---- отказ продавать -------------------------------------------------
+  // Деталь на складе — это не товар, а рычаг. Продать двигатель тому, кто
+  // рвётся к последнему свободному астероиду, значит своими руками устроить
+  // его рывок. Поэтому продавец решает, а не автоматически меняет вещь на
+  // деньги. Решение ЗАПОМИНАЕТСЯ на годы: если перекидывать монетку каждый
+  // месяц, отказ ничего не значит — рано или поздно выпадет "да".
+  function embKey(buyerId, k){ return buyerId + "|" + k; }
+
+  function wealth(c) {
+    var w = c.cash + c.branches.length * 120;
+    worlds.forEach(function (o) { if (o.founder === c.id) w += 220; });
+    systems.forEach(function (s) { s.ventures.forEach(function (v) { if (v.lead === c.id) w += 160; }); });
+    return w;
+  }
+  function sameGoal(a, b) {
+    if (a.order && b.order && a.order.type === b.order.type) return true;
+    var pa = projects.some(function (p) { return p.lead === a.id; });
+    var pb = projects.some(function (p) { return p.lead === b.id; });
+    return pa && pb;
+  }
+  function lastPrize() {
+    var rocks = 0;
+    systems.forEach(function (s) { if (s.unlocked) rocks += freeRocks(s).length; });
+    return rocks <= 2;
+  }
+
+  function willSell(seller, buyer, k) {
+    var e = seller.embargo[embKey(buyer.id, k)];
+    if (e && e > tick) return false;                    // отказ ещё в силе
+    if (e && e <= tick) delete seller.embargo[embKey(buyer.id, k)];
+
+    var f = compOf(k), rich = market[k].price / f.base;
+    var refuse = 0.14;
+    if (patLive(k) && patents[k].owner === seller.id) refuse += 0.30;  // это моя монополия
+    if (sameGoal(seller, buyer)) refuse += 0.26;                       // метим в одно и то же
+    if (wealth(buyer) > wealth(seller) * 1.25) refuse += 0.20;         // и он уже впереди
+    if (lastPrize()) refuse += 0.15;                                   // делить почти нечего
+    refuse *= seller.nerve;                                            // смелый душит охотнее
+    refuse *= clamp(1.4 - rich * 0.5, 0.4, 1.4);                       // за дорого продаст и врагу
+    if (seller.cash < 200) refuse *= 0.35;                             // бедному не до принципов
+    refuse = clamp(refuse, 0, 0.92);
+
+    if (Math.random() >= refuse) return true;
+    seller.embargo[embKey(buyer.id, k)] = tick + 24 + Math.floor(Math.random() * 36);
+    refusals++;
+    say("<b>" + seller.name + "</b> отказалась продавать " + f.name.toLowerCase() + " " + buyer.name + ".");
+    return false;
+  }
+
+  function bestSeller(k, buyer) {
     var best = null;
     corps.forEach(function (c) {
-      if (c.id === buyerId || c.stock[k] <= 0) return;
+      if (c.stock[k] <= 0) return;
+      if (buyer && c.id === buyer.id) return;
+      if (buyer && !willSell(c, buyer, k)) return;
       if (!best || c.stock[k] > best.stock[k]) best = c;
     });
     return best;
+  }
+
+  // Заказ, который некому снабдить, не висит вечно: через шесть лет ожидания
+  // компания сворачивает сборку. Это и есть цена отказов — не все могут в
+  // принципе что-то запустить, и видно, кто именно перекрыл кислород.
+  function stalledOrders() {
+    corps.forEach(function (c) {
+      if (!c.order) return;
+      var missing = COMPS.filter(function (f) {
+        return (c.order.need[f.key] || 0) - (c.order.got[f.key] || 0) > 0;
+      });
+      if (!missing.length) { c.order.wait = 0; return; }
+      c.order.wait = (c.order.wait || 0) + 1;
+      if (c.order.wait < 72) return;
+      var blockers = {};
+      missing.forEach(function (f) {
+        corps.forEach(function (o) {
+          if (o.embargo[embKey(c.id, f.key)] > tick) blockers[o.name] = 1;
+        });
+      });
+      var who = Object.keys(blockers);
+      say("<b>" + c.name + "</b> свернула сборку: " + missing.map(function (f) { return f.short; }).join(", ") +
+          (who.length ? " не продают " + who.join(" и ") : " взять негде") + ".");
+      // купленное остаётся на складе, деньги не пропадают
+      c.order.parts.forEach(function (p) { c.stock[p.k]++; });
+      c.order = null; c.cool = 24; dropped++;
+    });
   }
 
   function trade() {
@@ -818,7 +912,7 @@ var THRESHOLD = (function () {
           c.order.parts.push({ k:f.key, from:c.id });
           return;
         }
-        var seller = bestSeller(f.key, c.id);
+        var seller = bestSeller(f.key, c);
         if (!seller) return;
         var p = market[f.key].price, full = p * (1 + tradeFee);
         if (c.cash < full + 25) return;
@@ -832,7 +926,14 @@ var THRESHOLD = (function () {
       COMPS.forEach(function (f) {
         var need = (pr.need[f.key] || 0) - (pr.got[f.key] || 0);
         if (need <= 0) return;
-        var seller = bestSeller(f.key, -1);
+        // вкладчики продают своему консорциуму без разговоров: они в доле
+        var seller = null;
+        corps.forEach(function (c) {
+          if (c.stock[f.key] <= 0) return;
+          if (!pr.backers.some(function (b) { return b.corp === c.id; })) return;
+          if (!seller || c.stock[f.key] > seller.stock[f.key]) seller = c;
+        });
+        if (!seller) seller = bestSeller(f.key, corps[pr.lead]);
         if (!seller) return;
         var p = market[f.key].price, full = p * (1 + tradeFee);
         if (pr.purse < full) return;
@@ -1114,7 +1215,7 @@ var THRESHOLD = (function () {
   function step() {
     tick++;
     worlds.forEach(labour);
-    economy(); research(); produce(); trade();
+    economy(); research(); produce(); trade(); stalledOrders();
     if (tick % 3 === 0) patentsExpire();
     if (tick % 6 === 0) { foodRun(); migrationRun(); }
     if (tick % 12 === 0) { reviewOrders(); reviewProjects(); branchTrade(); }
@@ -1523,7 +1624,7 @@ var THRESHOLD = (function () {
     el("treasury").textContent = Math.round(treasury).toLocaleString("ru-RU");
     el("date").textContent = dateStr();
     el("stats").textContent = "Миров " + worlds.length + " · людей " + fmt(totPop) + " · сделок " + trades +
-      " · еды перевезено " + Math.round(shipped) + " · переселено " + movedPops.toFixed(1);
+      " · еды перевезено " + Math.round(shipped) + " · отказов " + refusals + ", свёрнуто сборок " + dropped;
 
     el("corps").innerHTML = corps.slice().sort(function (a, b) { return b.cash - a.cash; }).map(function (c) {
       var can = COMPS.filter(function (f) { return canBuild(c, f.key); }).map(function (f) { return f.short; });
@@ -1538,7 +1639,17 @@ var THRESHOLD = (function () {
         ' · цех ' + prodOf(c).toFixed(1) + ', лаб ' + sciOf(c).toFixed(1) + '</div>' +
         '<div class="rmeta">' + task + '</div>' +
         (can.length ? '<div class="rmeta" style="color:var(--gold)">делает: ' + can.join(", ") + '</div>' : '') +
-        (col.length ? '<div class="rmeta" style="color:var(--ok)">колонизует: ' + col.join(", ") + '</div>' : '') + '</div>';
+        (col.length ? '<div class="rmeta" style="color:var(--ok)">колонизует: ' + col.join(", ") + '</div>' : '') +
+        (function () {
+          var by = {};
+          Object.keys(c.embargo).forEach(function (k) {
+            if (c.embargo[k] <= tick) return;
+            var bits = k.split("|");
+            (by[bits[0]] = by[bits[0]] || []).push(compOf(bits[1]).short);
+          });
+          var list = Object.keys(by).map(function (id) { return corps[+id].name + " (" + by[id].join(", ") + ")"; });
+          return list.length ? '<div class="rmeta" style="color:var(--bad)">не продаёт: ' + list.join("; ") + '</div>' : '';
+        })() + '</div>';
     }).join("");
 
     el("feed").innerHTML = feed.slice(0, 10).map(function (f) {
@@ -1697,7 +1808,7 @@ var THRESHOLD = (function () {
     state: function () {
       return { tick:tick, treasury:treasury, corps:corps, worlds:worlds, systems:systems,
                market:market, patents:patents, voyages:voyages, projects:projects,
-               trades:trades, shipped:shipped, movedPops:movedPops, feed:feed };
+               trades:trades, shipped:shipped, movedPops:movedPops, refusals:refusals, dropped:dropped, feed:feed };
     },
     setLever: function (k, v) {
       if (k === "tax") tax = v; else if (k === "sub") subYear = v; else if (k === "subKey") subKey = v;
