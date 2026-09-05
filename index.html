@@ -108,13 +108,22 @@
      панель браузера (её меряет скрипт, см. fitPause). На айфоне кнопка иначе
      оказывается ПОД панелью Chrome — safe-area тут не спасает, она про полосу
      жестов, а не про браузер. max() берёт большее из двух: без скрипта или на
-     настольном остаётся прежнее поведение. */
+     настольном остаётся прежнее поведение.
+     Размеры кнопки помножены на --vvz = 1/пинч-зум. Прилипшая кнопка живёт в
+     layout-вьюпорте, и при разведении пальцев её раздувает вместе со страницей:
+     на скриншоте она занимала пол-экрана и вылезала за левый край. Обратный
+     множитель держит её ОДНОГО ФИЗИЧЕСКОГО РАЗМЕРА при любом зуме, а left
+     считается от видимой области, а не от середины страницы. */
   @media (max-width:900px) {
     .shell { grid-template-columns:1fr; }
     body { padding:14px 14px calc(78px + max(env(safe-area-inset-bottom), var(--vvbot, 0px))); }
-    #play { position:fixed; left:50%; transform:translateX(-50%); z-index:20;
-            bottom:calc(14px + max(env(safe-area-inset-bottom), var(--vvbot, 0px)));
-            min-width:136px; padding:13px 22px; font-size:15px;
+    #play { position:fixed; z-index:20; transform:translateX(-50%);
+            left:calc(var(--vvleft, 0px) + var(--vvw, 100vw) / 2);
+            bottom:calc(14px * var(--vvz, 1) + max(env(safe-area-inset-bottom), var(--vvbot, 0px)));
+            min-width:calc(136px * var(--vvz, 1));
+            padding:calc(13px * var(--vvz, 1)) calc(22px * var(--vvz, 1));
+            font-size:calc(15px * var(--vvz, 1));
+            border-radius:calc(8px * var(--vvz, 1));
             box-shadow:0 6px 22px rgba(4,8,18,0.6); }
   }
   /* Узко бывает и на настольном экране — от зума страницы. Кнопка нужна внизу
@@ -3131,10 +3140,17 @@ var THRESHOLD = (function () {
     // visualViewport присылает событие, и кнопка опускается обратно.
     var vv = window.visualViewport;
     if (vv) {
+      // Пинч-зум — вторая беда того же корня: fixed раздувается вместе со
+      // страницей, кнопка занимала пол-экрана и вылезала за левый край, потому
+      // что left:50% — это середина СТРАНИЦЫ, а не видимого окошка. Отдаём в CSS
+      // и обратный множитель зума, и границы видимой области.
       var fitPause = function () {
-        var seen = vv.height + vv.offsetTop;
+        var st = document.documentElement.style, seen = vv.height + vv.offsetTop;
         var gap = Math.max(document.documentElement.clientHeight - seen, window.innerHeight - seen, 0);
-        document.documentElement.style.setProperty("--vvbot", Math.round(gap) + "px");
+        st.setProperty("--vvbot", Math.round(gap) + "px");
+        st.setProperty("--vvleft", Math.round(vv.offsetLeft) + "px");
+        st.setProperty("--vvw", Math.round(vv.width) + "px");
+        st.setProperty("--vvz", (1 / (vv.scale || 1)).toFixed(3));
       };
       vv.addEventListener("resize", fitPause);
       vv.addEventListener("scroll", fitPause);
