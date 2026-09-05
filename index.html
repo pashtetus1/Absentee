@@ -83,11 +83,19 @@
 колонии. Филиал — цех на чужой планете; без филиалов промышленность заперта
 на родине.
 
-КАРТА — ПЯТЬДЕСЯТ ЗВЁЗД КОЛЬЦАМИ, и чем дальше кольцо, тем реже в нём звёзды.
-Дальний край галактики поэтому не "ещё немного", а пропасть: между соседями в
-пятом кольце вчетверо дальше, чем в первом. Карта складывается заново при
-каждой загрузке и по кнопке "Заново": кольца задают только скелет, а углы,
-радиусы, состав систем, типы планет и имена случайны.
+КАРТА — ПЯТЬДЕСЯТ ЗВЁЗД, РАСКИДАННЫХ СЛУЧАЙНО. Ровные кольца читались как
+чертёж, а не как галактика, поэтому осталось только одно их свойство: чем
+дальше от Тиры, тем реже соседи (минимальный зазор растёт с радиусом, 24 у
+центра и 65 у края). Сверху мягкая спиральная закрутка на два рукава, четверть
+звёзд вне рукавов и лёгкая сплюснутость — как в ES2. Карта складывается заново
+при каждой загрузке и по кнопке "Заново".
+Генератор обязан доказывать связность: на старшей марке из дома должна
+достигаться ВСЯ галактика, иначе часть карты — мёртвый груз. Это проверяется
+тестом на пяти сеймах.
+
+АСТЕРОИДЫ РАСКИДАНЫ ПО СИСТЕМЕ, а не выстроены в пояс: кольцо читалось как ещё
+одна орбита, хотя это просто камни, каждый на своём месте. Держатся подальше от
+планет и друг от друга, чтобы подписи не слипались.
 
 СПОСОБ МЕЖЗВЁЗДНОГО ПЕРЕХОДА ВЫПАДАЕТ ПАРТИИ ОДИН И СЛУЧАЙНО. Не ветка
 развития, а условие задачи, и способы НЕ равноценны:
@@ -204,15 +212,16 @@ PTYPES[].cap   — предел населения, .farm — урожай с ф
                  нечего; умножается на nerve и на дешевизну; помнится 24-60
                  месяцев.
 
-RINGS         — кольца карты: радиусы 0, 38, 86, 145, 216, 300 и по 1, 7, 10,
-                 12, 12, 8 звёзд. Итого 50. Расстояние между соседями в кольце
-                 растёт с 34 до 236 — отсюда ощущение края.
+makeGalaxy    — 50 звёзд: радиус 20 + 292 * random^0.62 (степень выше 0.5
+                 разрежает середину), минимальный зазор 24 + радиус * 0.14,
+                 два рукава с закруткой 0.010-0.016 и разбросом 1.15 рад,
+                 28 процентов звёзд вне рукавов, сплюснутость 0.88.
 MARKRANGE     — дальности марок: 46, 66, 90, 130 (под кольца).
 MARKDIFF      — их сложность: 1300, 2500, 4000, 5800.
 
 ПРОВЕРЕННЫЕ ПРОГОНОМ ТАЙМИНГИ (5 сеймов, средние):
   марки       Mk1 на 24 году, Mk2 на 70, Mk3 на 125, Mk4 на 195;
-  первая новая система на 60-100 году;
+  первая новая система на 60-100 году, первая колония на 40-101;
   к 250 году  ворота 20 систем и 65 миров, движки 15.6 и 53.4,
               открыватели 13.0 и 44.4 — из пятидесяти звёзд;
   за партию   150-310 отказов и 13-56 свёрнутых сборок.
@@ -245,7 +254,10 @@ test/harness.js вырезает ядро из этого файла, подсо
   колония дублировалась: пока модуль летел, вторая компания открывала подписку
     на ту же планету, и выходило 104 мира при сорока планетах;
   три способа перехода давали одинаковую партию, потому что в открытой системе
-    можно было строить даром.
+    можно было строить даром;
+  подписка на колонию висела вечно: деньги собраны, а корпус никто не продаёт —
+    и планета всё это время числилась занятой, так что взять её не мог никто.
+    Первая колония из-за этого уезжала на сто четвёртый год.
 
 
 7. ИЗВЕСТНЫЕ ДЫРЫ
@@ -748,13 +760,27 @@ var THRESHOLD = (function () {
                       ang: base + k * (1.5 + Math.random()*0.8), rad:8 + t.cap * 0.7,
                       kind:"planet", sys:i, world:null });
     }
+    // Астероиды раскиданы по всей системе, а не выстроены в кольцо: пояс
+    // читался как ещё одна орбита, хотя это просто камни, у каждого из которых
+    // своё место. Держим их подальше от планет и друг от друга, чтобы подписи
+    // не слипались.
     s.belt = i === 0 || Math.random() < 0.75;
     if (s.belt) {
-      var n = 5 + Math.floor(Math.random()*4), a0 = rnd6(),
+      var n = 5 + Math.floor(Math.random()*4), guard = 0,
           names = ROCKNAMES.slice().sort(function () { return Math.random() - 0.5; });
-      for (var r = 0; r < n; r++)
-        s.rocks.push({ name:names[r], r:112 + Math.random()*16, ang:a0 + r * (6.2832 / n) + (Math.random()-0.5) * 0.28,
+      while (s.rocks.length < n && guard++ < 400) {
+        var rr = 78 + Math.random() * 244, aa = rnd6();
+        var far = s.bodies.every(function (b) {
+          return Math.abs(b.r - rr) > b.rad + 16 || Math.abs(((b.ang - aa + 9.42) % 6.2832) - 3.1416) < 2.5;
+        });
+        if (!far) continue;
+        var clear = s.rocks.every(function (o) {
+          return Math.abs(o.r - rr) > 22 || Math.abs(((o.ang - aa + 9.42) % 6.2832) - 3.1416) < 2.9;
+        });
+        if (!clear) continue;
+        s.rocks.push({ name:names[s.rocks.length], r:rr, ang:aa,
                        s:4.2 + Math.random()*2.6, seed:Math.random()*6.28, taken:false });
+      }
     }
     s.gate = { name:"ворота", r:352, ang:rnd6() };
     return s;
@@ -773,23 +799,32 @@ var THRESHOLD = (function () {
     return SYSNAMES[i % SYSNAMES.length] + " " + ROMAN[Math.floor(i / SYSNAMES.length)];
   }
 
+  // Звёзды раскидываются случайно, а не по ровным кольцам: правильные круги
+  // читались как чертёж, а не как галактика. Держится только одно свойство —
+  // чем дальше от Тиры, тем реже соседи: минимальный зазор растёт с радиусом.
+  // Плюс мягкая спиральная закрутка и лёгкая сплюснутость, как в ES2.
   function makeGalaxy() {
     var pool = BODYNAMES.slice().sort(function () { return Math.random() - 0.5; });
     var names = SYSNAMES.slice(1).sort(function () { return Math.random() - 0.5; });
     names.unshift(SYSNAMES[0]);
-    systems = [];
-    var id = 0;
-    RINGS.forEach(function (ring, ri) {
-      var a0 = rnd6();
-      for (var k = 0; k < ring.n; k++) {
-        var a = ring.r ? a0 + k * (6.2832 / ring.n) + (Math.random() - 0.5) * 0.22 : 0;
-        var rr = ring.r * (0.94 + Math.random() * 0.12);
-        var x = CW / 2 + Math.cos(a) * rr, y = CH / 2 + Math.sin(a) * rr;
-        var nm = id < names.length ? names[id] : sysName(id);
-        var s = makeSystem(id, nm, x, y, pool);
-        s.ring = ri; s.depth = ri;
-        systems.push(s); id++;
-      }
+    var cxp = CW / 2, cyp = CH / 2, arms = 2, twist = 0.010 + Math.random() * 0.006;
+    var pts = [{ x:cxp, y:cyp }], guard = 0;
+    while (pts.length < 50 && guard++ < 40000) {
+      // степень больше 0.5 разрежает середину: у края звёзд меньше на площадь
+      var r = 20 + 292 * Math.pow(Math.random(), 0.62);
+      var a = Math.random() < 0.72
+            ? Math.floor(Math.random() * arms) * (6.2832 / arms) + r * twist + (Math.random() - 0.5) * 1.15
+            : rnd6();                                  // четверть звёзд вне рукавов
+      var p = { x:cxp + Math.cos(a) * r, y:cyp + Math.sin(a) * r * 0.88 };
+      if (p.x < 24 || p.x > CW - 24 || p.y < 24 || p.y > CH - 24) continue;
+      var minD = 24 + r * 0.14;
+      if (!pts.every(function (q) { return dist(p, q) > minD; })) continue;
+      pts.push(p);
+    }
+    systems = pts.map(function (p, i) {
+      var s = makeSystem(i, i < names.length ? names[i] : sysName(i), p.x, p.y, pool);
+      s.depth = Math.round(dist(p, pts[0]) / 62);      // "переход N" — теперь по удалённости
+      return s;
     });
     links = [];
   }
@@ -1268,6 +1303,38 @@ var THRESHOLD = (function () {
   // Заказ, который некому снабдить, не висит вечно: через шесть лет ожидания
   // компания сворачивает сборку. Это и есть цена отказов — не все могут в
   // принципе что-то запустить, и видно, кто именно перекрыл кислород.
+  // Подписка на колонию тоже обязана иметь предохранитель. Без него она висит
+  // вечно: деньги собраны, а корпус никто не продаёт — и планета всё это время
+  // помечена занятой, так что её не может взять никто другой. В прогоне из-за
+  // этого первая колония уезжала со сорокового года на сто четвёртый.
+  function stalledProjects() {
+    for (var i = projects.length - 1; i >= 0; i--) {
+      var pr = projects[i];
+      var got = COMPS.reduce(function (a, f) { return a + (pr.got[f.key] || 0); }, 0);
+      if (got !== pr.seen || pr.purse !== pr.seenPurse) {
+        pr.seen = got; pr.seenPurse = pr.purse; pr.wait = 0; continue;
+      }
+      pr.wait = (pr.wait || 0) + 1;
+      if (pr.wait < 84) continue;                    // семь лет без движения
+      var blockers = {};
+      COMPS.forEach(function (f) {
+        if ((pr.need[f.key] || 0) - (pr.got[f.key] || 0) <= 0) return;
+        corps.forEach(function (o) { if (o.embargo[embKey(pr.lead, f.key)] > tick) blockers[o.name] = 1; });
+      });
+      var who = Object.keys(blockers);
+      // деньги возвращаются вкладчикам по долям, детали — ведущему на склад
+      var total = pr.backers.reduce(function (a, b) { return a + b.sum; }, 0) || 1;
+      pr.backers.forEach(function (b) { corps[b.corp].cash += pr.purse * b.sum / total; });
+      pr.parts.forEach(function (p) { corps[pr.lead].stock[p.k]++; });
+      pr.body.claimed = false;
+      say("Подписка на колонию " + pr.body.name + " распалась" +
+          (who.length ? ": " + who.join(" и ") + " не продают детали." : ": собрать нечего.") +
+          " Деньги вернулись вкладчикам.");
+      dropped++;
+      projects.splice(i, 1);
+    }
+  }
+
   function stalledOrders() {
     corps.forEach(function (c) {
       if (!c.order) return;
@@ -1663,7 +1730,7 @@ var THRESHOLD = (function () {
   function step() {
     tick++;
     worlds.forEach(labour);
-    economy(); research(); produce(); trade(); stalledOrders();
+    economy(); research(); produce(); trade(); stalledOrders(); stalledProjects();
     if (tick % 3 === 0) patentsExpire();
     if (tick % 6 === 0) { foodRun(); migrationRun(); }
     if (tick % 12 === 0) { reviewOrders(); reviewProjects(); branchTrade(); }
@@ -1717,10 +1784,6 @@ var THRESHOLD = (function () {
       cx.beginPath(); cx.arc(mx, my, o.r, 0, 6.2832);
       cx.strokeStyle = "#131c2f"; cx.lineWidth = 1; cx.stroke();
     });
-    if (s.belt) {
-      cx.beginPath(); cx.arc(mx, my, 120, 0, 6.2832);
-      cx.strokeStyle = "#141d31"; cx.setLineDash([2, 7]); cx.lineWidth = 1; cx.stroke(); cx.setLineDash([]);
-    }
 
     var pulse = 1 + Math.sin(glow * 0.7) * 0.04;
     var sg = cx.createRadialGradient(mx, my, 2, mx, my, 26 * pulse);

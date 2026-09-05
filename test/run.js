@@ -326,6 +326,76 @@ test("под движками межзвёздный транспорт везё
   });
 });
 
+// ── карта ───────────────────────────────────────────────────────────────────
+// Звёзды раскиданы случайно, поэтому генератор обязан доказывать, что не
+// оставил островов: до любой звезды должна быть цепочка прыжков на старшей
+// марке, иначе часть карты — мёртвый груз.
+test("на старшей марке достижима вся галактика", () => {
+  const D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  for (const seed of [1, 2, 3, 4, 5]) {
+    const sim = load("index.html", { seed });
+    const S = sim.state().systems;
+    const R = sim.consts.MARKS[sim.consts.MARKS.length - 1].range;
+    const seen = new Set([0]), q = [0];
+    while (q.length) {
+      const i = q.shift();
+      S.forEach((s, j) => { if (!seen.has(j) && D(S[i], s) <= R) { seen.add(j); q.push(j); } });
+    }
+    assert(seen.size === S.length, "сейм " + seed + ": достижимо " + seen.size + " из " + S.length);
+  }
+});
+
+test("звёзды стоят не по кольцам", () => {
+  const sim = load("index.html", { seed: 5 });
+  const S = sim.state().systems, home = S[0];
+  const rs = S.slice(1).map((s) => Math.hypot(s.x - home.x, s.y - home.y));
+  // у ровных колец радиусы сбиваются в несколько значений; проверяем, что
+  // соседние по величине радиусы не повторяются пачками
+  rs.sort((a, b) => a - b);
+  let same = 0;
+  for (let i = 1; i < rs.length; i++) if (Math.abs(rs[i] - rs[i - 1]) < 4) same++;
+  assert(same < rs.length * 0.5, "радиусы слипаются в кольца: " + same + " из " + rs.length);
+});
+
+test("астероиды раскиданы по системе, а не по кольцу", () => {
+  const sim = load("index.html", { seed: 7 });
+  const S = sim.state().systems.filter((s) => s.rocks.length >= 4);
+  assert(S.length > 0, "ни в одной системе нет астероидов");
+  const spread = S.map((s) => {
+    const rs = s.rocks.map((r) => r.r);
+    return Math.max.apply(null, rs) - Math.min.apply(null, rs);
+  });
+  const avg = spread.reduce((a, b) => a + b, 0) / spread.length;
+  assert(avg > 60, "разброс радиусов всего " + avg.toFixed(0) + ": камни выстроились в кольцо");
+});
+
+// ── зависшие подписки ───────────────────────────────────────────────────────
+// Уже ломалось: подписка на колонию висела вечно, деньги были собраны, а
+// корпус никто не продавал — и планета всё это время числилась занятой, так
+// что её не мог взять никто. Первая колония уезжала на сто четвёртый год.
+test("зависшая подписка распадается и освобождает планету", () => {
+  const sim = load("index.html", { seed: 3 });
+  runYears(sim, 200, (st) => {
+    st.projects.forEach((pr) => {
+      assert((pr.wait || 0) < 90, "подписка на " + pr.body.name + " висит без движения " + pr.wait + " месяцев");
+    });
+    st.systems.forEach((s) => s.bodies.forEach((b) => {
+      if (!b.claimed || b.world) return;
+      const live = st.projects.some((pr) => pr.body === b);
+      const flying = st.systems.some((sy) => sy.ships.some((sh) => sh.body === b)) ||
+                     st.systems.some((sy) => sy.yards.some((y) => y.body === b));
+      assert(live || flying, b.name + ": планета числится занятой, а взять её некому");
+    }));
+  });
+});
+
+test("распавшаяся подписка не съедает деньги вкладчиков", () => {
+  const sim = load("index.html", { seed: 5 });
+  runYears(sim, 200, (st) => {
+    st.corps.forEach((c) => assert(Number.isFinite(c.cash) && c.cash >= -41, c.name + ": касса " + c.cash));
+  });
+});
+
 // ── воспроизводимость ───────────────────────────────────────────────────────
 // Ради этого стенд и городился: увидел странную партию — вбил сейм и смотришь
 // ту же самую партию глазами.
