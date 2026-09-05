@@ -1,127 +1,116 @@
 <!DOCTYPE html>
 <!--
 ================================================================================
-  ПОРОГ · РЫНОК ДЕТАЛЕЙ  ·  прототип, проверяющий одну гипотезу
+  ПОРОГ · РЫНОК ДЕТАЛЕЙ И ЖИВЫЕ МИРЫ  ·  прототип
 ================================================================================
 
-Полный журнал проектирования (концепция, отвергнутые идеи, числа, история
-прототипов) лежит в threshold-system.html, в начале файла. Здесь только то,
-что относится к ЭТОЙ ветке. Читать после того журнала.
+Полный журнал проектирования (концепция, отвергнутые идеи, история прототипов)
+лежит в threshold-system.html, в начале файла. Здесь только эта ветка.
 
 
 ГИПОТЕЗА
 ────────────────────────────────────────────────────────────────────────────────
-Зависимость между корпорациями можно построить без патентов вообще — на
-населении и рынке деталей.
-
-Патенты давали четыре вещи: принудительную зависимость, ставку с невозвратными
-потерями, рычаги в виде закона и читаемость. Взамен они приносили две болячки:
-через 25 лет патент истекал, и вся политика доступа растворялась, а корпорация
-не умела бросить проигранную гонку. Здесь проверяется, даст ли рынок то же
-самое дешевле.
+Зависимость между компаниями строится не на праве, а на ВЕЩАХ: на людях,
+которых надо кормить и возить, и на деталях, которые надо у кого-то купить.
+Патент остаётся, но означает монополию на ПРОИЗВОДСТВО, а не право продать
+лицензию.
 
 
-ЧТО ИЗМЕНИЛОСЬ ПО СРАВНЕНИЮ С threshold-system.html
+ЧТО ЗДЕСЬ ЕСТЬ
 ────────────────────────────────────────────────────────────────────────────────
-1. НАСЕЛЕНИЕ. На Тире живут люди трёх занятий — фермеры, производственники,
-   учёные — плюс свободные. Игрок НЕ распределяет их. Они сами перетекают туда,
-   где выше заработок, с трением: за месяц уходит около процента касты.
-   Свободные — топливо этого перетока: пока их много, зарплаты не растут.
-   Еда замыкает петлю. Фермер кормит двоих, ест каждый. Ушли в науку — еды
-   меньше — цена еды вверх — заработок фермера вверх — часть вернулась. Поэтому
-   наука не может сожрать планету, а голод не требует отдельного кода.
+1. НАСЕЛЕНИЕ ЖИВЁТ НА КАЖДОМ МИРЕ. Один человечек — сотни тысяч людей, поэтому
+   их мало и они дробные. Занятий три: поле, цех, лаборатория, плюс свободные.
+   Игрок не распределяет их: люди сами идут туда, где платят больше, около
+   процента касты в месяц.
+   У мира есть ПРЕДЕЛ населения по типу планеты. Чем ближе к пределу, тем
+   сильнее желание уехать; безработица усиливает его же; голод — тем более.
 
-2. ПАТЕНТ = МОНОПОЛИЯ НА ПРОИЗВОДСТВО, а не право продать лицензию. Открывший
-   деталь первым получает патент на N лет и всё это время делает её ОДИН.
-   Конкурент может доисследовать деталь — и всё равно не имеет права её
-   выпускать, ему остаётся покупать у держателя по рыночной цене. Когда патент
-   истекает, все доисследовавшие выходят на рынок разом и цена валится. Это
-   самое заметное событие здешней экономики и заодно ответ на старую болячку:
-   истечение патента больше не растворяет зависимости, а переворачивает рынок.
-   Проигравший гонку не теряет вложенное — у него отставание, а не пепел. Это
-   лечит "корпорация не умеет бросить гонку", но убирает счётчик "сгорело"
-   (см. ЧЕМ ЗАПЛАТИЛИ).
+2. ТИПЫ ПЛАНЕТ, как в Endless Space 2: терран, океан, джунгли, тундра, ледяная,
+   сухая, пустыня, вулканическая, голая, газовый гигант. Тип задаёт предел
+   населения и урожай с фермера. В системе до пяти планет.
+   Колонизировать можно только тот класс миров, на который есть СВОЯ технология
+   (умеренные, холодные, сухие, мёртвые, гиганты). Технология патентуется так
+   же, как деталь: первый держит монополию N лет.
 
-3. ДЕТАЛИ И РЫНОК. Шесть деталей: трюм, товары, бур, корпус, жизнеобеспечение,
-   двигатель. Каждая стоит труда (work — человеко-месяцы производственника) и
-   имеет цену, которая ходит от спроса и предложения. Корабль — это рецепт:
-     платформа = 2 бура + трюм + корпус
-     колония   = 2 корпуса + жизнеобеспечение + товары
-     прыжок    = 2 двигателя + корпус + жизнеобеспечение
-   Свои детали компания делает сама, чужие покупает. Кто первым собрал полный
-   комплект, тот и летит — кораблём своего цвета.
+3. КОЛОНИЯ — ЭТО КОНСОРЦИУМ. Держатель технологии открывает подписку и кладёт
+   свои деньги, остальные доносят недостающее. Вложившийся получает ПРАВО НА
+   ФИЛИАЛ в будущей колонии. На деньги подписки покупаются детали
+   колониального модуля, поэтому в готовой колонии видно, чей корпус и чьё
+   жизнеобеспечение. Опоздавший может позже КУПИТЬ место у правительства
+   колонии, если свободные места остались.
 
-4. ПРОИСХОЖДЕНИЕ ВИДНО. Клик по кораблю или по станции показывает, из чего он
-   собран и чья каждая деталь. Клик по планете — кто где работает. Это главное,
-   ради чего всё затевалось: зависимость перестала быть строчкой в панели и
-   стала вещью, которую можно ткнуть пальцем.
+4. ФИЛИАЛ — ЭТО ЦЕХ НА ЧУЖОЙ ПЛАНЕТЕ. Компания нанимает там местных и делает
+   детали. Без филиалов вся промышленность заперта на Тире.
 
-5. РЫЧАГИ ИГРОКА другие, потому что патентов нет:
-     налог с корпораций    — как был;
-     срок патента           — как был, но теперь это срок МОНОПОЛИИ на выпуск;
-     субсидия исследованиям — теперь по КОНКРЕТНОЙ детали;
-     торговый сбор          — процент с каждой сделки на рынке деталей, доход
-                              казны; поднимает цены и тормозит сборку;
-     пособие свободным      — платится из казны, снижает готовность идти на
-                              любую работу, поэтому поднимает зарплаты всем.
-   Первые три знакомы, последние два — новые и оба бьют по рынку, а не по праву.
+5. ЕДА ВОЗИТСЯ. Большинство миров бесплодны: газовый гигант не кормит вообще,
+   голая планета почти. Правительство мира считает баланс само и, если не
+   хватает, закупает еду у сытого мира и оплачивает перевозку. Пока везут —
+   население голодает и убывает.
+
+6. У ПРАВИТЕЛЬСТВА МИРА СВОЙ КОШЕЛЁК И СВОЙ УМ. Оно собирает налог с филиалов,
+   покупает еду и покупает корабли — у компаний, из их же деталей (грузовик =
+   корпус + трюм, переселенческий = корпус + жизнеобеспечение). Так у рынка
+   деталей появляется второй покупатель помимо самих компаний.
+
+7. КОРАБЛИ МОЖНО ТКНУТЬ. Клик показывает, что это, чей он и что везёт: «везёт
+   9 еды с Тиры на Кром». Клик по станции или колонии — из чьих деталей она
+   собрана. Клик по планете — тип, предел, кто где работает, чьи филиалы.
 
 
 ЧЕМ ЗАПЛАТИЛИ (осознанно)
 ────────────────────────────────────────────────────────────────────────────────
-Пропала лотерея с невозвратными потерями. Раньше три корпорации жгли деньги в
-одном поле, побеждала одна, у остальных сгорало всё, и счётчик "сгорело"
-доходил до 6000-10000 за партию. Здесь отставший доисследует и всё равно
-получит деталь — драма слабее, зато исчезает тупик, из которого корпорация не
-умела выйти. Если окажется, что без ставки скучно, вернуть можно дёшево:
-секрет, который протекает при найме подрядчиков (вариант 3 из обсуждения).
+Пропала лотерея с невозвратными потерями из патентной версии: отставший
+доисследует деталь и рано или поздно её получит, счётчика «сгорело» больше нет.
+Вместо ставки на открытие — ставка на колонию: вложился в чужую подписку, а мир
+оказался голодным, и филиал стоит в убыток.
 
 
 ЧИСЛА (что крутить)
 ────────────────────────────────────────────────────────────────────────────────
-COMPS[].diff  — сложность детали: трюм 640, товары 560, бур 880, корпус 1750,
-                жизнеобеспечение 2200, двигатель 4600. Порог 0.55 от diff, как
-                и раньше: до него шанса нет вообще.
+COMPS[].diff  — сложность детали: товары 560, трюм 640, бур 880, корпус 1750,
+                жизнеобеспечение 2200, двигатель 4600. Порог 0.55 от diff.
 COMPS[].work  — человеко-месяцы на штуку: 2, 2, 3, 5, 6, 9.
-COMPS[].base  — стартовая цена, она же якорь коридора [0.35, 5] от базы.
-Население: 18 человечков на старте, один человечек — сотни тысяч людей,
-                поэтому занятость дробная. Зарплаты: ферма = цена еды * 2.4,
-                цех 3.0, лаборатория 4.2, всё умножается на дефицит рук
-                (от 0.55 до 2.2).
-Переток: 1.2% касты в месяц при разнице заработков больше 12%, свободные
-                вдвое подвижнее, пособие гасит их подвижность.
-Компания: держит мест примерно касса/180 в цехах и касса/420 в лабах,
-                наземное дело приносит 6.5 за человечка в цехах.
+COLTECH[].diff— колонизация: умеренные 1500, холодные 2300, сухие 2500,
+                мёртвые 3400, гиганты 4600.
+PTYPES[].cap  — предел населения, .farm — урожай с фермера (0 у гиганта).
+Население: 18 человечков на Тире на старте, занятость дробная. Зарплаты:
+                поле = цена еды * 2.4, цех 3.0, лаборатория 4.2, всё умножается
+                на дефицит рук (от 0.55 до 2.2).
+Миграция: тянет уехать при заполнении выше 0.7 предела и безработице выше 12%.
+Колония: цена подписки 260 * (1 + переход * 0.3), доля от 70, место под филиал
+                у правительства 140.
 
-НЕ ПРОВЕРЕНО ПРОГОНОМ. Это первый черновик экономики, числа заведомо кривые.
+ПРОВЕРКА: тесты в test/, запуск `node test/run.js`. Они не про красоту, а про
+то, чтобы экономика не рассыпалась молча: сходимость населения, границы цен,
+отсутствие NaN, прилёт кораблей, работа рынка. Оба бага, найденных руками
+(работа цехов на пустой склад и расхождение суммы каст с итогом), закрыты
+проверками.
 
 
 ИЗВЕСТНЫЕ ДЫРЫ
 ────────────────────────────────────────────────────────────────────────────────
-  Население живёт только на Тире. Колонии в других системах людей не имеют и
-  на рынок труда не влияют — их доход просто капает владельцу.
-  Рынок один на всю галактику: детали телепортируются к покупателю. Логично
-  было бы возить их грузовиками, и трюм тогда стал бы нужен по-настоящему.
-  Компания покупает не больше одной штуки детали в месяц — чтобы гонка была
-  видна, но это произвол, а не экономика.
-  Цена одна для всех, торга как такового нет: продавец не может запросить своё.
+  Рынок деталей общий на всю галактику и детали телепортируются к покупателю:
+  возится только еда и люди. Логично было бы возить и детали.
+  Цена одна для всех, торга нет: продавец не может запросить своё.
+  Правительство покупает еду у самого сытого, не выбирая по цене и дальности.
+  Наука общая для компании, а не привязана к лабораториям конкретного мира.
 ================================================================================
 -->
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Порог — рынок деталей</title>
+<title>Порог — рынок и миры</title>
 <style>
   :root { --bg:#0f1526; --panel:#161f38; --panel-2:#1b2544; --line:#26314f;
-          --ink:#e4e9f4; --dim:#8894ae; --faint:#5d6881; --gold:#f2b33d; --ok:#6fd39b; }
+          --ink:#e4e9f4; --dim:#8894ae; --faint:#5d6881; --gold:#f2b33d; --ok:#6fd39b; --bad:#ff8b5e; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
          font-size:14px; line-height:1.5; padding:20px; -webkit-font-smoothing:antialiased; }
-  .shell { max-width:1300px; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:18px; align-items:start; }
+  .shell { max-width:1300px; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) 336px; gap:18px; align-items:start; }
   header { grid-column:1/-1; display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; padding-bottom:12px; border-bottom:1px solid var(--line); }
   h1 { font-size:19px; font-weight:600; letter-spacing:-0.01em; }
-  header p { color:var(--dim); font-size:12.5px; max-width:62ch; }
+  header p { color:var(--dim); font-size:12.5px; max-width:64ch; }
 
   .stage { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#080d19; }
   .stage canvas { display:block; width:100%; height:auto; cursor:pointer; }
@@ -150,21 +139,16 @@ COMPS[].base  — стартовая цена, она же якорь корид
   .rname { font-size:13px; font-weight:600; flex:1 1 auto; }
   .rmeta { font-size:11.5px; color:var(--faint); margin-top:3px; }
   .price { font-variant-numeric:tabular-nums; font-size:12.5px; }
-  .up { color:#ff8b5e; } .down { color:var(--ok); }
+  .up { color:var(--bad); } .down { color:var(--ok); }
   .bar { height:6px; border-radius:4px; background:#1a2338; display:flex; overflow:hidden; margin-top:5px; position:relative; }
   .bar i { display:block; height:100%; }
   .bar u { position:absolute; top:-2px; bottom:-2px; width:1px; background:#4a5674; }
   .dot { flex:none; display:inline-block; width:9px; height:9px; border-radius:50%; }
-  .glyph { flex:none; }
-
-  .pops { display:flex; gap:6px; margin-top:6px; }
-  .pops div { flex:1 1 0; background:var(--panel-2); border-radius:7px; padding:6px 7px; }
-  .pops b { display:block; font-size:15px; font-variant-numeric:tabular-nums; font-weight:600; }
-  .pops span { font-size:10.5px; color:var(--faint); }
+  .pip { flex:none; display:inline-block; width:7px; height:7px; border-radius:2px; }
 
   .empty { color:var(--faint); font-size:12.5px; padding:6px 0; }
-  .sysrow { cursor:pointer; }
-  .sysrow:hover .rname { color:var(--gold); }
+  .clickrow { cursor:pointer; }
+  .clickrow:hover .rname { color:var(--gold); }
   .srow { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
   .srow .rmeta { margin-left:auto; margin-top:0; }
 
@@ -203,8 +187,8 @@ COMPS[].base  — стартовая цена, она же якорь корид
 <div class="shell">
   <header>
     <div>
-      <h1>Порог · рынок деталей</h1>
-      <p>Патентов нет. На Тире живут фермеры, производственники и учёные, и они сами переходят из занятия в занятие туда, где платят больше — ты можешь только смотреть и менять условия. Компании нанимают их, открывают детали и строят те, что открыли; чего не умеют — покупают друг у друга. Кто первым собрал полный комплект, тот и полетел. Ткни в корабль, планету или станцию, чтобы увидеть, чьё внутри.</p>
+      <h1>Порог · рынок и миры</h1>
+      <p>Люди живут на каждой освоенной планете и сами выбирают занятие — ты можешь только менять условия. У планеты есть предел: чем теснее и чем больше безработных, тем сильнее тянет уехать. Колонизировать чужой тип мира умеет тот, у кого есть технология, но дело дорогое — вкладываются несколько компаний, и каждая получает право на филиал. Бесплодные миры кормятся привозной едой, которую покупает правительство планеты. Ткни в любой корабль, чтобы увидеть, что он везёт и чей он.</p>
     </div>
     <div class="ctl">
       <button id="map">Карта</button>
@@ -222,9 +206,10 @@ COMPS[].base  — стартовая цена, она же якорь корид
     </div>
     <div class="stage"><canvas id="view" width="840" height="680"></canvas></div>
     <div class="keys">
-      <span><svg width="14" height="12"><polygon points="7,1 12,11 2,11" fill="#8894ae"/></svg> прыжковый корабль</span>
+      <span><svg width="14" height="12"><polygon points="7,1 12,11 2,11" fill="#8894ae"/></svg> прыжковый</span>
       <span><svg width="14" height="12"><polygon points="7,1 12,6 7,11 2,6" fill="#8894ae"/></svg> добывающая платформа</span>
       <span><svg width="14" height="12"><circle cx="7" cy="6" r="4.4" fill="#8894ae"/></svg> колониальный модуль</span>
+      <span><svg width="14" height="12"><rect x="2.5" y="2.5" width="9" height="8" fill="#8894ae"/></svg> транспорт: еда и люди</span>
       <span>форма — что за корабль, цвет — чей он</span>
     </div>
 
@@ -232,6 +217,10 @@ COMPS[].base  — стартовая цена, она же якорь корид
       <div class="block">
         <div class="lab">Рынок деталей</div>
         <div id="market"></div>
+      </div>
+      <div class="block">
+        <div class="lab">Освоенные миры</div>
+        <div id="worlds"></div>
       </div>
       <div class="block">
         <div class="lab" id="ventlab">Предприятия</div>
@@ -255,9 +244,8 @@ COMPS[].base  — стартовая цена, она же якорь корид
     </div>
 
     <div class="block">
-      <div class="lab">Тира · кто где работает</div>
-      <div class="pops" id="pops"></div>
-      <div class="note" id="popnote" style="margin-top:7px"></div>
+      <div class="lab">Технологии колонизации</div>
+      <div id="coltech"></div>
     </div>
 
     <div class="block">
@@ -305,12 +293,10 @@ COMPS[].base  — стартовая цена, она же якорь корид
 </div>
 
 <script>
-(function () {
+var THRESHOLD = (function () {
   // ===================== данные =====================
   var MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
 
-  // work — человеко-месяцы производственника на штуку, base — якорь цены.
-  // Сложности разнесены, чтобы тиры не случались одновременно (журнал, п. 5).
   var COMPS = [
     { key:"goods", name:"Товары для колоний",  short:"товары",    diff:560,  work:2, base:14,  glyph:"cir" },
     { key:"hold",  name:"Грузовой трюм",       short:"трюм",      diff:640,  work:2, base:16,  glyph:"sqr" },
@@ -321,70 +307,104 @@ COMPS[].base  — стартовая цена, она же якорь корид
   ];
   function compOf(k){ for (var i=0;i<COMPS.length;i++) if (COMPS[i].key===k) return COMPS[i]; }
 
-  // корабль — это рецепт из деталей, а не строчка цены
+  // Классы миров и технологии на них. Умеренные дешевле всех, газовый гигант
+  // дороже двигателя: жить в облаках сложнее, чем летать между звёздами.
+  var COLTECH = [
+    { key:"temperate", name:"Умеренные миры",  short:"умеренные", diff:1500 },
+    { key:"cold",      name:"Холодные миры",   short:"холодные",  diff:2300 },
+    { key:"dry",       name:"Сухие миры",      short:"сухие",     diff:2500 },
+    { key:"hot",       name:"Мёртвые миры",    short:"мёртвые",   diff:3400 },
+    { key:"gas",       name:"Газовые гиганты", short:"гиганты",   diff:4600 }
+  ];
+  function colOf(k){ for (var i=0;i<COLTECH.length;i++) if (COLTECH[i].key===k) return COLTECH[i]; }
+
+  // cap — предел населения, farm — урожай с фермера. Гигант не кормит вообще:
+  // всё, что там живёт, живёт на привозном.
+  var PTYPES = [
+    { key:"terran", name:"терран",         cap:11, farm:2.4,  tech:"temperate", col:"#5b8f6a", w:10 },
+    { key:"ocean",  name:"океан",          cap:9,  farm:2.2,  tech:"temperate", col:"#3f6f96", w:9 },
+    { key:"jungle", name:"джунгли",        cap:10, farm:2.6,  tech:"temperate", col:"#4f7a3f", w:8 },
+    { key:"tundra", name:"тундра",         cap:7,  farm:1.3,  tech:"cold",      col:"#6f7f8f", w:11 },
+    { key:"arctic", name:"ледяная",        cap:5,  farm:0.6,  tech:"cold",      col:"#8fa6bd", w:12 },
+    { key:"arid",   name:"сухая",          cap:7,  farm:1.1,  tech:"dry",       col:"#a08050", w:11 },
+    { key:"desert", name:"пустыня",        cap:6,  farm:0.7,  tech:"dry",       col:"#c09a5a", w:12 },
+    { key:"lava",   name:"вулканическая",  cap:4,  farm:0.15, tech:"hot",       col:"#8a4a3a", w:11 },
+    { key:"barren", name:"голая",          cap:4,  farm:0.1,  tech:"hot",       col:"#7a7266", w:13 },
+    { key:"gas",    name:"газовый гигант", cap:6,  farm:0,    tech:"gas",       col:"#9a7fb0", w:10 }
+  ];
+  function ptypeOf(k){ for (var i=0;i<PTYPES.length;i++) if (PTYPES[i].key===k) return PTYPES[i]; }
+  function rollType() {
+    var tot = PTYPES.reduce(function (a, p) { return a + p.w; }, 0), r = Math.random() * tot;
+    for (var i = 0; i < PTYPES.length; i++) { r -= PTYPES[i].w; if (r <= 0) return PTYPES[i]; }
+    return PTYPES[0];
+  }
+
   var VTYPES = [
-    { key:"mine",   name:"разработка астероидов", need:{ drill:2, hold:1, hull:1 },  build:14, yield:3.1, term:1800, dest:"belt",   glyph:"dia" },
-    { key:"colony", name:"колония",               need:{ hull:2, life:1, goods:1 },  build:22, yield:4.4, term:2600, dest:"planet", glyph:"cir" },
-    { key:"jump",   name:"межзвёздный прыжок",    need:{ drive:2, hull:1, life:1 },  build:30, yield:0,   term:0,    dest:"jump",   glyph:"tri" }
+    { key:"mine",   name:"разработка астероидов", need:{ drill:2, hold:1, hull:1 }, build:14, yield:3.1, term:1800, glyph:"dia" },
+    { key:"colony", name:"колония",               need:{ hull:2, life:1, goods:1 }, build:22, glyph:"cir" },
+    { key:"jump",   name:"межзвёздный прыжок",    need:{ drive:2, hull:1, life:1 }, build:30, glyph:"tri" },
+    { key:"cargo",  name:"грузовик",              need:{ hull:1, hold:1 },          build:8,  glyph:"sqr" },
+    { key:"liner",  name:"переселенческий",       need:{ hull:1, life:1 },          build:10, glyph:"sqr" }
   ];
   function vtype(k){ for (var i=0;i<VTYPES.length;i++) if (VTYPES[i].key===k) return VTYPES[i]; }
 
-  // apt — способности, жёстко привязаны к ремеслу: Тайко с бурами не выиграет
-  // гонку двигателей, сколько ни вкладывай (журнал, п. 3)
   var TEMPLATE = [
-    { name:"Тайко Дриллинг",   color:"#6fd39b", craft:"буры",     nerve:0.9,
-      apt:{ drill:1.9, hull:0.7, hold:0.6, drive:0.4, life:0.4, goods:0.35 } },
-    { name:"Ново-Кеплер Авиа", color:"#ff8b5e", craft:"самолёты", nerve:1.25,
-      apt:{ hull:1.9, drive:0.85, hold:0.7, life:0.5, drill:0.4, goods:0.35 } },
-    { name:"Дом чая Ланьхуа",  color:"#dd7ec6", craft:"чай",      nerve:0.6,
-      apt:{ goods:2.0, hold:0.9, life:0.7, hull:0.35, drill:0.3, drive:0.3 } },
-    { name:"Гелиос-Прайм",     color:"#4ec4e6", craft:"механика", nerve:1.05,
-      apt:{ drive:1.55, life:1.25, hull:0.8, hold:0.5, drill:0.5, goods:0.35 } },
-    { name:"Синдикат Веги",    color:"#f2b33d", craft:"перевозки",nerve:0.85,
-      apt:{ hold:1.85, life:0.85, goods:0.8, hull:0.6, drill:0.55, drive:0.45 } }
+    { name:"Тайко Дриллинг",   color:"#6fd39b", craft:"буры",      nerve:0.9,
+      apt:{ drill:1.9, hull:0.7, hold:0.6, drive:0.4, life:0.4, goods:0.35,
+            temperate:0.7, cold:1.2, dry:0.8, hot:1.4, gas:0.5 } },
+    { name:"Ново-Кеплер Авиа", color:"#ff8b5e", craft:"самолёты",  nerve:1.25,
+      apt:{ hull:1.9, drive:0.85, hold:0.7, life:0.5, drill:0.4, goods:0.35,
+            temperate:0.9, cold:0.7, dry:0.8, hot:0.6, gas:1.5 } },
+    { name:"Дом чая Ланьхуа",  color:"#dd7ec6", craft:"чай",       nerve:0.6,
+      apt:{ goods:2.0, hold:0.9, life:0.7, hull:0.35, drill:0.3, drive:0.3,
+            temperate:1.7, cold:0.5, dry:0.9, hot:0.3, gas:0.4 } },
+    { name:"Гелиос-Прайм",     color:"#4ec4e6", craft:"механика",  nerve:1.05,
+      apt:{ drive:1.55, life:1.25, hull:0.8, hold:0.5, drill:0.5, goods:0.35,
+            temperate:0.8, cold:1.0, dry:0.7, hot:1.2, gas:1.1 } },
+    { name:"Синдикат Веги",    color:"#f2b33d", craft:"перевозки", nerve:0.85,
+      apt:{ hold:1.85, life:0.85, goods:0.8, hull:0.6, drill:0.55, drive:0.45,
+            temperate:1.0, cold:0.9, dry:1.5, hot:0.6, gas:0.7 } }
   ];
 
   var SYSNAMES = ["Тира","Скальд","Эреб","Полынь","Ирис","Корвус","Синдри","Лето","Танат","Ольха","Вега","Морок"];
-  var BODYNAMES = ["Кадм","Валун","Мора","Сель","Хорь","Гарь","Тишь","Плёс","Овод","Стынь","Зной","Кром","Луда","Смоль","Вьюга","Наволок","Осока","Кипень","Тропа","Веха"];
+  var BODYNAMES = ["Кадм","Валун","Мора","Сель","Хорь","Гарь","Тишь","Плёс","Овод","Стынь","Зной","Кром","Луда","Смоль","Вьюга","Наволок","Осока","Кипень","Тропа","Веха","Порог","Клин","Ржа","Соль","Тень","Уголь","Ярь","Бель","Гуж","Дым","Ель","Жар","Зов","Ил","Кол","Мох"];
   var ROCKNAMES = ["Гвоздь","Слюда","Пест","Кремень","Обух","Жернов","Скол","Дресва"];
-  var PAL = ["#5b7cae","#8a6b52","#6d5f86","#4f7a6a","#7a5560","#6a6f8e"];
 
   // ===================== состояние =====================
   var corps = [], systems = [], links = [], voyages = [], feed = [], market = {}, patents = {};
-  var pop = null;
-  var tick = 0, treasury = 320, tax = 0.18, subComp = "drive", subYear = 90, tradeFee = 0.06, dole = 0.6, patTerm = 25;
-  var jumped = false, trades = 0, turnover = 0;
+  var worlds = [], projects = [], home = null;
+  var tick = 0, treasury = 320, tax = 0.18, subKey = "drive", subYear = 90, tradeFee = 0.06, dole = 0.6, patTerm = 25;
+  var jumped = false, trades = 0, turnover = 0, shipped = 0, movedPops = 0;
   var timer = null, running = true, speed = 1, flash = {};
   var view = { mode:"system", sys:0 };
-  var pick = null;        // что выбрано инспектором
-  var hits = [];          // кликабельные точки последнего кадра
+  var pick = null, hits = [];
+  var headless = typeof document === "undefined";
 
   function Y(){ return Math.floor(tick / 12); }
   function dateStr(){ return "год " + Y() + " · " + MONTHS[tick % 12]; }
-  function say(t){ feed.unshift({ d:dateStr(), t:t }); if (feed.length > 80) feed.pop(); }
-  function rnd6(){ return Math.random() * 6.2832; }
+  function say(t){ feed.unshift({ d:dateStr(), t:t }); if (feed.length > 90) feed.pop(); }
   function clamp(v, a, b){ return v < a ? a : v > b ? b : v; }
   function fmt(n){ return n < 20 ? n.toFixed(1) : String(Math.round(n)); }
+  function rnd6(){ return Math.random() * 6.2832; }
   function dist(a, b){ var dx = a.x - b.x, dy = a.y - b.y; return Math.sqrt(dx*dx + dy*dy); }
-  function planets(s){ return s.bodies.filter(function (b) { return b.kind === "planet"; }); }
-  function knows(c, k){ return !!c.known[k]; }
+  function planets(s){ return s.bodies; }
 
-  // Патент — монополия НА ПРОИЗВОДСТВО, а не право продать лицензию. Пока он
-  // жив, конкурент может доисследовать деталь, но делать её не имеет права:
-  // ему остаётся покупать у держателя по его цене. Когда патент истекает,
-  // все доисследовавшие выходят на рынок разом и цена валится — самое
-  // заметное событие в этой экономике.
-  function patOf(k){ return patents[k]; }
-  function patLive(k){ var p = patents[k]; return p && p.owner >= 0 && Y() - p.since < patTerm; }
+  // Патент — монополия НА ПРОИЗВОДСТВО (или на колонизацию класса миров), а не
+  // право продать лицензию. Догнавший обязан ждать истечения.
+  function patLive(k){ var p = patents[k]; return !!(p && p.owner >= 0 && Y() - p.since < patTerm); }
+  function knows(c, k){ return !!c.known[k]; }
   function canBuild(c, k){ return knows(c, k) && (!patLive(k) || patents[k].owner === c.id); }
   function makersOf(k){ return corps.filter(function (c) { return canBuild(c, k); }); }
   function anyKnows(k){ return corps.some(function (c) { return c.known[k]; }); }
   function anyMakes(k){ return makersOf(k).length > 0; }
+  function allTech(){ return COMPS.concat(COLTECH); }
+  function techOf(k){ return compOf(k) || colOf(k); }
 
   // ===================== рычаги в localStorage =====================
-  var LSKEY = "threshold.market.levers";
+  var LSKEY = "threshold.worlds.levers";
   function saveLevers() {
-    try { localStorage.setItem(LSKEY, JSON.stringify({ tax:tax, subComp:subComp, subYear:subYear, fee:tradeFee, dole:dole, patTerm:patTerm, speed:speed })); } catch (e) {}
+    try { localStorage.setItem(LSKEY, JSON.stringify({ tax:tax, subKey:subKey, subYear:subYear, fee:tradeFee,
+                                                       dole:dole, patTerm:patTerm, speed:speed })); } catch (e) {}
   }
   function loadLevers() {
     var v = null;
@@ -395,33 +415,31 @@ COMPS[].base  — стартовая цена, она же якорь корид
     if (typeof v.fee === "number" && v.fee >= 0 && v.fee <= 0.4) tradeFee = v.fee;
     if (typeof v.dole === "number" && v.dole >= 0 && v.dole <= 3) dole = v.dole;
     if (typeof v.patTerm === "number" && v.patTerm >= 5 && v.patTerm <= 70) patTerm = v.patTerm;
-    if (compOf(v.subComp)) subComp = v.subComp;
+    if (techOf(v.subKey)) subKey = v.subKey;
     if (v.speed === 1 || v.speed === 2 || v.speed === 4) speed = v.speed;
   }
 
   // ===================== галактика =====================
-  // Система статична, как в Stellaris: планеты и астероиды стоят на местах,
-  // движутся только корабли (см. журнал threshold-system.html).
   function makeSystem(i, name, x, y, pool) {
     var s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
-              rich: i ? +(0.8 + Math.random()*0.65).toFixed(2) : 1,
-              bodies:[], rocks:[], ventures:[], ships:[], yards:[], stations:[], mines:0, colonies:0 };
-    if (i === 0) s.bodies.push({ name:"Тира", r:112, ang:-0.9, rad:16, col:"#5b7cae", kind:"home" });
-    var np = i === 0 ? 2 : 1 + Math.floor(Math.random()*3), base = rnd6();
-    for (var k = 0; k < np; k++)
-      s.bodies.push({ name: pool.pop() || "Безымянная", r:214 + k*58 + Math.random()*16,
-                      ang: base + k * (1.7 + Math.random()*0.9), rad:10 + Math.random()*11,
-                      col:PAL[(i + k) % PAL.length], kind:"planet" });
-    s.belt = i === 0 || Math.random() < 0.8;
+              bodies:[], rocks:[], ventures:[], ships:[], yards:[], stations:[], mines:0 };
+    var np = i === 0 ? 4 : 2 + Math.floor(Math.random() * 4);      // до пяти планет
+    var base = rnd6();
+    for (var k = 0; k < np; k++) {
+      var t = (i === 0 && k === 0) ? ptypeOf("terran") : rollType();
+      s.bodies.push({ name: pool.pop() || "Безымянная", type:t, r:150 + k*52 + Math.random()*16,
+                      ang: base + k * (1.5 + Math.random()*0.8), rad:8 + t.cap * 0.7,
+                      kind:"planet", sys:i, world:null });
+    }
+    s.belt = i === 0 || Math.random() < 0.75;
     if (s.belt) {
       var n = 5 + Math.floor(Math.random()*4), a0 = rnd6(),
           names = ROCKNAMES.slice().sort(function () { return Math.random() - 0.5; });
       for (var r = 0; r < n; r++)
-        s.rocks.push({ name:names[r], r:158 + Math.random()*20, ang:a0 + r * (6.2832 / n) + (Math.random()-0.5) * 0.28,
+        s.rocks.push({ name:names[r], r:112 + Math.random()*16, ang:a0 + r * (6.2832 / n) + (Math.random()-0.5) * 0.28,
                        s:4.2 + Math.random()*2.6, seed:Math.random()*6.28, taken:false });
     }
-    s.gate = { name:"ворота", r:330, ang:rnd6() };
-    s.origin = i === 0 ? s.bodies[0] : s.gate;
+    s.gate = { name:"ворота", r:352, ang:rnd6() };
     return s;
   }
 
@@ -444,10 +462,10 @@ COMPS[].base  — стартовая цена, она же якорь корид
     }
   }
   function makeGalaxy() {
-    var N = 10, pts = [{ x:172, y:352 }], guard = 0;
+    var N = 9, pts = [{ x:172, y:352 }], guard = 0;
     while (pts.length < N && guard++ < 6000) {
       var p = { x:80 + Math.random()*680, y:70 + Math.random()*540 };
-      if (pts.every(function (q) { return dist(p, q) > 138; })) pts.push(p);
+      if (pts.every(function (q) { return dist(p, q) > 145; })) pts.push(p);
     }
     var names = SYSNAMES.slice(1).sort(function () { return Math.random() - 0.5; });
     var pool = BODYNAMES.slice().sort(function () { return Math.random() - 0.5; });
@@ -459,123 +477,243 @@ COMPS[].base  — стартовая цена, она же якорь корид
       addLink(i, best);
     }
     for (var a = 0; a < systems.length; a++) for (var b = a+1; b < systems.length; b++)
-      if (dist(systems[a], systems[b]) < 215 && Math.random() < 0.45) addLink(a, b);
+      if (dist(systems[a], systems[b]) < 225 && Math.random() < 0.45) addLink(a, b);
     computeDepth();
+  }
+
+  // Мир — это населённая планета: люди, еда, кошелёк правительства и места под
+  // филиалы. До колонизации планета миром не является.
+  function makeWorld(body, seed, founder) {
+    var w = { body:body, sys:body.sys, type:body.type, cap:body.type.cap,
+              pop:{ farm:seed * 0.6, prod:seed * 0.3, sci:seed * 0.05, free:seed * 0.05 },
+              wage:{ farm:2.4, prod:3, sci:4.2 }, food:{ stock:seed * 2, price:1, short:0 },
+              gov:{ cash:60 }, slots:2 + Math.round(body.type.cap / 4), rights:[], branches:[],
+              wantOut:0, wantIn:0, founder:founder, born:dateStr(), parts:[], flow:"" };
+    body.world = w;
+    worlds.push(w);
+    return w;
+  }
+  function popOf(w){ return w.pop.farm + w.pop.prod + w.pop.sci + w.pop.free; }
+  function hasBranch(c, w){ return w.branches.some(function (b) { return b.corp === c.id; }); }
+
+  function openBranch(c, w, quiet) {
+    if (hasBranch(c, w)) return null;
+    var b = { corp:c.id, world:w, emp:{ prod:0.4, sci:0.1 }, jobs:{ prod:1, sci:0.4 } };
+    w.branches.push(b); c.branches.push(b);
+    if (!quiet) say("<b>" + c.name + "</b> открыла филиал на " + w.body.name + ".");
+    return b;
   }
 
   function build() {
     corps = TEMPLATE.map(function (t, i) {
       var c = { id:i, name:t.name, color:t.color, craft:t.craft, nerve:t.nerve, apt:t.apt,
                 cash:900, known:{}, spent:{}, stock:{}, wip:{}, target:null, order:null,
-                emp:{ prod:2, sci:0.4 }, jobs:{ prod:2, sci:0.5 }, sold:0, bought:0, cool:0 };
-      COMPS.forEach(function (f) { c.spent[f.key] = 0; c.stock[f.key] = 0; c.wip[f.key] = 0; });
+                branches:[], sold:0, bought:0, cool:0 };
+      allTech().forEach(function (f) { c.spent[f.key] = 0; });
+      COMPS.forEach(function (f) { c.stock[f.key] = 0; c.wip[f.key] = 0; });
       return c;
     });
     market = {}; patents = {};
-    COMPS.forEach(function (f) {
-      market[f.key] = { price:f.base, last:f.base, want:0, stock:0 };
-      patents[f.key] = { owner:-1, since:0, told:false };
-    });
+    COMPS.forEach(function (f) { market[f.key] = { price:f.base, last:f.base, want:0, stock:0 }; });
+    allTech().forEach(function (f) { patents[f.key] = { owner:-1, since:0, told:false }; });
 
-    // Один человечек — это сотни тысяч людей, поэтому их мало и они дробные:
-    // "2.4 в лабораториях" осмысленно, а округление до целых при восемнадцати
-    // фишках попросту обнуляет весь переток.
-    pop = { total:18, farm:10, prod:5, sci:1, free:2, food:1.0,
-            wage:{ farm:2, prod:3, sci:4.2 }, flow:"" };
-
+    worlds = []; projects = []; voyages = []; feed = []; flash = {}; pick = null;
     makeGalaxy();
-    voyages = []; feed = []; flash = {}; pick = null;
-    tick = 0; treasury = 320; jumped = false; trades = 0; turnover = 0;
+    home = makeWorld(systems[0].bodies[0], 18, -1);
+    home.cap = 22;                       // родина обжита давно и держит больше
+    home.gov.cash = 200; home.food.stock = 40;
+    corps.forEach(function (c) { openBranch(c, home, true); });
+
+    tick = 0; treasury = 320; jumped = false; trades = 0; turnover = 0; shipped = 0; movedPops = 0;
     view = { mode:"system", sys:0 };
-    say("Открыт принцип дешёвого межзвёздного перехода. Собрать корабль пока не из чего: детали никто не умеет делать.");
+    say("Тира: восемнадцать человечков, пять компаний и ни одной освоенной детали.");
   }
 
-  // ===================== рынок труда =====================
-  // Дефицит рук поднимает плату, избыток роняет. Коридор узкий специально:
-  // при широком население мечется между кастами каждый месяц и ничего не
-  // успевает, а вся соль в том, что переход занимает годы.
+  // ===================== рынок труда на каждом мире =====================
   function squeeze(jobs, workers) { return clamp(1 + 0.5 * (jobs - workers) / Math.max(1.2, workers), 0.55, 2.2); }
 
-  function labour() {
-    // еда замыкает петлю: ушли в науку — некому кормить — фермер дорожает
-    var supply = pop.farm * 2.0, demand = pop.total;
-    pop.food = clamp(pop.food * (1 + 0.05 * (demand - supply) / Math.max(1, demand)), 0.12, 3.5);
-    pop.wage.farm = pop.food * 2.4;
+  function labour(w) {
+    var p = w.pop, total = popOf(w);
+    if (total <= 0.02) return;
+
+    var grown = p.farm * w.type.farm;
+    w.food.stock += grown - total;
+    var hungry = w.food.stock < 0;
+    if (hungry) w.food.stock = 0;
+    w.food.short = hungry ? w.food.short + 1 : 0;
+    w.food.price = clamp(w.food.price * (1 + 0.04 * (total - grown) / Math.max(1, total)), 0.2, 6);
+    w.wage.farm = w.type.farm > 0 ? w.food.price * 2.4 : 0;
 
     var jp = 0, js = 0;
-    corps.forEach(function (c) {
-      // сколько мест компания готова содержать: цех дешевле лаборатории
-      c.jobs.prod = clamp(c.cash / 180, 0.5, 8);
-      c.jobs.sci = clamp(c.cash / 420, 0.2, 5);
-      jp += c.jobs.prod; js += c.jobs.sci;
+    w.branches.forEach(function (b) {
+      var c = corps[b.corp], n = Math.max(1, c.branches.length);
+      b.jobs.prod = clamp(c.cash / (180 * n), 0.3, 8);
+      b.jobs.sci = clamp(c.cash / (420 * n), 0.1, 5);
+      jp += b.jobs.prod; js += b.jobs.sci;
     });
-    pop.wage.prod = 3.0 * squeeze(jp, pop.prod);
-    pop.wage.sci = 4.2 * squeeze(js, pop.sci);
+    w.wage.prod = 3.0 * squeeze(jp, p.prod);
+    w.wage.sci = 4.2 * squeeze(js, p.sci);
+    var kp = jp > 0 ? Math.min(1, p.prod / jp) : 0, ks = js > 0 ? Math.min(1, p.sci / js) : 0;
+    w.branches.forEach(function (b) { b.emp.prod = b.jobs.prod * kp; b.emp.sci = b.jobs.sci * ks; });
 
-    // работники расходятся по компаниям пропорционально заявкам, дробно
-    var kp = jp > 0 ? Math.min(1, pop.prod / jp) : 0, ks = js > 0 ? Math.min(1, pop.sci / js) : 0;
-    corps.forEach(function (c) {
-      c.emp.prod = c.jobs.prod * kp;
-      c.emp.sci = c.jobs.sci * ks;
-    });
+    var outP = Math.max(0, p.prod - jp) * 0.05, outS = Math.max(0, p.sci - js) * 0.05;
+    p.prod -= outP; p.sci -= outS; p.free += outP + outS;
 
-    // лишние в касте выпадают в свободные
-    var exP = Math.max(0, pop.prod - jp), exS = Math.max(0, pop.sci - js);
-    var outP = exP * 0.05, outS = exS * 0.05;
-    pop.prod -= outP; pop.sci -= outS; pop.free += outP + outS;
-
-    // свободные разбирают открытые места; пособие делает их разборчивее
-    var openP = Math.max(0, jp - pop.prod), openS = Math.max(0, js - pop.sci);
+    var openP = Math.max(0, jp - p.prod), openS = Math.max(0, js - p.sci);
     var eager = clamp(0.32 - dole * 0.07, 0.04, 0.32);
-    var take = Math.min(pop.free * eager, openP + openS);
+    var take = Math.min(p.free * eager, openP + openS);
     if (take > 0 && openP + openS > 0) {
       var shareP = openP / (openP + openS);
-      pop.free -= take; pop.prod += take * shareP; pop.sci += take * (1 - shareP);
+      p.free -= take; p.prod += take * shareP; p.sci += take * (1 - shareP);
     }
-    // остальные свободные идут в поле: фермером можно стать всегда. Медленно,
-    // иначе поле работает как ловушка — уйти из него потом некуда, мест нет.
-    var toFarm = pop.free * clamp(0.04 - dole * 0.01, 0.005, 0.04);
-    pop.free -= toFarm; pop.farm += toFarm;
+    if (w.type.farm > 0) {
+      var toFarm = p.free * clamp(0.04 - dole * 0.01, 0.005, 0.04);
+      p.free -= toFarm; p.farm += toFarm;
+    }
 
-    // переток между кастами: только если разница ощутима, и медленно
-    var best = "farm";
-    if (pop.wage.prod > pop.wage[best]) best = "prod";
-    if (pop.wage.sci > pop.wage[best]) best = "sci";
-    var moved = 0;
+    var best = w.type.farm > 0 ? "farm" : "prod";
+    if (w.wage.prod > w.wage[best]) best = "prod";
+    if (w.wage.sci > w.wage[best]) best = "sci";
+    var mv = 0;
     ["farm","prod","sci"].forEach(function (k) {
       if (k === best) return;
-      if (pop.wage[best] < pop.wage[k] * 1.12) return;
-      var open = best === "farm" ? 1e9 : (best === "prod" ? jp - pop.prod : js - pop.sci);
+      if (w.wage[best] < w.wage[k] * 1.12) return;
+      var open = best === "farm" ? 1e9 : (best === "prod" ? jp - p.prod : js - p.sci);
       if (open <= 0) return;
-      var m = Math.min(pop[k] * 0.012, open);
-      pop[k] -= m; pop[best] += m; moved += m;
+      var m = Math.min(p[k] * 0.012, open);
+      p[k] -= m; p[best] += m; mv += m;
     });
-    pop.flow = moved > 0.02 ? "идут в " + ({ farm:"поле", prod:"цеха", sci:"лаборатории" })[best] : "перетока почти нет";
+    w.flow = mv > 0.02 ? "идут в " + ({ farm:"поле", prod:"цеха", sci:"лаборатории" })[best] : "перетока почти нет";
 
-    // Рост населения: сыты — растут, голодны — убывают. Убыль вычитается из
-    // ВСЕХ каст, а не из свободных: раньше при нуле свободных общее число
-    // падало, а касты нет, и панель начинала врать (16.5 всего при 20.6 по
-    // занятиям). Итог всегда пересчитывается как сумма, а не хранится отдельно.
-    var sum = pop.farm + pop.prod + pop.sci + pop.free;
-    var add = sum * (supply >= demand ? 0.0016 : -0.0022);
-    if (add >= 0) pop.free += add;
-    else ["farm","prod","sci","free"].forEach(function (k) { pop[k] = Math.max(0, pop[k] + add * pop[k] / sum); });
-    pop.total = clamp(pop.farm + pop.prod + pop.sci + pop.free, 4, 90);
+    // Рост и убыль. Тесно — растут медленнее, голодно — убывают. Убыль берётся
+    // со ВСЕХ каст: если вычитать только из свободных, итог расходится с
+    // суммой по занятиям и панель начинает врать (так уже было).
+    var fill = total / w.cap;
+    var g = hungry ? -0.006 : 0.0022 * (1 - fill);
+    var add = total * g;
+    if (add >= 0) p.free += add;
+    else ["farm","prod","sci","free"].forEach(function (k) { p[k] = Math.max(0, p[k] + add * p[k] / total); });
+
+    // Желание уехать: теснота плюс безработица плюс голод. Это не приказ игрока
+    // и не приказ компании — просто людям тут нечего ловить.
+    var unemp = p.free / Math.max(0.05, total);
+    var push = Math.max(0, fill - 0.7) * 1.4 + Math.max(0, unemp - 0.12) * 1.2 + (hungry ? 0.5 : 0);
+    w.wantOut = clamp(push * total * 0.25, 0, p.free + p.farm * 0.3);
+    w.wantIn = Math.max(0, w.cap * 0.85 - total);
+  }
+
+  // ===================== еда и переселение =====================
+  function surplusWorld(need, from) {
+    var best = null, bs = 0;
+    worlds.forEach(function (w) {
+      if (w === from) return;
+      var extra = w.food.stock - popOf(w) * 3;
+      if (extra > bs) { bs = extra; best = w; }
+    });
+    return bs >= need ? best : null;
+  }
+
+  // Правительство покупает корабль у компаний: те же детали, тот же рынок.
+  // Если собрать не удалось, все взятые детали возвращаются на склад — иначе
+  // они пропадают, а деньги остаются, и рынок тихо худеет.
+  function govBuyShip(w, vt) {
+    var taken = [], cost = 0, ok = true;
+    Object.keys(vt.need).forEach(function (k) {
+      for (var i = 0; i < vt.need[k]; i++) {
+        if (!ok) return;
+        var seller = null;
+        corps.forEach(function (c) { if (c.stock[k] > 0 && (!seller || c.stock[k] > seller.stock[k])) seller = c; });
+        if (!seller) { ok = false; return; }
+        seller.stock[k]--;
+        taken.push({ k:k, from:seller.id, price:market[k].price });
+        cost += market[k].price * (1 + tradeFee);
+      }
+    });
+    if (!ok || w.gov.cash < cost) {
+      taken.forEach(function (t) { corps[t.from].stock[t.k]++; });
+      return null;
+    }
+    w.gov.cash -= cost;
+    taken.forEach(function (t) {
+      corps[t.from].cash += t.price; corps[t.from].sold++;
+      treasury += t.price * tradeFee; trades++; turnover += t.price;
+    });
+    return taken.map(function (t) { return { k:t.k, from:t.from }; });
+  }
+
+  function dispatch(from, to, kind, qty, parts) {
+    var v = { kind:kind, from:from, to:to, qty:qty, parts:parts,
+              color: parts.length ? corps[parts[0].from].color : "#8894ae",
+              t:0, dur: from.sys === to.sys ? 14 + Math.random() * 6 : 40 + Math.random() * 20,
+              born:dateStr() };
+    voyages.push(v);
+    return v;
+  }
+
+  function foodRun() {
+    worlds.forEach(function (w) {
+      var total = popOf(w), grown = w.pop.farm * w.type.farm, deficit = total - grown;
+      if (deficit <= 0.05) return;
+      var incoming = voyages.reduce(function (a, v) { return a + (v.kind === "food" && v.to === w ? v.qty : 0); }, 0);
+      if (w.food.stock + incoming > total * 4) return;
+      var qty = Math.ceil(deficit * 12);
+      var src = surplusWorld(qty, w);
+      if (!src) return;
+      var price = qty * 1.2;
+      if (w.gov.cash < price + 40) return;
+      var parts = govBuyShip(w, vtype("cargo"));
+      if (!parts) return;
+      w.gov.cash -= price; src.gov.cash += price; src.food.stock -= qty;
+      dispatch(src, w, "food", qty, parts);
+      shipped += qty;
+      say("Правительство " + w.body.name + " закупило " + qty + " еды на " + src.body.name + ".");
+    });
+  }
+
+  function migrationRun() {
+    worlds.forEach(function (w) {
+      if (w.wantIn < 0.6 || w.gov.cash < 90) return;
+      if (voyages.some(function (v) { return v.kind === "pops" && v.to === w; })) return;
+      var src = null, bs = 0;
+      worlds.forEach(function (o) {
+        if (o === w || o.wantOut < 0.25) return;
+        if (o.wantOut > bs) { bs = o.wantOut; src = o; }
+      });
+      if (!src) return;
+      var parts = govBuyShip(w, vtype("liner"));
+      if (!parts) return;
+      var qty = Math.min(src.wantOut, w.wantIn, 1.6);
+      var takeFree = Math.min(src.pop.free, qty);
+      src.pop.free -= takeFree;
+      src.pop.farm = Math.max(0, src.pop.farm - (qty - takeFree));
+      src.wantOut -= qty;
+      dispatch(src, w, "pops", qty, parts);
+      movedPops += qty;
+      say("С " + src.body.name + " на " + w.body.name + " уходит " + qty.toFixed(1) + " человечков.");
+    });
   }
 
   // ===================== наука =====================
+  function sciOf(c){ return c.branches.reduce(function (a, b) { return a + b.emp.sci; }, 0); }
+  function prodOf(c){ return c.branches.reduce(function (a, b) { return a + b.emp.prod; }, 0); }
+
   function pickTarget(c) {
     var best = null, top = -1;
-    COMPS.forEach(function (f) {
+    allTech().forEach(function (f) {
       if (knows(c, f.key)) return;
-      // догонять уже открытое другими дешевле по смыслу, но и прибыли меньше:
-      // покупатель уже привык брать у первого
-      var worth = f.key === "drive" ? 3.0 : (f.key === "drill" || f.key === "hold" ? 2.2 : 1.8);
-      // догонять под живым патентом всё равно имеет смысл — к его истечению
-      // будешь готов, — но это дальняя выгода, поэтому дешевле в глазах компании
+      var worth;
+      if (compOf(f.key)) worth = f.key === "drive" ? 3.0 : (f.key === "drill" || f.key === "hold" ? 2.2 : 1.8);
+      else {
+        var free = 0;
+        systems.forEach(function (s) {
+          if (!s.unlocked) return;
+          s.bodies.forEach(function (b) { if (!b.world && b.type.tech === f.key) free++; });
+        });
+        worth = free ? 1.6 + free * 0.5 : 0.2;
+      }
       if (patLive(f.key)) worth *= 0.45;
       else if (anyKnows(f.key)) worth *= 0.7;
-      var ev = worth * Math.pow(c.apt[f.key], 1.6) / (f.diff / 2200);
+      var ev = worth * Math.pow(c.apt[f.key] || 0.5, 1.6) / (f.diff / 2200);
       ev *= 1 + c.spent[f.key] / f.diff * 0.9;
       if (ev > top) { top = ev; best = f.key; }
     });
@@ -586,60 +724,51 @@ COMPS[].base  — стартовая цена, она же якорь корид
     corps.forEach(function (c) {
       if (!c.target || knows(c, c.target)) c.target = pickTarget(c);
       if (!c.target) return;
-      var f = compOf(c.target);
-      c.spent[c.target] += c.emp.sci * (0.8 + c.apt[c.target] * 1.1) * 6;
-      if (c.target === subComp && subYear > 0 && treasury > subYear / 12) {
+      var f = techOf(c.target);
+      c.spent[c.target] += sciOf(c) * (0.8 + (c.apt[c.target] || 0.5) * 1.1) * 6;
+      if (c.target === subKey && subYear > 0 && treasury > subYear / 12) {
         c.spent[c.target] += subYear / 12; treasury -= subYear / 12;
       }
       if (c.spent[c.target] < f.diff * 0.55) return;
       var over = (c.spent[c.target] - f.diff * 0.55) / f.diff;
-      if (Math.random() < Math.min(0.06, over * c.apt[c.target] * 0.05)) {
+      if (Math.random() < Math.min(0.06, over * (c.apt[c.target] || 0.5) * 0.05)) {
         c.known[c.target] = true; flash[c.target] = 1;
         var p = patents[c.target];
         if (p.owner < 0) {
           p.owner = c.id; p.since = Y();
-          say("<b>" + c.name + "</b> первой освоила " + f.name.toLowerCase() +
-              " и держит патент до " + (Y() + patTerm) + " года. Остальным остаётся покупать.");
+          say("<b>" + c.name + "</b> первой освоила «" + f.name.toLowerCase() + "», патент до " + (Y() + patTerm) + " года.");
         } else if (patLive(c.target)) {
-          say("<b>" + c.name + "</b> тоже умеет делать " + f.name.toLowerCase() +
-              ", но патент " + corps[p.owner].name + " действует до " + (p.since + patTerm) + " года.");
-        } else {
-          say("<b>" + c.name + "</b> тоже освоила " + f.name.toLowerCase() + " и выходит на рынок.");
-        }
+          say("<b>" + c.name + "</b> тоже умеет «" + f.name.toLowerCase() + "», но патент " + corps[p.owner].name +
+              " держится до " + (p.since + patTerm) + " года.");
+        } else say("<b>" + c.name + "</b> тоже освоила «" + f.name.toLowerCase() + "».");
         c.target = null;
       }
     });
   }
 
   function patentsExpire() {
-    COMPS.forEach(function (f) {
+    allTech().forEach(function (f) {
       var p = patents[f.key];
       if (p.owner < 0 || p.told || Y() - p.since < patTerm) return;
       p.told = true; flash[f.key] = 1;
       var rivals = corps.filter(function (c) { return c.id !== p.owner && knows(c, f.key); });
-      say("Патент на " + f.name.toLowerCase() + " истёк." +
-          (rivals.length ? " На рынок выходят: " + rivals.map(function (c) { return c.name; }).join(", ") + "."
-                         : " Повторить его пока некому."));
+      say("Патент на «" + f.name.toLowerCase() + "» истёк." +
+          (rivals.length ? " Выходят: " + rivals.map(function (c) { return c.name; }).join(", ") + "." : ""));
     });
   }
 
   // ===================== производство =====================
-  // Цех делает то, чего не хватает СВОЕМУ заказу, а остальное — то, что дороже
-  // стоит за человеко-месяц. Отсюда естественная специализация: чай возит
-  // товары не потому, что так велено, а потому что у него они выходят дёшево.
   function produce() {
     corps.forEach(function (c) {
-      var cap = c.emp.prod;
+      var cap = prodOf(c);
       if (cap <= 0) return;
       var mine = COMPS.filter(function (f) { return canBuild(c, f.key); });
       if (!mine.length) return;
       var weights = mine.map(function (f) {
-        var w = market[f.key].price / f.work;
-        var own = 0;
+        var w = market[f.key].price / f.work, own = 0;
         if (c.order) own = (c.order.need[f.key] || 0) - (c.order.got[f.key] || 0) - c.stock[f.key];
         if (own > 0) return w * 3.5;
-        // На склад без спроса не работают. Первая версия гнала детали в пустоту:
-        // к 29 году лежало 222 товара при нуле заказов, а труд уходил в никуда.
+        // на склад без спроса не работают: первая версия набивала его впустую
         if (c.stock[f.key] >= 4 && market[f.key].want <= c.stock[f.key]) return 0;
         return w;
       });
@@ -660,17 +789,17 @@ COMPS[].base  — стартовая цена, она же якорь корид
         stock += c.stock[f.key];
         if (c.order) want += Math.max(0, (c.order.need[f.key] || 0) - (c.order.got[f.key] || 0));
       });
+      projects.forEach(function (pr) { want += Math.max(0, (pr.need[f.key] || 0) - (pr.got[f.key] || 0)); });
       m.last = m.price;
       m.price = clamp(m.price * clamp(1 + 0.05 * (want - stock) / (want + stock + 2), 0.95, 1.06),
                       f.base * 0.35, f.base * 5);
       m.stock = stock; m.want = want;
     });
   }
-
-  function bestSeller(k, buyer) {
+  function bestSeller(k, buyerId) {
     var best = null;
     corps.forEach(function (c) {
-      if (c === buyer || c.stock[k] <= 0) return;
+      if (c.id === buyerId || c.stock[k] <= 0) return;
       if (!best || c.stock[k] > best.stock[k]) best = c;
     });
     return best;
@@ -683,53 +812,49 @@ COMPS[].base  — стартовая цена, она же якорь корид
       COMPS.forEach(function (f) {
         var need = (c.order.need[f.key] || 0) - (c.order.got[f.key] || 0);
         if (need <= 0) return;
-        if (c.stock[f.key] > 0) {                       // своё со склада, без денег
-          c.stock[f.key]--; addPart(c, f.key, c);
+        if (c.stock[f.key] > 0) {
+          c.stock[f.key]--;
+          c.order.got[f.key] = (c.order.got[f.key] || 0) + 1;
+          c.order.parts.push({ k:f.key, from:c.id });
           return;
         }
-        var seller = bestSeller(f.key, c);
+        var seller = bestSeller(f.key, c.id);
         if (!seller) return;
         var p = market[f.key].price, full = p * (1 + tradeFee);
         if (c.cash < full + 25) return;
         c.cash -= full; seller.cash += p; treasury += full - p;
-        seller.stock[f.key]--; seller.sold++; c.bought++;
-        trades++; turnover += full;
-        addPart(c, f.key, seller);
+        seller.stock[f.key]--; seller.sold++; c.bought++; trades++; turnover += full;
+        c.order.got[f.key] = (c.order.got[f.key] || 0) + 1;
+        c.order.parts.push({ k:f.key, from:seller.id });
+      });
+    });
+    projects.forEach(function (pr) {
+      COMPS.forEach(function (f) {
+        var need = (pr.need[f.key] || 0) - (pr.got[f.key] || 0);
+        if (need <= 0) return;
+        var seller = bestSeller(f.key, -1);
+        if (!seller) return;
+        var p = market[f.key].price, full = p * (1 + tradeFee);
+        if (pr.purse < full) return;
+        pr.purse -= full; seller.cash += p; treasury += full - p;
+        seller.stock[f.key]--; seller.sold++; trades++; turnover += full;
+        pr.got[f.key] = (pr.got[f.key] || 0) + 1;
+        pr.parts.push({ k:f.key, from:seller.id });
       });
     });
   }
 
-  function addPart(c, k, from) {
-    c.order.got[k] = (c.order.got[k] || 0) + 1;
-    c.order.parts.push({ k:k, from:from.id });
-  }
-
-  // ===================== заказы и сборка =====================
+  // ===================== заказы, консорциумы, филиалы =====================
   function freeRocks(s){ return s.rocks.filter(function (r) { return !r.taken; }); }
-  function freePlanets(s){ return planets(s).filter(function (b) { return !b.colonized; }); }
-  function slotFree(s, vt) {
-    if (vt.dest === "belt") return freeRocks(s).length > 0;
-    if (vt.dest === "planet") return freePlanets(s).length > 0;
-    return false;
-  }
-  function buildable(vt) {
-    return Object.keys(vt.need).every(function (k) { return anyMakes(k); });
-  }
-  function hasColony(c) {
-    return systems.some(function (s) {
-      return s.ventures.some(function (v) { return v.type === "colony" && v.lead === c.id; });
-    });
-  }
-  function anySlot(vt) {
-    return systems.some(function (s) { return s.unlocked && slotFree(s, vt); });
-  }
-  function jumpTarget(c) {
+  function buildable(vt){ return Object.keys(vt.need).every(function (k) { return anyMakes(k); }); }
+  function anyRock(){ return systems.some(function (s) { return s.unlocked && freeRocks(s).length; }); }
+  function jumpTarget() {
     var out = null;
     systems.forEach(function (s) {
       if (!s.unlocked || out) return;
       neighbors(s.id).forEach(function (n) {
         if (out || systems[n].unlocked) return;
-        if (voyages.some(function (v) { return v.to === n; })) return;
+        if (voyages.some(function (v) { return v.kind === "jump" && v.to === n; })) return;
         out = { from:s.id, to:n };
       });
     });
@@ -740,91 +865,139 @@ COMPS[].base  — стартовая цена, она же якорь корид
     Object.keys(vt.need).forEach(function (k) { sum += market[k].price * vt.need[k]; });
     return sum;
   }
+  function hasColonyAnywhere(c){ return worlds.some(function (w) { return w.founder === c.id; }); }
 
-  // Раз в год компания решает, за какой корабль взяться. Дальше она годами
-  // собирает комплект, и это её единственный план: заказов одновременно не два.
   function reviewOrders() {
     corps.forEach(function (c) {
       if (c.order || c.cool > 0) return;
       var best = null, top = -1;
-      VTYPES.forEach(function (vt) {
+      [vtype("mine"), vtype("jump")].forEach(function (vt) {
         if (!buildable(vt)) return;
-        if (vt.key === "jump") { if (!hasColony(c) || !jumpTarget(c)) return; }
-        else if (!anySlot(vt)) return;
-        var cost = orderCost(vt);
-        var score = vt.key === "jump" ? 46 : (vt.yield * 0.55 * vt.term) / Math.max(20, cost);
-        // своё дешевле чужого: за то, что умеешь сам, платить не придётся
+        if (vt.key === "mine" && !anyRock()) return;
+        if (vt.key === "jump" && (!hasColonyAnywhere(c) || !jumpTarget())) return;
+        var score = vt.key === "jump" ? 46 : (vt.yield * 0.55 * vt.term) / Math.max(20, orderCost(vt));
         var own = 0, all = 0;
-        Object.keys(vt.need).forEach(function (k) { all += vt.need[k]; if (knows(c, k)) own += vt.need[k]; });
+        Object.keys(vt.need).forEach(function (k) { all += vt.need[k]; if (canBuild(c, k)) own += vt.need[k]; });
         score *= 1 + own / all * 0.6;
         if (score > top) { top = score; best = vt; }
       });
-      if (!best) return;
-      if (Math.random() > clamp(0.55 / c.nerve, 0.2, 0.9)) return;
+      if (!best || Math.random() > clamp(0.55 / c.nerve, 0.2, 0.9)) return;
       c.order = { type:best.key, need:JSON.parse(JSON.stringify(best.need)), got:{}, parts:[], born:dateStr() };
       say("<b>" + c.name + "</b> взялась собирать " + best.name + ".");
     });
   }
 
-  function orderDone(o) {
-    return Object.keys(o.need).every(function (k) { return (o.got[k] || 0) >= o.need[k]; });
+  // Колония — консорциум: держатель технологии кладёт своё, остальные доносят
+  // за право на филиал. Деньги подписки тратятся на детали, поэтому в колонии
+  // потом видно, чей корпус и чьё жизнеобеспечение.
+  function colonyCost(s){ return Math.round(260 * (1 + s.depth * 0.3)); }
+
+  function reviewProjects() {
+    corps.forEach(function (c) {
+      if (projects.some(function (p) { return p.lead === c.id; })) return;
+      if (c.cash < 200) return;
+      var target = null, top = -1;
+      systems.forEach(function (s) {
+        if (!s.unlocked) return;
+        s.bodies.forEach(function (b) {
+          // claimed держится от начала подписки до посадки модуля. Без него
+          // вторая компания открывала подписку на ту же планету, пока первый
+          // модуль был в пути, и на одной планете вырастало по десять колоний.
+          if (b.world || b.claimed || !canBuild(c, b.type.tech)) return;
+          var score = (b.type.cap + b.type.farm * 3) / (1 + s.depth * 0.4);
+          if (score > top) { top = score; target = { b:b, s:s }; }
+        });
+      });
+      if (!target) return;
+      var cost = colonyCost(target.s), put = Math.min(c.cash * 0.45, cost);
+      c.cash -= put; target.b.claimed = true;
+      projects.push({ lead:c.id, body:target.b, sys:target.s.id, cost:cost, purse:put,
+                      need:JSON.parse(JSON.stringify(vtype("colony").need)), got:{}, parts:[],
+                      backers:[{ corp:c.id, sum:put }], age:0, born:dateStr() });
+      say("<b>" + c.name + "</b> открыла подписку на колонию " + target.b.name +
+          " (" + target.b.type.name + "), нужно " + cost + ".");
+    });
+
+    projects.forEach(function (pr) {
+      if (pr.purse >= pr.cost) return;
+      corps.forEach(function (c) {
+        if (pr.backers.some(function (b) { return b.corp === c.id; })) return;
+        if (c.cash < 260 || Math.random() > 0.35) return;
+        var share = Math.min(Math.max(70, c.cash * 0.2), pr.cost - pr.purse);
+        if (share < 70) return;
+        c.cash -= share; pr.purse += share;
+        pr.backers.push({ corp:c.id, sum:share });
+        say("<b>" + c.name + "</b> вошла в колонию " + pr.body.name + " на " + Math.round(share) +
+            " — за право на филиал.");
+      });
+    });
+  }
+
+  // Опоздавшие покупают место у правительства колонии, если оно осталось.
+  function branchTrade() {
+    worlds.forEach(function (w) {
+      if (w === home || w.branches.length >= w.slots) return;
+      corps.forEach(function (c) {
+        if (hasBranch(c, w) || c.cash < 420 || Math.random() > 0.04) return;
+        c.cash -= 140; w.gov.cash += 140;
+        openBranch(c, w, false);
+      });
+    });
+  }
+
+  function full(need, got) {
+    return Object.keys(need).every(function (k) { return (got[k] || 0) >= need[k]; });
   }
 
   function assemble() {
     corps.forEach(function (c) {
-      if (!c.order || !orderDone(c.order)) return;
-      var vt = vtype(c.order.type), target = null;
+      if (!c.order || !full(c.order.need, c.order.got)) return;
+      var vt = vtype(c.order.type);
       if (vt.key === "jump") {
-        var jt = jumpTarget(c);
-        if (jt) target = { s:systems[jt.from], to:jt.to, dest:null };
+        var jt = jumpTarget();
+        if (!jt) return;
+        systems[jt.from].yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:jt.to,
+                                      parts:c.order.parts.slice(), left:vt.build, total:vt.build });
       } else {
         var pickS = null, top = -1;
         systems.forEach(function (s) {
-          if (!s.unlocked || !slotFree(s, vt)) return;
-          var score = s.rich / (1 + s.depth * 0.25);
+          if (!s.unlocked || !freeRocks(s).length) return;
+          var score = 1 / (1 + s.depth * 0.25);
           if (score > top) { top = score; pickS = s; }
         });
-        if (pickS) target = { s:pickS, dest:pickDest(vt, pickS) };
+        if (!pickS) return;
+        var free = freeRocks(pickS), r = free[Math.floor(Math.random() * free.length)];
+        r.taken = true;
+        var v = { sys:pickS.id, lead:c.id, type:"mine", name:vt.name, parts:c.order.parts.slice(),
+                  left:vt.term, yield:vt.yield, born:dateStr(), dest:{ kind:"rock", ref:r, label:r.name },
+                  live:false, building:true };
+        pickS.ventures.push(v);
+        pickS.yards.push({ vt:vt, vent:v, lead:c.id, color:c.color, glyph:vt.glyph, dest:v.dest,
+                           parts:v.parts, left:vt.build, total:vt.build });
       }
-      if (!target) return;                    // комплект собран, а места нет: ждём
-
-      var s = target.s, parts = c.order.parts.slice();
-      var v = { sys:s.id, lead:c.id, type:vt.key, name:vt.name, parts:parts,
-                left:vt.term, yield:+(vt.yield * s.rich).toFixed(1), born:dateStr(),
-                dest:target.dest, live:false, building:true };
-      if (vt.key !== "jump") s.ventures.push(v);
-      s.yards.push({ vt:vt, vent:v, lead:c.id, color:c.color, glyph:vt.glyph,
-                     dest:target.dest, to:target.to, left:vt.build, total:vt.build, parts:parts });
       var from = {};
-      parts.forEach(function (p) { from[p.from] = 1; });
+      c.order.parts.forEach(function (p) { from[p.from] = 1; });
       var names = Object.keys(from).filter(function (id) { return +id !== c.id; })
                         .map(function (id) { return corps[+id].name; });
-      say("<b>" + c.name + "</b> собрала комплект и заложила " + vt.name + " на верфи " + s.name + "." +
+      say("<b>" + c.name + "</b> собрала комплект и заложила " + vt.name + "." +
           (names.length ? " Детали от: " + names.join(", ") + "." : " Всё своё."));
       c.order = null; c.cool = 24 + Math.floor(Math.random() * 24);
     });
+
+    projects.forEach(function (pr) {
+      pr.age++;
+      if (!full(pr.need, pr.got)) return;
+      systems[pr.sys].yards.push({ vt:vtype("colony"), lead:pr.lead, color:corps[pr.lead].color, glyph:"cir",
+                                   body:pr.body, backers:pr.backers.slice(), parts:pr.parts.slice(),
+                                   left:vtype("colony").build, total:vtype("colony").build });
+      say("<b>" + corps[pr.lead].name + "</b> заложила колониальный модуль для " + pr.body.name +
+          " (вкладчиков " + pr.backers.length + ").");
+      pr.done = true;
+    });
+    projects = projects.filter(function (pr) { return !pr.done; });
   }
 
-  function pickDest(vt, s) {
-    if (vt.dest === "belt") {
-      var free = freeRocks(s);
-      if (!free.length) return null;
-      var r = free[Math.floor(Math.random() * free.length)];
-      r.taken = true;
-      return { kind:"rock", ref:r, label:r.name };
-    }
-    var pl = freePlanets(s);
-    if (!pl.length) return null;
-    pl[0].colonized = true;
-    return { kind:"body", ref:pl[0], label:pl[0].name };
-  }
-
-  function sendFleet(lead, vt, dest, v, s) {
-    s.ships.push({ corp:lead.id, color:lead.color, glyph:vt.glyph, size:8, t:0, dur:32 + Math.random()*12,
-                   dest:dest, trail:[], vent:v, x:0, y:0, ang:0 });
-  }
-
-  // ===================== предприятия и время =====================
+  // ===================== движение =====================
   function moveShips() {
     systems.forEach(function (s) {
       for (var y = s.yards.length - 1; y >= 0; y--) {
@@ -833,50 +1006,72 @@ COMPS[].base  — стартовая цена, она же якорь корид
         s.yards.splice(y, 1);
         var lead = corps[yd.lead];
         if (yd.vt.key === "jump") {
-          voyages.push({ from:s.id, to:yd.to, corp:yd.lead, color:yd.color, parts:yd.parts,
-                         t:0, dur:70 + Math.random()*30 });
+          voyages.push({ kind:"jump", sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color,
+                         parts:yd.parts, t:0, dur:70 + Math.random()*30, born:dateStr() });
           say("<b>" + lead.name + "</b> вывела прыжковый корабль с верфи " + s.name + ".");
+        } else if (yd.vt.key === "colony") {
+          s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
+                         dur:26 + Math.random()*8, body:yd.body, backers:yd.backers, parts:yd.parts,
+                         trail:[], x:0, y:0, ang:0, born:dateStr() });
+          say("<b>" + lead.name + "</b> спустила колониальный модуль: курс на " + yd.body.name + ".");
         } else {
           yd.vent.building = false;
-          sendFleet(lead, yd.vt, yd.dest, yd.vent, s);
-          say("<b>" + lead.name + "</b> спустила " + (yd.vt.key === "mine" ? "платформу" : "колониальный модуль") +
-              " со стапеля " + s.name + ": курс на " + yd.dest.label + ".");
+          s.ships.push({ kind:"mine", corp:yd.lead, color:yd.color, glyph:yd.glyph, size:8, t:0,
+                         dur:26 + Math.random()*8, dest:yd.dest, vent:yd.vent, parts:yd.parts,
+                         trail:[], x:0, y:0, ang:0, born:dateStr() });
+          say("<b>" + lead.name + "</b> спустила платформу: курс на " + yd.dest.label + ".");
         }
       }
       for (var i = s.ships.length - 1; i >= 0; i--) {
         var sh = s.ships[i];
         sh.t += 1 / sh.dur;
-        if (sh.t >= 1) { arrive(sh, s); s.ships.splice(i, 1); }
+        if (sh.t >= 1) { arriveShip(sh, s); s.ships.splice(i, 1); }
       }
     });
     for (var j = voyages.length - 1; j >= 0; j--) {
       var v = voyages[j];
       v.t += 1 / v.dur;
-      if (v.t >= 1) { openSystem(v); voyages.splice(j, 1); }
+      if (v.t >= 1) { arriveVoyage(v); voyages.splice(j, 1); }
     }
   }
 
-  function arrive(sh, s) {
-    var v = sh.vent;
-    if (!v.live) {
-      v.live = true;
-      if (v.type === "mine") { s.mines++; say("Платформа " + corps[v.lead].name + " встала на " + v.dest.label + " (" + s.name + "): " + v.yield + "/мес."); }
-      else { s.colonies++; say("Колония " + corps[v.lead].name + " основана на " + v.dest.label + " (" + s.name + ")."); }
+  function arriveShip(sh, s) {
+    if (sh.kind === "colony" && sh.body.world) {   // кто-то успел раньше
+      sh.body.claimed = false;
+      say("Колония " + corps[sh.corp].name + " опоздала: " + sh.body.name + " уже занята.");
+      return;
     }
-    s.stations.push({ dest:v.dest, color:sh.color, glyph:sh.glyph, size:sh.size * 0.8, vent:v,
-                      ang:v.dest.kind === "body" ? -2.2 : -1.9 });
+    if (sh.kind === "mine") {
+      sh.vent.live = true; sh.vent.building = false; s.mines++;
+      s.stations.push({ dest:sh.vent.dest, color:sh.color, glyph:sh.glyph, size:6.4, vent:sh.vent, ang:-1.9 });
+      say("Платформа " + corps[sh.corp].name + " встала на " + sh.vent.dest.label + " (" + s.name + ").");
+    } else if (sh.kind === "colony") {
+      sh.body.claimed = false;
+      var w = makeWorld(sh.body, 1.2, sh.corp);
+      w.parts = sh.parts;
+      sh.backers.forEach(function (b) { w.rights.push(b.corp); openBranch(corps[b.corp], w, true); });
+      say("<b>" + corps[sh.corp].name + "</b> основала колонию на " + sh.body.name + " (" + sh.body.type.name +
+          ", предел " + w.cap + "). Филиалы: " + w.branches.map(function (br) { return corps[br.corp].name; }).join(", ") + ".");
+    }
   }
 
-  function openSystem(voy) {
-    var t = systems[voy.to], c = corps[voy.corp];
-    t.pulse = 1;
-    if (t.unlocked) return;
-    t.unlocked = true;
-    var pl = planets(t).length, what = [pl === 1 ? "одна планета" : pl + " планеты"];
-    if (t.belt) what.push(t.rocks.length + " астероидов");
-    what.push(t.rich >= 1.15 ? "богатая" : t.rich <= 0.9 ? "бедная" : "средняя");
-    say("<b>" + c.name + "</b> открыла систему " + t.name + ": " + what.join(", ") + ".");
-    if (!jumped) { jumped = true; say("Первый межзвёздный прыжок совершён. Планетарная эпоха закончилась."); }
+  function arriveVoyage(v) {
+    if (v.kind === "jump") {
+      var t = systems[v.to];
+      t.pulse = 1;
+      if (!t.unlocked) {
+        t.unlocked = true;
+        say("<b>" + corps[v.corp].name + "</b> открыла систему " + t.name + ": " +
+            t.bodies.map(function (b) { return b.type.name; }).join(", ") + ".");
+        if (!jumped) { jumped = true; say("Первый межзвёздный прыжок совершён."); }
+      }
+      return;
+    }
+    if (v.kind === "food") { v.to.food.stock += v.qty; return; }
+    if (v.kind === "pops") {
+      v.to.pop.free += v.qty;
+      say(v.qty.toFixed(1) + " человечков прибыли на " + v.to.body.name + ".");
+    }
   }
 
   function ventureIncome() {
@@ -887,9 +1082,8 @@ COMPS[].base  — стартовая цена, она же якорь корид
         corps[v.lead].cash += v.yield;
         v.left--;
         if (v.left <= 0) {
-          say("Предприятие " + corps[v.lead].name + " в " + s.name + " (" + v.born + ") выработало ресурс.");
-          if (v.dest.kind === "rock") { v.dest.ref.taken = false; s.mines--; }
-          else { v.dest.ref.colonized = false; s.colonies--; }
+          say("Платформа " + corps[v.lead].name + " на " + v.dest.label + " выработала ресурс.");
+          v.dest.ref.taken = false; s.mines--;
           s.stations = s.stations.filter(function (st) { return st.vent !== v; });
           s.ventures.splice(i, 1);
         }
@@ -897,39 +1091,39 @@ COMPS[].base  — стартовая цена, она же якорь корид
     });
   }
 
-  // Наземное дело компании (буры, чай, самолёты) кормит её до первого корабля:
-  // без этого никто не доживает до собственной детали.
   function economy() {
     corps.forEach(function (c) {
       if (c.cool > 0) c.cool--;
-      var earn = c.emp.prod * 6.5;
-      var wages = c.emp.prod * pop.wage.prod + c.emp.sci * pop.wage.sci;
+      var earn = 0, wages = 0;
+      c.branches.forEach(function (b) {
+        earn += b.emp.prod * 6.5;
+        wages += b.emp.prod * b.world.wage.prod + b.emp.sci * b.world.wage.sci;
+        b.world.gov.cash += b.emp.prod * 0.8;            // местный налог правительству мира
+      });
       treasury += earn * tax;
       c.cash += earn * (1 - tax) - wages;
       if (c.cash < -40) c.cash = -40;
     });
-    treasury -= pop.free * dole;
+    worlds.forEach(function (w) {
+      treasury -= w.pop.free * dole;
+      w.gov.cash += 1.2;                                  // подушная подать
+    });
     if (treasury < 0) treasury = 0;
   }
 
   function step() {
     tick++;
-    labour(); economy(); research(); produce(); trade();
+    worlds.forEach(labour);
+    economy(); research(); produce(); trade();
     if (tick % 3 === 0) patentsExpire();
-    if (tick % 12 === 0) reviewOrders();
+    if (tick % 6 === 0) { foodRun(); migrationRun(); }
+    if (tick % 12 === 0) { reviewOrders(); reviewProjects(); branchTrade(); }
     assemble(); moveShips(); ventureIncome();
-    panels();
+    if (!headless) panels();
   }
 
   // ===================== сцена =====================
-  var cv = document.getElementById("view"), cx = cv.getContext("2d");
-  var CW = 840, CH = 680;
-  function fit() {
-    var dpr = window.devicePixelRatio || 1;
-    cv.width = CW * dpr; cv.height = CH * dpr;
-    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  fit(); window.addEventListener("resize", fit);
+  var cv = null, cx = null, CW = 840, CH = 680, last = 0, glow = 0;
 
   function shape(g, x, y, s, rot, col) {
     cx.save(); cx.translate(x, y); cx.rotate(rot); cx.beginPath();
@@ -950,15 +1144,12 @@ COMPS[].base  — стартовая цена, она же якорь корид
     cx.closePath(); cx.fillStyle = col; cx.fill();
   }
 
-  var last = 0, glow = 0;
-
   function advance(s, dt) {
     if (s.pulse > 0) s.pulse = Math.max(0, s.pulse - dt * 0.5);
-    var mx = CW/2, my = CH/2, op = posOf(s.origin, mx, my);
+    var mx = CW/2, my = CH/2, op = posOf(s.bodies[0], mx, my);
     s.ships.forEach(function (sh) {
-      if (sh.t < 0) return;
-      var tp = posOf(sh.dest.ref, mx, my);
-      var k = Math.min(1, sh.t), e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
+      var tp = posOf(sh.kind === "colony" ? sh.body : sh.dest.ref, mx, my);
+      var k = clamp(sh.t, 0, 1), e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
       sh.x = op.x + (tp.x - op.x) * e; sh.y = op.y + (tp.y - op.y) * e;
       sh.ang = Math.atan2(tp.y - op.y, tp.x - op.x) + 1.5708;
       var tl = sh.trail, lp = tl[tl.length - 1];
@@ -978,54 +1169,15 @@ COMPS[].base  — стартовая цена, она же якорь корид
       cx.strokeStyle = "#131c2f"; cx.lineWidth = 1; cx.stroke();
     });
     if (s.belt) {
-      cx.beginPath(); cx.arc(mx, my, 168, 0, 6.2832);
+      cx.beginPath(); cx.arc(mx, my, 120, 0, 6.2832);
       cx.strokeStyle = "#141d31"; cx.setLineDash([2, 7]); cx.lineWidth = 1; cx.stroke(); cx.setLineDash([]);
     }
 
-    // ---- кольцо рынка (только дома): кто умеет делать деталь ----
-    if (s.id === 0) {
-      var RR = 62, seg = 6.2832 / COMPS.length, ga = 0.16;
-      COMPS.forEach(function (f, i) {
-        var a0 = -1.5708 + i * seg + ga, a1 = -1.5708 + (i + 1) * seg - ga;
-        cx.beginPath(); cx.arc(mx, my, RR, a0, a1);
-        cx.strokeStyle = "#16203a"; cx.lineWidth = 7; cx.stroke();
-        var makers = makersOf(f.key);
-        if (makers.length) {
-          var w = (a1 - a0) / makers.length, at = a0;
-          makers.forEach(function (c) {
-            cx.beginPath(); cx.arc(mx, my, RR, at, at + w);
-            cx.strokeStyle = c.color; cx.lineWidth = 7; cx.stroke(); at += w;
-          });
-        } else {
-          var at2 = a0;
-          corps.forEach(function (c) {
-            if (c.spent[f.key] < 1) return;
-            var w2 = (a1 - a0) * Math.min(1, c.spent[f.key] / f.diff) / corps.length;
-            cx.beginPath(); cx.arc(mx, my, RR, at2, at2 + w2);
-            cx.strokeStyle = c.color; cx.lineWidth = 7; cx.globalAlpha = 0.5; cx.stroke();
-            cx.globalAlpha = 1; at2 += w2;
-          });
-        }
-        if (flash[f.key] > 0) {
-          cx.beginPath(); cx.arc(mx, my, RR, a0, a1);
-          cx.strokeStyle = "#fff"; cx.lineWidth = 7;
-          cx.globalAlpha = flash[f.key] * 0.8; cx.stroke(); cx.globalAlpha = 1;
-          flash[f.key] = Math.max(0, flash[f.key] - 0.02);
-        }
-        var am = (a0 + a1) / 2;
-        cx.font = "500 10px system-ui, sans-serif";
-        cx.fillStyle = makers.length ? "#7c88a0" : "#616d8a";
-        cx.textAlign = Math.cos(am) > 0.3 ? "left" : (Math.cos(am) < -0.3 ? "right" : "center");
-        cx.textBaseline = Math.sin(am) > 0.5 ? "top" : (Math.sin(am) < -0.5 ? "bottom" : "middle");
-        cx.fillText(f.short, mx + Math.cos(am) * (RR + 13), my + Math.sin(am) * (RR + 13));
-      });
-    }
-
     var pulse = 1 + Math.sin(glow * 0.7) * 0.04;
-    var sg = cx.createRadialGradient(mx, my, 2, mx, my, 30 * pulse);
+    var sg = cx.createRadialGradient(mx, my, 2, mx, my, 26 * pulse);
     sg.addColorStop(0, "#fff3d0"); sg.addColorStop(0.5, "#f2b33d"); sg.addColorStop(1, "rgba(242,179,61,0)");
-    cx.beginPath(); cx.arc(mx, my, 30 * pulse, 0, 6.2832); cx.fillStyle = sg; cx.fill();
-    cx.beginPath(); cx.arc(mx, my, 11, 0, 6.2832); cx.fillStyle = "#fff6dd"; cx.fill();
+    cx.beginPath(); cx.arc(mx, my, 26 * pulse, 0, 6.2832); cx.fillStyle = sg; cx.fill();
+    cx.beginPath(); cx.arc(mx, my, 10, 0, 6.2832); cx.fillStyle = "#fff6dd"; cx.fill();
 
     s.rocks.forEach(function (r) {
       var p = posOf(r, mx, my);
@@ -1036,43 +1188,45 @@ COMPS[].base  — стартовая цена, она же якорь корид
     });
 
     s.bodies.forEach(function (b) {
-      var p = posOf(b, mx, my);
+      var p = posOf(b, mx, my), w = b.world;
       var g2 = cx.createRadialGradient(p.x - b.rad*0.35, p.y - b.rad*0.35, b.rad*0.15, p.x, p.y, b.rad);
-      g2.addColorStop(0, b.col); g2.addColorStop(1, "#131b2d");
+      g2.addColorStop(0, b.type.col); g2.addColorStop(1, "#131b2d");
       cx.beginPath(); cx.arc(p.x, p.y, b.rad, 0, 6.2832); cx.fillStyle = g2; cx.fill();
-      if (b.kind === "home") {
-        corps.forEach(function (c, i) {
-          var a = -1.5708 + i * 1.2566;
-          cx.beginPath(); cx.arc(p.x + Math.cos(a) * (b.rad + 9), p.y + Math.sin(a) * (b.rad + 9), 3, 0, 6.2832);
-          cx.fillStyle = c.color; cx.fill();
+      if (w) {
+        var fill = clamp(popOf(w) / w.cap, 0, 1);
+        cx.beginPath(); cx.arc(p.x, p.y, b.rad + 4, -1.5708, -1.5708 + 6.2832 * fill);
+        cx.strokeStyle = w.food.short > 2 ? "#ff8b5e" : "#6fd39b"; cx.lineWidth = 2; cx.stroke();
+        w.branches.forEach(function (br, i) {
+          var a = -1.5708 + i * 0.7;
+          cx.fillStyle = corps[br.corp].color;
+          cx.fillRect(p.x + Math.cos(a) * (b.rad + 11) - 2.5, p.y + Math.sin(a) * (b.rad + 11) - 2.5, 5, 5);
         });
       }
-      hits.push({ x:p.x, y:p.y, r:b.rad + 12, kind:"body", data:{ body:b, sys:s } });
-      cx.font = "500 10.5px system-ui, sans-serif"; cx.fillStyle = "#7c88a0";
+      hits.push({ x:p.x, y:p.y, r:b.rad + 12, kind:"body", data:b });
+      cx.font = "500 10.5px system-ui, sans-serif"; cx.fillStyle = w ? "#c9d2e4" : "#6a7590";
       cx.textAlign = "center"; cx.textBaseline = "top";
-      cx.fillText(b.name, p.x, p.y + b.rad + (b.kind === "home" ? 14 : 5));
+      cx.fillText(b.name, p.x, p.y + b.rad + 8);
+      cx.font = "500 9.5px system-ui, sans-serif"; cx.fillStyle = "#556080";
+      cx.fillText(b.type.name + (w ? " · " + fmt(popOf(w)) : ""), p.x, p.y + b.rad + 21);
     });
 
     var jp = posOf(s.gate, mx, my), jr = 9 + Math.sin(glow * 1.6) * 1.6;
     cx.beginPath(); cx.arc(jp.x, jp.y, jr, 0, 6.2832);
     cx.strokeStyle = anyKnows("drive") ? "#9aa8ff" : "#3a4460"; cx.lineWidth = 1.4; cx.stroke();
-    cx.beginPath(); cx.arc(jp.x, jp.y, jr * 0.42, 0, 6.2832);
-    cx.fillStyle = anyKnows("drive") ? "#9aa8ff" : "#2b3450"; cx.fill();
-    cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = anyKnows("drive") ? "#8f9bc4" : "#4e5872";
+    cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
     cx.textAlign = "center"; cx.textBaseline = "top";
     cx.fillText("ворота", jp.x, jp.y + jr + 5);
 
     s.stations.forEach(function (st) {
       var t = st.dest.ref, base = posOf(t, mx, my);
-      var off = (st.dest.kind === "body" ? t.rad + 8 : t.s + 7);
-      var x = base.x + Math.cos(st.ang) * off, y = base.y + Math.sin(st.ang) * off;
+      var x = base.x + Math.cos(st.ang) * (t.s + 7), y = base.y + Math.sin(st.ang) * (t.s + 7);
       shape(st.glyph, x, y, st.size, 0, st.color);
       hits.push({ x:x, y:y, r:11, kind:"vent", data:st.vent });
     });
 
-    var op = posOf(s.origin, mx, my);
+    var op = posOf(s.bodies[0], mx, my);
     s.yards.forEach(function (yd, i) {
-      var a = -1.5708 + i * 1.05, off = (s.origin.rad || 10) + 24;
+      var a = -1.5708 + i * 1.05, off = s.bodies[0].rad + 24;
       var x = op.x + Math.cos(a) * off, y = op.y + Math.sin(a) * off;
       var done = 1 - yd.left / yd.total;
       cx.beginPath(); cx.arc(x, y, 10, 0, 6.2832);
@@ -1086,22 +1240,24 @@ COMPS[].base  — стартовая цена, она же якорь корид
     });
 
     s.ships.forEach(function (sh) {
-      if (sh.t < 0) return;
       cx.beginPath();
       sh.trail.forEach(function (p, j) { j ? cx.lineTo(p.x, p.y) : cx.moveTo(p.x, p.y); });
       cx.strokeStyle = sh.color; cx.globalAlpha = 0.22; cx.lineWidth = 1.3; cx.stroke(); cx.globalAlpha = 1;
       shape(sh.glyph, sh.x, sh.y, sh.size, sh.ang, sh.color);
-      hits.push({ x:sh.x, y:sh.y, r:13, kind:"vent", data:sh.vent });
+      hits.push({ x:sh.x, y:sh.y, r:13, kind:"ship", data:sh });
+    });
+
+    voyages.forEach(function (v) {
+      if (v.kind === "jump" || v.from.sys !== s.id || v.to.sys !== s.id) return;
+      var a = posOf(v.from.body, mx, my), b = posOf(v.to.body, mx, my), k = clamp(v.t, 0, 1);
+      var x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
+      shape("sqr", x, y, 5.6, 0, v.color);
+      hits.push({ x:x, y:y, r:12, kind:"cargo", data:v });
     });
   }
 
-  function corpsIn(s) {
-    var seen = {};
-    s.ventures.forEach(function (v) { seen[v.lead] = 1; });
-    return Object.keys(seen).map(function (id) { return corps[+id]; });
-  }
-  function nodeR(s) { return 7 + Math.min(7, s.ventures.length * 1.6); }
-  function seen(s) { return s.unlocked || neighbors(s.id).some(function (n) { return systems[n].unlocked; }); }
+  function nodeR(s) { return 7 + Math.min(7, (s.mines + s.bodies.filter(function (b) { return b.world; }).length) * 1.6); }
+  function seenSys(s) { return s.unlocked || neighbors(s.id).some(function (n) { return systems[n].unlocked; }); }
 
   function drawMap() {
     hits = [];
@@ -1115,16 +1271,19 @@ COMPS[].base  — стартовая цена, она же якорь корид
       cx.setLineDash(both ? [] : [3, 5]); cx.lineWidth = 1; cx.stroke(); cx.setLineDash([]);
     });
     voyages.forEach(function (v) {
-      var a = systems[v.from], b = systems[v.to];
+      var a, b;
+      if (v.kind === "jump") { a = systems[v.sysFrom]; b = systems[v.to]; }
+      else { a = systems[v.from.sys]; b = systems[v.to.sys]; if (a === b) return; }
       var k = clamp(v.t, 0, 1), x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
       cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(x, y);
       cx.strokeStyle = v.color; cx.globalAlpha = 0.3; cx.lineWidth = 1.2; cx.stroke(); cx.globalAlpha = 1;
-      shape("tri", x, y, 6, Math.atan2(b.y - a.y, b.x - a.x) + 1.5708, v.color);
-      hits.push({ x:x, y:y, r:12, kind:"voyage", data:v });
+      shape(v.kind === "jump" ? "tri" : "sqr", x, y, 6,
+            v.kind === "jump" ? Math.atan2(b.y - a.y, b.x - a.x) + 1.5708 : 0, v.color);
+      hits.push({ x:x, y:y, r:12, kind:v.kind === "jump" ? "jumpship" : "cargo", data:v });
     });
     systems.forEach(function (s) {
       var r = nodeR(s);
-      if (!seen(s)) {
+      if (!seenSys(s)) {
         cx.beginPath(); cx.arc(s.x, s.y, 2.2, 0, 6.2832); cx.fillStyle = "#1c2540"; cx.fill();
         return;
       }
@@ -1148,27 +1307,27 @@ COMPS[].base  — стартовая цена, она же якорь корид
       g.addColorStop(0, "#fff3d0"); g.addColorStop(0.45, "rgba(242,179,61,0.55)"); g.addColorStop(1, "rgba(242,179,61,0)");
       cx.beginPath(); cx.arc(s.x, s.y, r + 9, 0, 6.2832); cx.fillStyle = g; cx.fill();
       cx.beginPath(); cx.arc(s.x, s.y, r * 0.5, 0, 6.2832); cx.fillStyle = "#fff6dd"; cx.fill();
-      var here = corpsIn(s);
-      here.forEach(function (c, i) {
-        var a = -1.5708 + i * (6.2832 / Math.max(1, here.length));
+      var ws = s.bodies.filter(function (b) { return b.world; }), here = {};
+      ws.forEach(function (b) { b.world.branches.forEach(function (br) { here[br.corp] = 1; }); });
+      var ids = Object.keys(here);
+      ids.forEach(function (id, i) {
+        var a = -1.5708 + i * (6.2832 / Math.max(1, ids.length));
         cx.beginPath(); cx.arc(s.x + Math.cos(a) * (r + 13), s.y + Math.sin(a) * (r + 13), 3.2, 0, 6.2832);
-        cx.fillStyle = c.color; cx.fill();
+        cx.fillStyle = corps[+id].color; cx.fill();
       });
       hits.push({ x:s.x, y:s.y, r:26, kind:"sys", data:s });
       cx.font = (s.id === 0 ? "600 " : "500 ") + "11.5px system-ui, sans-serif";
       cx.fillStyle = s.id === 0 ? "#e4e9f4" : "#9aa5bd";
       cx.textAlign = "center"; cx.textBaseline = "top";
       cx.fillText(s.name, s.x, s.y + r + 17);
-      var sub = [];
-      if (s.mines) sub.push(s.mines + " платф.");
-      if (s.colonies) sub.push(s.colonies + " кол.");
-      if (!sub.length) sub.push(planets(s).length + " пл." + (s.belt ? ", " + s.rocks.length + " аст." : ""));
+      var popHere = ws.reduce(function (a2, b) { return a2 + popOf(b.world); }, 0);
       cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = "#5d6881";
-      cx.fillText(sub.join(" · "), s.x, s.y + r + 31);
+      cx.fillText(ws.length ? ws.length + " мир. · " + fmt(popHere) + " чел." : s.bodies.length + " планет",
+                  s.x, s.y + r + 31);
     });
     cx.font = "500 11px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
     cx.textAlign = "left"; cx.textBaseline = "top";
-    cx.fillText("клик по системе — заглянуть внутрь, по кораблю — из чего он собран", 16, 16);
+    cx.fillText("клик по системе — внутрь, по кораблю — что везёт", 16, 16);
   }
 
   function frame(ts) {
@@ -1178,49 +1337,14 @@ COMPS[].base  — стартовая цена, она же якорь корид
     if (view.mode === "map") drawMap(); else drawSystem(systems[view.sys]);
     requestAnimationFrame(frame);
   }
-  requestAnimationFrame(frame);
-
-  // ===================== клик по сцене =====================
-  cv.addEventListener("click", function (e) {
-    var rect = cv.getBoundingClientRect();
-    var x = (e.clientX - rect.left) / rect.width * CW, y = (e.clientY - rect.top) / rect.height * CH;
-    var best = null, bd = 1e9;
-    hits.forEach(function (h) {
-      var d = Math.sqrt((x - h.x) * (x - h.x) + (y - h.y) * (y - h.y));
-      if (d <= h.r && d < bd) { bd = d; best = h; }
-    });
-    if (!best) return;
-    if (best.kind === "sys" && view.mode === "map") { open(best.data.id); return; }
-    pick = best; panels();
-  });
-
-  // ===================== вид =====================
-  function scene() {
-    var map = view.mode === "map";
-    document.getElementById("tomap").style.display = map ? "none" : "inline-block";
-    document.getElementById("sname").textContent = map ? "Галактика" : systems[view.sys].name;
-    var meta;
-    if (map) {
-      var op = systems.filter(function (s) { return s.unlocked; }).length;
-      meta = "открыто систем " + op + " из " + systems.length + (voyages.length ? " · в пути " + voyages.length : "");
-    } else {
-      var s = systems[view.sys];
-      meta = (s.id === 0 ? "родная система" : "переход " + s.depth + " · богатство ×" + s.rich) +
-             " · планет " + planets(s).length + (s.belt ? " · астероидов " + s.rocks.length : " · без пояса");
-    }
-    document.getElementById("smeta").textContent = meta;
-    document.getElementById("ventlab").textContent = map ? "Что происходит в системах" : "Предприятия · " + systems[view.sys].name;
-    panels();
-  }
-  function open(i) { view = { mode:"system", sys:i }; pick = null; scene(); }
 
   // ===================== панели =====================
+  function el(id){ return document.getElementById(id); }
+
   function partsList(parts, ownerId) {
+    if (!parts || !parts.length) return '<div class="empty">Состав неизвестен.</div>';
     var by = {};
-    parts.forEach(function (p) {
-      var k = p.k + "|" + p.from;
-      by[k] = (by[k] || 0) + 1;
-    });
+    parts.forEach(function (p) { var k = p.k + "|" + p.from; by[k] = (by[k] || 0) + 1; });
     return Object.keys(by).map(function (k) {
       var bits = k.split("|"), f = compOf(bits[0]), from = corps[+bits[1]];
       return '<div class="part"><i class="dot" style="background:' + from.color + '"></i>' +
@@ -1229,67 +1353,94 @@ COMPS[].base  — стартовая цена, она же якорь корид
     }).join("");
   }
 
+  function worldCard(w) {
+    var p = w.pop, total = popOf(w);
+    return '<div class="card"><h3>' + w.body.name + ' · ' + w.type.name + '</h3>' +
+      '<div class="sub">' + fmt(total) + ' из ' + w.cap + ' человечков · ' +
+      (w.founder >= 0 ? "основана " + corps[w.founder].name + ", " + w.born : "родина") + '</div>' +
+      '<div class="part"><span class="pn">в поле</span><span class="pw">' + fmt(p.farm) + ' · ' + w.wage.farm.toFixed(2) + '</span></div>' +
+      '<div class="part"><span class="pn">в цехах</span><span class="pw">' + fmt(p.prod) + ' · ' + w.wage.prod.toFixed(2) + '</span></div>' +
+      '<div class="part"><span class="pn">в лабораториях</span><span class="pw">' + fmt(p.sci) + ' · ' + w.wage.sci.toFixed(2) + '</span></div>' +
+      '<div class="part"><span class="pn">без работы</span><span class="pw">' + fmt(p.free) + '</span></div>' +
+      '<div class="sub" style="margin:7px 0 3px">Еда: своя ' + (p.farm * w.type.farm).toFixed(1) +
+      ', надо ' + total.toFixed(1) + ', склад ' + w.food.stock.toFixed(1) +
+      (w.food.short > 2 ? ' · <span style="color:var(--bad)">голод</span>' : '') + '</div>' +
+      '<div class="sub" style="margin:0 0 3px">Казна мира ' + Math.round(w.gov.cash) +
+      ' · уехать хотят ' + w.wantOut.toFixed(1) + ' · ' + w.flow + '</div>' +
+      '<div class="sub" style="margin:0">Филиалы (' + w.branches.length + ' из ' + w.slots + '): ' +
+      (w.branches.length ? w.branches.map(function (b) { return corps[b.corp].name; }).join(", ") : "нет") + '</div>' +
+      (w.parts.length ? '<div class="sub" style="margin:7px 0 2px">Модуль собран из:</div>' + partsList(w.parts, w.founder) : '') +
+      '</div>';
+  }
+
   function inspector() {
-    var box = document.getElementById("inspect");
-    if (!pick) {
-      box.innerHTML = '<div class="empty">Ткни в корабль, станцию, верфь или планету на сцене.</div>';
-      return;
-    }
-    if (pick.kind === "vent" || pick.kind === "yard") {
-      var v = pick.kind === "yard" ? pick.data.vent : pick.data;
-      var lead = corps[v.lead], vt = vtype(v.type);
-      var state = pick.kind === "yard" ? "на верфи, готовность " + Math.round((1 - pick.data.left / pick.data.total) * 100) + "%"
-                : v.building ? "на верфи" : v.live ? "работает, " + v.yield + "/мес" : "в пути";
-      box.innerHTML = '<div class="card"><h3>' + vt.name + '</h3>' +
-        '<div class="sub">' + lead.name + ' · ' + state + ' · заложен ' + v.born + '</div>' +
-        partsList(v.parts, v.lead) + '</div>';
-      return;
-    }
-    if (pick.kind === "voyage") {
-      var vv = pick.data, c = corps[vv.corp];
-      box.innerHTML = '<div class="card"><h3>Прыжковый корабль</h3>' +
-        '<div class="sub">' + c.name + ' · в пути, ' + Math.round(vv.t * 100) + '%</div>' +
-        partsList(vv.parts, vv.corp) + '</div>';
-      return;
-    }
+    var box = el("inspect");
+    if (!pick) { box.innerHTML = '<div class="empty">Ткни в планету, корабль, станцию или верфь.</div>'; return; }
+    var d = pick.data;
     if (pick.kind === "body") {
-      var b = pick.data.body, s = pick.data.sys;
-      if (b.kind === "home") {
-        box.innerHTML = '<div class="card"><h3>Тира</h3><div class="sub">родная планета, ' +
-          fmt(pop.total) + ' человечков</div>' +
-          '<div class="part"><span class="pn">в поле</span><span class="pw">' + fmt(pop.farm) + ' · ' + pop.wage.farm.toFixed(2) + '</span></div>' +
-          '<div class="part"><span class="pn">в цехах</span><span class="pw">' + fmt(pop.prod) + ' · ' + pop.wage.prod.toFixed(2) + '</span></div>' +
-          '<div class="part"><span class="pn">в лабораториях</span><span class="pw">' + fmt(pop.sci) + ' · ' + pop.wage.sci.toFixed(2) + '</span></div>' +
-          '<div class="part"><span class="pn">без работы</span><span class="pw">' + fmt(pop.free) + '</span></div>' +
-          '<div class="sub" style="margin:6px 0 0">' + pop.flow + ', еда ' + pop.food.toFixed(2) + '</div></div>';
-      } else {
-        var col = s.ventures.filter(function (v) { return v.dest && v.dest.ref === b; })[0];
-        box.innerHTML = '<div class="card"><h3>' + b.name + '</h3>' +
-          '<div class="sub">' + s.name + (col ? ' · колония ' + corps[col.lead].name : ' · никем не занята') + '</div>' +
-          (col ? partsList(col.parts, col.lead) : '<div class="empty">Пусто.</div>') + '</div>';
-      }
+      if (d.world) { box.innerHTML = worldCard(d.world); return; }
+      var pr = projects.filter(function (p) { return p.body === d; })[0];
+      var who = corps.filter(function (c) { return canBuild(c, d.type.tech); }).map(function (c) { return c.name; });
+      box.innerHTML = '<div class="card"><h3>' + d.name + ' · ' + d.type.name + '</h3>' +
+        '<div class="sub">не заселена · предел ' + d.type.cap + ' · урожай с фермера ' + d.type.farm + '</div>' +
+        '<div class="part"><span class="pn">нужна технология</span><span class="pw">' + colOf(d.type.tech).name + '</span></div>' +
+        '<div class="part"><span class="pn">умеют колонизировать</span><span class="pw">' + (who.length ? who.join(", ") : "никто") + '</span></div>' +
+        (pr ? '<div class="sub" style="margin-top:7px">Подписка ' + corps[pr.lead].name + ': ' + Math.round(pr.purse) +
+              ' из ' + pr.cost + ', вкладчиков ' + pr.backers.length + '</div>' : '') + '</div>';
+      return;
+    }
+    if (pick.kind === "cargo") {
+      box.innerHTML = '<div class="card"><h3>' + (d.kind === "food" ? "Грузовик" : "Переселенческий") + '</h3>' +
+        '<div class="sub">везёт ' + (d.kind === "food" ? d.qty + " еды" : d.qty.toFixed(1) + " человечков") +
+        ' с ' + d.from.body.name + ' на ' + d.to.body.name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
+        '<div class="sub" style="margin:0 0 4px">Куплен правительством ' + d.to.body.name + ', собран из:</div>' +
+        partsList(d.parts, -1) + '</div>';
+      return;
+    }
+    if (pick.kind === "jumpship") {
+      box.innerHTML = '<div class="card"><h3>Прыжковый корабль</h3>' +
+        '<div class="sub">' + corps[d.corp].name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
+        partsList(d.parts, d.corp) + '</div>';
+      return;
+    }
+    if (pick.kind === "ship") {
+      box.innerHTML = '<div class="card"><h3>' + (d.kind === "colony" ? "Колониальный модуль" : "Добывающая платформа") + '</h3>' +
+        '<div class="sub">' + corps[d.corp].name + ' · курс на ' +
+        (d.kind === "colony" ? d.body.name : d.dest.label) + ' · ' + Math.round(d.t * 100) + '%</div>' +
+        partsList(d.parts, d.corp) + '</div>';
+      return;
+    }
+    if (pick.kind === "vent") {
+      box.innerHTML = '<div class="card"><h3>Добывающая платформа</h3>' +
+        '<div class="sub">' + corps[d.lead].name + ' · ' + d.yield + '/мес · ' + d.dest.label +
+        ' · осталось ' + Math.round(d.left / 12) + ' лет</div>' + partsList(d.parts, d.lead) + '</div>';
+      return;
+    }
+    if (pick.kind === "yard") {
+      box.innerHTML = '<div class="card"><h3>' + d.vt.name + ' на стапеле</h3>' +
+        '<div class="sub">' + corps[d.lead].name + ' · готовность ' + Math.round((1 - d.left / d.total) * 100) +
+        '% · до спуска ' + d.left + ' мес.</div>' + partsList(d.parts, d.lead) + '</div>';
       return;
     }
     box.innerHTML = '<div class="empty">—</div>';
   }
 
   function panels() {
-    document.getElementById("market").innerHTML = COMPS.map(function (f) {
+    el("market").innerHTML = COMPS.map(function (f) {
       var m = market[f.key], makers = makersOf(f.key);
       var dots = makers.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
       var dir = m.price > m.last * 1.001 ? "up" : m.price < m.last * 0.999 ? "down" : "";
+      var p = patents[f.key];
+      var pat = patLive(f.key) ? "патент " + corps[p.owner].name + " до " + (p.since + patTerm)
+              : p.owner >= 0 ? "патент истёк" : "";
       var seg = "", chasers = [];
       corps.forEach(function (c) {
         if (canBuild(c, f.key) || c.spent[f.key] < 1) return;
         seg += '<i style="width:' + Math.min(100, c.spent[f.key] / f.diff * 100) + '%;background:' + c.color + '99"></i>';
         if (c.target === f.key) chasers.push(c.name);
       });
-      var p = patents[f.key];
-      var pat = patLive(f.key)
-        ? "патент " + corps[p.owner].name + " до " + (p.since + patTerm) + " года"
-        : p.owner >= 0 ? "патент истёк" : "";
       var meta = makers.length
-        ? (pat ? pat + " · " : "") + "склад " + m.stock + " · заказано " + m.want + " · труд " + f.work + " мес."
+        ? (pat ? pat + " · " : "") + "склад " + m.stock + " · заказано " + m.want
         : "никто не делает · вложено " + Math.round(corps.reduce(function (a, c) { return a + c.spent[f.key]; }, 0)) +
           " из " + f.diff + (chasers.length ? " · ищут: " + chasers.join(", ") : "");
       return '<div class="row"><div class="rhead"><span class="rname">' + f.name + '</span>' + dots +
@@ -1298,183 +1449,265 @@ COMPS[].base  — стартовая цена, она же якорь корид
              '<div class="rmeta">' + meta + '</div></div>';
     }).join("");
 
-    var vbox = document.getElementById("ventures");
+    el("coltech").innerHTML = COLTECH.map(function (f) {
+      var p = patents[f.key], makers = makersOf(f.key);
+      var dots = makers.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+      var free = 0;
+      systems.forEach(function (s) {
+        if (!s.unlocked) return;
+        s.bodies.forEach(function (b) { if (!b.world && b.type.tech === f.key) free++; });
+      });
+      var meta = makers.length
+        ? (patLive(f.key) ? "патент " + corps[p.owner].name + " до " + (p.since + patTerm) + " · " : "") +
+          "свободных миров " + free
+        : "вложено " + Math.round(corps.reduce(function (a, c) { return a + c.spent[f.key]; }, 0)) +
+          " из " + f.diff + " · миров рядом " + free;
+      return '<div class="row"><div class="rhead"><span class="rname">' + f.name + '</span>' + dots + '</div>' +
+             '<div class="rmeta">' + meta + '</div></div>';
+    }).join("");
+
+    el("worlds").innerHTML = worlds.map(function (w, i) {
+      var total = popOf(w), fill = Math.round(total / w.cap * 100);
+      var dots = w.branches.map(function (b) { return '<i class="pip" style="background:' + corps[b.corp].color + '"></i>'; }).join("");
+      var food = w.food.short > 2 ? '<span style="color:var(--bad)">голод</span>'
+               : (w.pop.farm * w.type.farm >= total ? "кормится сама" : "живёт на привозном");
+      return '<div class="row clickrow" data-world="' + i + '"><div class="srow">' +
+             '<span class="rname">' + w.body.name + '</span>' + dots +
+             '<span class="rmeta">' + systems[w.sys].name + ' · ' + w.type.name + '</span></div>' +
+             '<div class="rmeta">' + fmt(total) + '/' + w.cap + ' (' + fill + '%) · ' + food +
+             ' · уехать хотят ' + w.wantOut.toFixed(1) + '</div></div>';
+    }).join("") || '<div class="empty">Освоена только Тира.</div>';
+
+    var vbox = el("ventures");
     if (view.mode === "map") {
       vbox.innerHTML = systems.map(function (s) {
-        if (!seen(s)) return "";
+        if (!seenSys(s)) return "";
         if (!s.unlocked) {
-          var inb = voyages.filter(function (v) { return v.to === s.id; })[0];
+          var inb = voyages.filter(function (v) { return v.kind === "jump" && v.to === s.id; })[0];
           return '<div class="row"><div class="srow"><span class="rname">неизведанная система</span>' +
                  '<span class="rmeta">' + (inb ? "летит " + corps[inb.corp].name : "нет корабля") + '</span></div></div>';
         }
-        var here = corpsIn(s);
-        var dots = here.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
-        return '<div class="row sysrow" data-sys="' + s.id + '"><div class="srow">' +
-               '<span class="rname">' + s.name + (s.id === 0 ? " · дом" : "") + '</span>' + dots +
-               '<span class="rmeta">' + (s.id ? "переход " + s.depth + " · ×" + s.rich : "родная") + '</span></div>' +
-               '<div class="rmeta">' + (s.ventures.length
-                 ? "платформ " + s.mines + " · колоний " + s.colonies + " · " + here.map(function (c) { return c.name; }).join(", ")
-                 : "никто ещё не вложился") + '</div></div>';
+        var ws = s.bodies.filter(function (b) { return b.world; });
+        return '<div class="row clickrow" data-sys="' + s.id + '"><div class="srow">' +
+               '<span class="rname">' + s.name + (s.id === 0 ? " · дом" : "") + '</span>' +
+               '<span class="rmeta">платформ ' + s.mines + ' · миров ' + ws.length + '</span></div>' +
+               '<div class="rmeta">' + s.bodies.map(function (b) {
+                 return b.name + " (" + b.type.name + (b.world ? ", " + fmt(popOf(b.world)) : "") + ")"; }).join(", ") +
+               '</div></div>';
       }).join("");
     } else {
       var s = systems[view.sys], rows = [];
       s.yards.forEach(function (yd) {
         rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + yd.color + '"></i>' +
           '<span class="rname">' + corps[yd.lead].name + ' · ' + yd.vt.name + '</span>' +
-          '<span class="rmeta">верфь, ' + Math.round((1 - yd.left / yd.total) * 100) + '%</span></div>' +
-          '<div class="rmeta">до спуска ' + yd.left + ' мес.</div></div>');
+          '<span class="rmeta">верфь ' + Math.round((1 - yd.left / yd.total) * 100) + '%</span></div></div>');
       });
       s.ventures.forEach(function (v) {
         if (v.building) return;
         rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + corps[v.lead].color + '"></i>' +
-          '<span class="rname">' + corps[v.lead].name + ' · ' + v.name + '</span>' +
-          '<span class="rmeta">' + (v.live ? v.yield + "/мес" : "в пути") + '</span></div>' +
-          '<div class="rmeta">' + (v.dest ? v.dest.label : "—") +
-          (v.live ? " · осталось " + Math.round(v.left / 12) + " лет" : "") + '</div></div>');
+          '<span class="rname">' + corps[v.lead].name + ' · платформа</span>' +
+          '<span class="rmeta">' + v.yield + '/мес</span></div>' +
+          '<div class="rmeta">' + v.dest.label + ' · осталось ' + Math.round(v.left / 12) + ' лет</div></div>');
       });
-      vbox.innerHTML = rows.length ? rows.join("")
-        : '<div class="empty">' + (anyKnows("drill") ? "Пусто: комплекты ещё собираются." : "Пусто: детали для платформы никто не умеет делать.") + '</div>';
+      projects.forEach(function (pr) {
+        if (pr.sys !== s.id) return;
+        rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + corps[pr.lead].color + '"></i>' +
+          '<span class="rname">консорциум · ' + pr.body.name + '</span>' +
+          '<span class="rmeta">' + Math.round(pr.purse) + '/' + pr.cost + '</span></div>' +
+          '<div class="rmeta">вкладчики: ' + pr.backers.map(function (b) { return corps[b.corp].name; }).join(", ") + '</div></div>');
+      });
+      vbox.innerHTML = rows.length ? rows.join("") : '<div class="empty">Здесь пока ничего не происходит.</div>';
     }
 
-    var tm = 0, tc = 0;
-    systems.forEach(function (s) { tm += s.mines; tc += s.colonies; });
-    document.getElementById("treasury").textContent = Math.round(treasury).toLocaleString("ru-RU");
-    document.getElementById("date").textContent = dateStr();
-    document.getElementById("stats").textContent = "Систем " + systems.filter(function (s) { return s.unlocked; }).length +
-      " · платформ " + tm + " · колоний " + tc + " · сделок " + trades + " на " + Math.round(turnover);
+    var totPop = worlds.reduce(function (a, w) { return a + popOf(w); }, 0);
+    el("treasury").textContent = Math.round(treasury).toLocaleString("ru-RU");
+    el("date").textContent = dateStr();
+    el("stats").textContent = "Миров " + worlds.length + " · людей " + fmt(totPop) + " · сделок " + trades +
+      " · еды перевезено " + Math.round(shipped) + " · переселено " + movedPops.toFixed(1);
 
-    document.getElementById("pops").innerHTML =
-      '<div><b>' + fmt(pop.farm) + '</b><span>в поле · ' + pop.wage.farm.toFixed(2) + '</span></div>' +
-      '<div><b>' + fmt(pop.prod) + '</b><span>в цехах · ' + pop.wage.prod.toFixed(2) + '</span></div>' +
-      '<div><b>' + fmt(pop.sci) + '</b><span>в науке · ' + pop.wage.sci.toFixed(2) + '</span></div>' +
-      '<div><b>' + fmt(pop.free) + '</b><span>свободны</span></div>';
-    document.getElementById("popnote").textContent =
-      "Всего " + fmt(pop.total) + " · еда " + pop.food.toFixed(2) + " · " + pop.flow;
-
-    document.getElementById("corps").innerHTML = corps.slice().sort(function (a, b) { return b.cash - a.cash; }).map(function (c) {
-      var can = COMPS.filter(function (f) { return knows(c, f.key); }).map(function (f) { return f.short; });
+    el("corps").innerHTML = corps.slice().sort(function (a, b) { return b.cash - a.cash; }).map(function (c) {
+      var can = COMPS.filter(function (f) { return canBuild(c, f.key); }).map(function (f) { return f.short; });
+      var col = COLTECH.filter(function (f) { return canBuild(c, f.key); }).map(function (f) { return f.short; });
       var task = c.order
         ? "собирает " + vtype(c.order.type).name + ": " +
           Object.keys(c.order.need).map(function (k) { return compOf(k).short + " " + (c.order.got[k] || 0) + "/" + c.order.need[k]; }).join(", ")
-        : (c.target ? "исследует " + compOf(c.target).short : "ничего не начинает");
-      var stock = COMPS.filter(function (f) { return c.stock[f.key] > 0; })
-                       .map(function (f) { return f.short + "×" + c.stock[f.key]; }).join(", ");
+        : (c.target ? "исследует " + techOf(c.target).short : "ничего не начинает");
       return '<div class="row"><div class="rhead"><i class="dot" style="background:' + c.color + '"></i>' +
         '<span class="rname">' + c.name + '</span><span class="price">' + Math.round(c.cash) + '</span></div>' +
-        '<div class="rmeta">' + c.craft + ' · цех ' + c.emp.prod.toFixed(1) + ', лаб ' + c.emp.sci.toFixed(1) + '</div>' +
+        '<div class="rmeta">' + c.craft + ' · филиалов ' + c.branches.length +
+        ' · цех ' + prodOf(c).toFixed(1) + ', лаб ' + sciOf(c).toFixed(1) + '</div>' +
         '<div class="rmeta">' + task + '</div>' +
-        (can.length ? '<div class="rmeta" style="color:var(--gold)">умеет: ' + can.join(", ") + '</div>' : '') +
-        (stock ? '<div class="rmeta">склад: ' + stock + '</div>' : '') + '</div>';
+        (can.length ? '<div class="rmeta" style="color:var(--gold)">делает: ' + can.join(", ") + '</div>' : '') +
+        (col.length ? '<div class="rmeta" style="color:var(--ok)">колонизует: ' + col.join(", ") + '</div>' : '') + '</div>';
     }).join("");
 
-    document.getElementById("feed").innerHTML = feed.slice(0, 10).map(function (f) {
+    el("feed").innerHTML = feed.slice(0, 10).map(function (f) {
       return '<p><span class="y">' + f.d + '</span> ' + f.t + '</p>';
     }).join("");
 
     inspector();
   }
 
-  document.getElementById("ventures").addEventListener("click", function (e) {
-    var row = e.target.closest(".sysrow");
-    if (row) open(+row.getAttribute("data-sys"));
-  });
+  // ===================== вид и управление =====================
+  function scene() {
+    var map = view.mode === "map";
+    el("tomap").style.display = map ? "none" : "inline-block";
+    el("sname").textContent = map ? "Галактика" : systems[view.sys].name;
+    if (map) {
+      var op = systems.filter(function (s) { return s.unlocked; }).length;
+      el("smeta").textContent = "открыто систем " + op + " из " + systems.length + " · миров " + worlds.length;
+    } else {
+      var s = systems[view.sys];
+      el("smeta").textContent = "планет " + s.bodies.length + " · " +
+        s.bodies.map(function (b) { return b.type.name; }).join(", ");
+    }
+    el("ventlab").textContent = map ? "Что происходит в системах" : "Предприятия · " + systems[view.sys].name;
+    panels();
+  }
+  function open(i) { view = { mode:"system", sys:i }; pick = null; scene(); }
 
-  // ===================== управление =====================
   function taxhint() {
     var p = Math.round(tax * 100);
-    document.getElementById("taxhint").textContent =
+    el("taxhint").textContent =
       p < 10 ? "У компаний много денег: они держат много мест, зарплаты растут."
     : p < 25 ? "Рабочий баланс: наём растёт, казна пополняется."
     : p < 42 ? "Компании сжимают штат, зато есть чем субсидировать науку."
     : "Компаниям не на что содержать ни цеха, ни лаборатории.";
   }
   function subhint() {
-    document.getElementById("subhint").textContent = subYear === 0
+    el("subhint").textContent = subYear === 0
       ? "Государство не вмешивается: кто во что верит, то и ищет."
-      : "Казна доплачивает всем, кто ищет " + compOf(subComp).name.toLowerCase() + ".";
+      : "Казна доплачивает всем, кто ищет «" + techOf(subKey).name.toLowerCase() + "».";
   }
   function pathint() {
-    document.getElementById("pathint").textContent = patTerm <= 12
-      ? "Короткий патент: монополия почти не успевает сложиться, цены низкие, но и обгонять незачем."
-      : patTerm >= 50 ? "Долгий патент: держатель двигателя решает, кто вообще покидает систему."
+    el("pathint").textContent = patTerm <= 12
+      ? "Короткий патент: монополия не успевает сложиться, цены низкие."
+      : patTerm >= 50 ? "Долгий патент: держатель технологии колонизации решает, кто вообще расселяется."
       : "Держатель успевает нажиться, но конкуренты копят знание к сроку.";
   }
   function feehint() {
     var p = Math.round(tradeFee * 100);
-    document.getElementById("feehint").textContent = p === 0
+    el("feehint").textContent = p === 0
       ? "Торговля свободна: комплекты собираются быстро, казна с этого не имеет ничего."
       : p < 15 ? "Умеренный сбор: казна зарабатывает, сборка почти не страдает."
-      : "Высокий сбор: выгоднее делать всё самому, чем покупать. Кооперация рассыпается.";
+      : "Высокий сбор: выгоднее делать всё самому. Заодно дорожают транспорты, и голодные миры голодают дольше.";
   }
   function dolehint() {
-    document.getElementById("dolehint").textContent = dole === 0
+    el("dolehint").textContent = dole === 0
       ? "Без пособия свободные хватаются за любую работу, и зарплаты внизу."
-      : dole > 1.6 ? "Щедрое пособие: люди не спешат наниматься, зарплаты и цены растут, казна пустеет."
+      : dole > 1.6 ? "Щедрое пособие: люди не спешат наниматься, зарплаты растут, казна пустеет."
       : "Пособие держит зарплаты чуть выше дна.";
   }
-
   function run() { if (timer) clearInterval(timer); timer = setInterval(step, 300 / speed); }
 
-  var sel = document.getElementById("subfield");
-  sel.innerHTML = COMPS.map(function (f) { return '<option value="' + f.key + '">' + f.name + '</option>'; }).join("");
-  sel.addEventListener("change", function (e) { subComp = e.target.value; subhint(); saveLevers(); });
-
-  document.getElementById("tax").addEventListener("input", function (e) {
-    tax = +e.target.value / 100;
-    document.getElementById("taxval").textContent = Math.round(tax * 100) + "%"; taxhint(); saveLevers();
-  });
-  document.getElementById("sub").addEventListener("input", function (e) {
-    subYear = +e.target.value; document.getElementById("subval").textContent = subYear; subhint(); saveLevers();
-  });
-  document.getElementById("pat").addEventListener("input", function (e) {
-    patTerm = +e.target.value; document.getElementById("patval").textContent = patTerm + " лет";
-    // срок мог сократиться так, что живой патент уже истёк — пусть сводка скажет
-    COMPS.forEach(function (f) { var p = patents[f.key]; if (p.owner >= 0 && Y() - p.since < patTerm) p.told = false; });
-    pathint(); saveLevers();
-  });
-  document.getElementById("fee").addEventListener("input", function (e) {
-    tradeFee = +e.target.value / 100;
-    document.getElementById("feeval").textContent = Math.round(tradeFee * 100) + "%"; feehint(); saveLevers();
-  });
-  document.getElementById("dole").addEventListener("input", function (e) {
-    dole = +e.target.value / 5;
-    document.getElementById("doleval").textContent = dole.toFixed(1); dolehint(); saveLevers();
-  });
-
   function syncControls() {
-    document.getElementById("tax").value = Math.round(tax * 100);
-    document.getElementById("taxval").textContent = Math.round(tax * 100) + "%";
-    document.getElementById("sub").value = subYear;
-    document.getElementById("subval").textContent = subYear;
-    document.getElementById("fee").value = Math.round(tradeFee * 100);
-    document.getElementById("feeval").textContent = Math.round(tradeFee * 100) + "%";
-    document.getElementById("pat").value = patTerm;
-    document.getElementById("patval").textContent = patTerm + " лет";
-    document.getElementById("dole").value = Math.round(dole * 5);
-    document.getElementById("doleval").textContent = dole.toFixed(1);
-    document.getElementById("speed").textContent = "×" + speed;
-    sel.value = subComp;
+    el("tax").value = Math.round(tax * 100);
+    el("taxval").textContent = Math.round(tax * 100) + "%";
+    el("sub").value = subYear; el("subval").textContent = subYear;
+    el("pat").value = patTerm; el("patval").textContent = patTerm + " лет";
+    el("fee").value = Math.round(tradeFee * 100);
+    el("feeval").textContent = Math.round(tradeFee * 100) + "%";
+    el("dole").value = Math.round(dole * 5);
+    el("doleval").textContent = dole.toFixed(1);
+    el("speed").textContent = "×" + speed;
+    el("subfield").value = subKey;
   }
 
-  document.getElementById("play").addEventListener("click", function () {
-    running = !running;
-    this.textContent = running ? "Пауза" : "Пуск";
-    this.className = running ? "live" : "";
-    if (running) run(); else clearInterval(timer);
-  });
-  document.getElementById("speed").addEventListener("click", function () {
-    speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
-    this.textContent = "×" + speed; if (running) run(); saveLevers();
-  });
-  document.getElementById("map").addEventListener("click", function () { view.mode = "map"; scene(); });
-  document.getElementById("tomap").addEventListener("click", function () { view.mode = "map"; scene(); });
-  document.getElementById("reset").addEventListener("click", function () {
-    build(); scene(); if (running) run();
-  });
+  function bindUI() {
+    cv = el("view"); cx = cv.getContext("2d");
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = CW * dpr; cv.height = CH * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  loadLevers(); syncControls();
-  build(); scene(); taxhint(); subhint(); pathint(); feehint(); dolehint(); run();
+    cv.addEventListener("click", function (e) {
+      var rect = cv.getBoundingClientRect();
+      var x = (e.clientX - rect.left) / rect.width * CW, y = (e.clientY - rect.top) / rect.height * CH;
+      var best = null, bd = 1e9;
+      hits.forEach(function (h) {
+        var d = Math.sqrt((x - h.x) * (x - h.x) + (y - h.y) * (y - h.y));
+        if (d <= h.r && d < bd) { bd = d; best = h; }
+      });
+      if (!best) return;
+      if (best.kind === "sys" && view.mode === "map") { open(best.data.id); return; }
+      pick = best; panels();
+    });
+
+    var sel = el("subfield");
+    sel.innerHTML = allTech().map(function (f) { return '<option value="' + f.key + '">' + f.name + '</option>'; }).join("");
+    sel.addEventListener("change", function (e) { subKey = e.target.value; subhint(); saveLevers(); });
+
+    el("tax").addEventListener("input", function (e) {
+      tax = +e.target.value / 100;
+      el("taxval").textContent = Math.round(tax * 100) + "%"; taxhint(); saveLevers();
+    });
+    el("sub").addEventListener("input", function (e) {
+      subYear = +e.target.value; el("subval").textContent = subYear; subhint(); saveLevers();
+    });
+    el("pat").addEventListener("input", function (e) {
+      patTerm = +e.target.value; el("patval").textContent = patTerm + " лет";
+      allTech().forEach(function (f) { var p = patents[f.key]; if (p.owner >= 0 && Y() - p.since < patTerm) p.told = false; });
+      pathint(); saveLevers();
+    });
+    el("fee").addEventListener("input", function (e) {
+      tradeFee = +e.target.value / 100;
+      el("feeval").textContent = Math.round(tradeFee * 100) + "%"; feehint(); saveLevers();
+    });
+    el("dole").addEventListener("input", function (e) {
+      dole = +e.target.value / 5; el("doleval").textContent = dole.toFixed(1); dolehint(); saveLevers();
+    });
+    el("play").addEventListener("click", function () {
+      running = !running;
+      this.textContent = running ? "Пауза" : "Пуск";
+      this.className = running ? "live" : "";
+      if (running) run(); else clearInterval(timer);
+    });
+    el("speed").addEventListener("click", function () {
+      speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
+      this.textContent = "×" + speed; if (running) run(); saveLevers();
+    });
+    el("map").addEventListener("click", function () { view.mode = "map"; scene(); });
+    el("tomap").addEventListener("click", function () { view.mode = "map"; scene(); });
+    el("reset").addEventListener("click", function () { build(); scene(); if (running) run(); });
+    el("ventures").addEventListener("click", function (e) {
+      var row = e.target.closest(".clickrow");
+      if (row) open(+row.getAttribute("data-sys"));
+    });
+    el("worlds").addEventListener("click", function (e) {
+      var row = e.target.closest(".clickrow");
+      if (!row) return;
+      var w = worlds[+row.getAttribute("data-world")];
+      view = { mode:"system", sys:w.sys };
+      pick = { kind:"body", data:w.body };
+      scene();
+    });
+
+    loadLevers(); syncControls();
+    build(); scene(); taxhint(); subhint(); pathint(); feehint(); dolehint();
+    requestAnimationFrame(frame);
+    run();
+  }
+
+  if (!headless) bindUI(); else build();
+
+  // Стенд запускает ядро без браузера: см. test/. Отдаём только чтение
+  // состояния и шаг — отрисовка в тестах не участвует принципиально.
+  return {
+    step: step,
+    build: build,
+    state: function () {
+      return { tick:tick, treasury:treasury, corps:corps, worlds:worlds, systems:systems,
+               market:market, patents:patents, voyages:voyages, projects:projects,
+               trades:trades, shipped:shipped, movedPops:movedPops, feed:feed };
+    },
+    setLever: function (k, v) {
+      if (k === "tax") tax = v; else if (k === "sub") subYear = v; else if (k === "subKey") subKey = v;
+      else if (k === "fee") tradeFee = v; else if (k === "dole") dole = v; else if (k === "patTerm") patTerm = v;
+    },
+    consts: { COMPS:COMPS, COLTECH:COLTECH, PTYPES:PTYPES, VTYPES:VTYPES },
+    popOf: popOf
+  };
 })();
+if (typeof module !== "undefined" && module.exports) module.exports = THRESHOLD;
 </script>
 </body>
 </html>
