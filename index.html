@@ -1014,6 +1014,9 @@ var THRESHOLD = (function () {
     var d = { kind: v.kind === "pops" ? "liner" : "cargo", parts:v.parts || [], captain:v.captain,
               sys:s.id, world:v.to, ang:rnd6(), since:tick,
               corp: v.relief !== undefined ? v.relief : -1, gov: v.relief !== undefined ? null : v.to };
+    // Дорожка запоминается у корабля, а не считается от места в общем массиве:
+    // иначе списание одного заставляло всех остальных прыгнуть на другую орбиту.
+    d.lane = docks.filter(function (x) { return x.world === v.to; }).length % 3;
     docks.push(d);
     // на орбите одного мира больше шести не держат: старейший списывают
     var here = docks.filter(function (x) { return x.world === v.to; });
@@ -2473,7 +2476,13 @@ var THRESHOLD = (function () {
     docks.forEach(function (d, i) {
       if (d.sys !== s.id) return;
       var b = d.world.body, p = posOf(b, mx, my);
-      var a = d.ang + glow * 0.03, off = b.rad + 16 + (i % 3) * 5;
+      // Корабли на стоянке ЛЕТАЮТ вокруг своего мира, а не висят приклеенными.
+      // Планеты в игре стоят на местах (см. журнал), движутся только корабли —
+      // и это как раз корабли. Прежние 0.03 рад/с давали оборот за три с
+      // половиной минуты, то есть неподвижность; теперь круг за 24-39 секунд.
+      // Ближняя дорожка быстрее дальней, как и положено на орбите.
+      var lane = d.lane || 0;
+      var a = d.ang + glow * (0.26 - lane * 0.05), off = b.rad + 16 + lane * 5;
       var x = p.x + Math.cos(a) * off, y = p.y + Math.sin(a) * off;
       cx.globalAlpha = 0.55;
       ship("cargo", x, y, 5, a + 1.5708, d.corp >= 0 ? corps[d.corp].color : "#8894ae");
