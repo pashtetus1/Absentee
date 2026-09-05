@@ -400,6 +400,20 @@ MARKDIFF      — их сложность: 1300, 2500, 4000, 5800.
               12-14, ворота 8; грузовиков с деталями 150-510, топлива сожжено
               130-380 за партию (три сейма на способ);
   за партию   150-310 отказов и 13-56 свёрнутых сборок.
+
+ТЫСЯЧА ЛЕТ (4 сейма, средние):
+  год   систем миров людей компаний вольниц перехв. вымерших грузов. освоение голод
+  100     1.3    3.3    18     5       0        0      0        8     Mk1     59%
+  250     5.0   11.0    42     8.8     1.3     41      1.3    829     Mk4     38%
+  500    16.3   41.5   239    19       6.8    925      3.0   3362     Mk8     30%
+  750    29.3   75.5   665    35      25     2371      0.5   5457     Mk12    26%
+  1000   42.8  131.3  1329    63      53     4559      0.3   7731     Mk15    29%
+Что видно: галактика за тысячу лет заселяется почти целиком (43 системы из
+50), население растёт экспоненциально, компаний к концу за шестьдесят — и
+большинство из них вольницы. Это перекос: к 750 году пиратов больше, чем
+честных, перехватов две с половиной тысячи. Голод держится на 26-30%
+колоние-месяцев весь хвост. Режим "вольница навсегда" надо ломать: либо
+разбой должен заканчиваться, либо у него должна быть цена.
 Галактика больше НЕ раскупается за полвека: на 50 звёздах с дальностями к концу
 партии освоена примерно треть, и это лечит старую болячку из журнала.
 
@@ -480,6 +494,16 @@ test/harness.js вырезает ядро из этого файла, подсо
 
 9. ТЕХНИЧЕСКИЕ ЗАМЕТКИ
 ────────────────────────────────────────────────────────────────────────────────
+Скорость тика. Стоимость растёт с числом компаний и миров: 0.06 мс на пяти
+компаниях, 1.8 мс на тридцати (было 4.1). Профиль показал не алгоритмы, а
+переспрос: богатство покупателя, "последний астероид", уровень освоения мира и
+список продавцов детали спрашивались тысячи раз за тик и каждый раз считались
+заново. Теперь они кешируются на тик, сумма склада держится в c.tot и правится
+вместе со складом, год в yearNow. ПРАВИЛО: кеш нельзя строить на том, что
+меняется внутри тика, — касса меняется во время торгов, canBuild после науки, —
+иначе партии расходятся. Проверка честности: старый и новый файл на одном
+сейме дают побитово одинаковую казну, сделки, миры и перехваты на 300 году.
+
 Переезд на Unity: НЕ РАНЬШЕ, чем правила устоятся. В браузере правка числа и F5
 занимают секунды, в Unity перекомпиляция и перезагрузка домена от двух до
 десяти секунд. Правила здесь переделывались по нескольку раз за вечер.
@@ -929,7 +953,8 @@ var THRESHOLD = (function () {
   var cam = { x:0, y:0, k:1 };            // камера карты: перетаскивание и зум
   var headless = typeof document === "undefined";
 
-  function Y(){ return Math.floor(tick / 12); }
+  var yearNow = 0;                          // год кешируется: Y() звали тысячи раз за тик
+  function Y(){ return yearNow; }
   function dateStr(){ return "год " + Y() + " · " + MONTHS[tick % 12]; }
   function say(t){ feed.unshift({ d:dateStr(), t:t }); if (feed.length > 90) feed.pop(); }
   function clamp(v, a, b){ return v < a ? a : v > b ? b : v; }
@@ -985,12 +1010,22 @@ var THRESHOLD = (function () {
     if (!patents[d.key]) patents[d.key] = { owner:-1, since:0, told:false };
   }
   // лучшая марка освоения, действующая на этом мире: среди компаний с филиалом
-  function devLevel(w) {
+  // лучшая марка класса у компании считается раз за тик на компанию, а не на
+  // каждую пару филиал x мир: марок освоения к концу партии под сотню
+  function corpDevBest(c, cls) {
+    var byCorp = tickCache.devBest || (tickCache.devBest = {});
+    var mine = byCorp[c.id] || (byCorp[c.id] = {});
+    if (mine[cls] !== undefined) return mine[cls];
     var best = 0;
-    w.branches.forEach(function (b) {
-      var c = corps[b.corp];
-      DEVS.forEach(function (d) { if (d.cls === w.type.tech && canBuild(c, d.key)) best = Math.max(best, d.mark); });
-    });
+    DEVS.forEach(function (d) { if (d.cls === cls && canBuild(c, d.key)) best = Math.max(best, d.mark); });
+    mine[cls] = best;
+    return best;
+  }
+  function devLevel(w) {
+    if (tickCache.dev.has(w)) return tickCache.dev.get(w);
+    var best = 0;
+    w.branches.forEach(function (b) { best = Math.max(best, corpDevBest(corps[b.corp], w.type.tech)); });
+    tickCache.dev.set(w, best);
     return best;
   }
   function devMult(w){ return 1 + 0.12 * devLevel(w); }
@@ -1153,17 +1188,24 @@ var THRESHOLD = (function () {
   // честным только на бумаге. Теперь у каждой единицы есть система, и если она
   // не та, деталь придётся ВЕЗТИ.
   function stockAt(c, sys, k){ var s = c.stock[sys]; return (s && s[k]) || 0; }
+  // Сумма по системам держится в c.tot и правится вместе со складом: профиль
+  // показал, что пересчёт суммы через Object.keys на каждый запрос съедал
+  // пятнадцать процентов тика. Все записи в склад идут ТОЛЬКО через addStock.
   function addStock(c, sys, k, n) {
     if (!c.stock[sys]) c.stock[sys] = {};
     c.stock[sys][k] = (c.stock[sys][k] || 0) + n;
+    if (!c.tot) c.tot = {};
+    c.tot[k] = (c.tot[k] || 0) + n;
   }
-  function totalStock(c, k) {
-    var t = 0;
-    Object.keys(c.stock).forEach(function (s) { t += c.stock[s][k] || 0; });
-    return t;
-  }
+  function totalStock(c, k) { return (c.tot && c.tot[k]) || 0; }
   function whereStock(c, k) {                 // системы, где у компании есть эта деталь
-    return Object.keys(c.stock).filter(function (s) { return c.stock[s][k] > 0; }).map(Number);
+    var out = [];
+    for (var s in c.stock) if (c.stock[s][k] > 0) out.push(+s);
+    return out;
+  }
+  function firstStockSys(c, k) {              // первая такая система, без массива
+    for (var s in c.stock) if (c.stock[s][k] > 0) return +s;
+    return -1;
   }
   function hasBranch(c, w){ return w.branches.some(function (b) { return b.corp === c.id; }); }
 
@@ -1203,7 +1245,7 @@ var THRESHOLD = (function () {
     home.gov.cash = 200; home.food.stock = 40;
     corps.forEach(function (c) { openBranch(c, home, true); });
 
-    tick = 0; treasury = 320; jumped = false; trades = 0; turnover = 0; shipped = 0; movedPops = 0;
+    tick = 0; yearNow = 0; treasury = 320; jumped = false; trades = 0; turnover = 0; shipped = 0; movedPops = 0;
     refusals = 0; dropped = 0; moveKnown = false; hauled = 0; burned = 0; raids = 0; pirateCount = 0;
     view = { mode:"system", sys:0 };
     say("Тира: восемнадцать человечков, пять компаний и ни одной освоенной детали.");
@@ -1814,11 +1856,15 @@ var THRESHOLD = (function () {
   // торге, но сама по себе она никого ни к чему не обязывает.
   function repriceMarket() {
     COMPS.forEach(function (f) {
-      var m = market[f.key], stock = 0, want = 0;
+      var m = market[f.key], stock = 0, want = 0, sellers = [];
       corps.forEach(function (c) {
-        stock += totalStock(c, f.key);
+        var have = totalStock(c, f.key);
+        stock += have;
+        if (have > 0) sellers.push(c);                   // индекс продавцов на этот тик
         if (c.order) want += Math.max(0, (c.order.need[f.key] || 0) - (c.order.got[f.key] || 0));
       });
+      if (!tickCache.sellers) tickCache.sellers = {};
+      tickCache.sellers[f.key] = sellers;
       projects.forEach(function (pr) { want += Math.max(0, (pr.need[f.key] || 0) - (pr.got[f.key] || 0)); });
       // купленное и уже едущее — не спрос, а поставка: без этой поправки цена
       // годами карабкалась к потолку, пока грузовики были в пути
@@ -1917,11 +1963,18 @@ var THRESHOLD = (function () {
   // месяц, отказ ничего не значит — рано или поздно выпадет "да".
   function embKey(buyerId, k){ return buyerId + "|" + k; }
 
+  // Касса меняется прямо во время торгов, поэтому кешируются только активы —
+  // филиалы, основанные миры, предприятия, — а касса берётся живая. Иначе
+  // решения об отказе внутри тика чуть сдвигались, и партии расходились.
   function wealth(c) {
-    var w = c.cash + c.branches.length * 120;
-    worlds.forEach(function (o) { if (o.founder === c.id) w += 220; });
-    systems.forEach(function (s) { s.ventures.forEach(function (v) { if (v.lead === c.id) w += 160; }); });
-    return w;
+    var a = tickCache.wealth[c.id];
+    if (a === undefined) {
+      a = c.branches.length * 120;
+      worlds.forEach(function (o) { if (o.founder === c.id) a += 220; });
+      systems.forEach(function (s) { s.ventures.forEach(function (v) { if (v.lead === c.id) a += 160; }); });
+      tickCache.wealth[c.id] = a;
+    }
+    return c.cash + a;
   }
   function sameGoal(a, b) {
     if (a.order && b.order && a.order.type === b.order.type) return true;
@@ -1930,9 +1983,11 @@ var THRESHOLD = (function () {
     return pa && pb;
   }
   function lastPrize() {
+    if (tickCache.prize !== null) return tickCache.prize;
     var rocks = 0;
     systems.forEach(function (s) { if (s.unlocked) rocks += freeRocks(s).length; });
-    return rocks <= 2;
+    tickCache.prize = rocks <= 2;
+    return tickCache.prize;
   }
 
   function willSell(seller, buyer, k) {
@@ -2025,11 +2080,14 @@ var THRESHOLD = (function () {
     // Кандидаты: сначала те, у кого деталь лежит прямо здесь, потом дальние.
     // Перебираем ВСЕХ: раньше брали одного, и если он отказывал, покупка
     // срывалась на месяц — при том, что у соседа та же деталь лежала без дела.
-    var cands = [];
-    corps.forEach(function (s) {
+    // перебираем не все компании, а только тех, у кого деталь есть — индекс
+    // построен в repriceMarket этим же тиком; до него каждая покупка сканировала
+    // всех, и на шестидесяти компаниях это было главной статьёй расхода
+    var cands = [], pool = (tickCache.sellers && tickCache.sellers[k]) || corps;
+    pool.forEach(function (s) {
       if (s.id === buyer.id) return;
       if (stockAt(s, dest, k) > 0) cands.push({ s:s, from:dest, n:stockAt(s, dest, k) });
-      else if (totalStock(s, k) > 0) cands.push({ s:s, from:whereStock(s, k)[0], n:0 });
+      else if (totalStock(s, k) > 0) cands.push({ s:s, from:firstStockSys(s, k), n:0 });
     });
     cands.sort(function (a, b) { return b.n - a.n; });
     var seller = null, sysFrom = -1, price = 0;
@@ -2046,12 +2104,12 @@ var THRESHOLD = (function () {
     var full = price * (1 + tradeFee);
     if (!pay(full)) return false;
 
-    seller.stock[sysFrom][k]--; seller.cash += price; seller.sold++;
+    addStock(seller, sysFrom, k, -1); seller.cash += price; seller.sold++;
     treasury += full - price; trades++; turnover += full; buyer.bought++;
     if (sysFrom === dest) { take({ k:k, from:seller.id }); return true; }
     // грузовик заправляется там, где грузится: топливо покупается у отправителя
     if (!takeFuel(buyer, sysFrom, "sfuel", true)) {                       // нечем везти
-      seller.stock[sysFrom][k]++; seller.cash -= price; treasury -= full - price;
+      addStock(seller, sysFrom, k, 1); seller.cash -= price; treasury -= full - price;
       trades--; turnover -= full;
       return false;
     }
@@ -2105,6 +2163,9 @@ var THRESHOLD = (function () {
                 });
       });
     });
+    // индекс продавцов верен только внутри торгов: позже в тике склады
+    // сдвигаются, и танкер за топливом обязан видеть всех
+    tickCache.sellers = null;
   }
 
   // ===================== заказы, консорциумы, филиалы =====================
@@ -2496,11 +2557,20 @@ var THRESHOLD = (function () {
     return tp + (o.t - tp) * f;
   }
 
+  // Кеш на один тик. Богатство компании, "последний астероид", уровень освоения
+  // мира и список продавцов детали не меняются внутри тика, а спрашивались
+  // тысячи раз за него — стоимость тика росла квадратично с числом компаний и
+  // миров (0.08 мс на пяти компаниях, 4 мс на тридцати). Ответы те же, счёт
+  // другой: воспроизводимость не трогаем.
+  var tickCache = { wealth:{}, prize:null, dev:new Map(), sellers:null };
+
   function step() {
-    tick++; tickAt = Date.now();
+    tick++; tickAt = Date.now(); yearNow = Math.floor(tick / 12);
+    tickCache = { wealth:{}, prize:null, dev:new Map(), sellers:null };
     worlds.forEach(labour);
-    economy(); research(); produce(); trade(); stalledOrders(); stalledProjects();
-    if (tick % 3 === 0) patentsExpire();
+    economy(); research(); tickCache.dev = new Map(); tickCache.devBest = null;
+    produce(); trade(); stalledOrders(); stalledProjects();
+    if (tick % 3 === 0) { patentsExpire(); tickCache.dev = new Map(); tickCache.devBest = null; }
     if (tick % 6 === 0) { foodRun(); corpRelief(); migrationRun(); secessions(); }
     piracy();
     if (tick % 12 === 0) { reviewOrders(); reviewProjects(); branchTrade(); }
