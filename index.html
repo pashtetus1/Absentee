@@ -83,19 +83,34 @@
 колонии. Филиал — цех на чужой планете; без филиалов промышленность заперта
 на родине.
 
+КАРТА — ПЯТЬДЕСЯТ ЗВЁЗД КОЛЬЦАМИ, и чем дальше кольцо, тем реже в нём звёзды.
+Дальний край галактики поэтому не "ещё немного", а пропасть: между соседями в
+пятом кольце вчетверо дальше, чем в первом. Карта складывается заново при
+каждой загрузке и по кнопке "Заново": кольца задают только скелет, а углы,
+радиусы, состав систем, типы планет и имена случайны.
+
 СПОСОБ МЕЖЗВЁЗДНОГО ПЕРЕХОДА ВЫПАДАЕТ ПАРТИИ ОДИН И СЛУЧАЙНО. Не ветка
-развития, а условие задачи:
-   движки        — двигатель на каждом корабле. Дёшево начать, платишь вечно:
-                   даже хлебовоз между звёздами везёт двигатель.
+развития, а условие задачи, и способы НЕ равноценны:
+   ворота        — строятся В КАЖДОЙ системе, зато внутри сети возят ДАРОМ и
+                   на любое расстояние. Дорого за систему, дёшево за рейс.
+                   Колония в системе без ворот еды не получит вообще.
    открыватели   — прожигают ПОСТОЯННЫЙ проход между парой систем (drive x3,
-                   дороже всех). Дорого за маршрут, дальше по нему даром,
-                   и проходы складываются в сеть.
-   ворота        — строятся В СИСТЕМЕ и простреливают коридор ко всем соседям
-                   разом. Дорого за систему, зато рейсы между воротами даром;
-                   колония в системе без ворот еды не получит вообще.
+                   дороже всех кораблей). Дорого за маршрут, дальше по нему
+                   даром и навсегда; проходы складываются в сеть.
+   движки        — двигатель на каждом корабле, инфраструктуры никакой.
+                   Дёшево начать, платишь вечно: даже хлебовоз между звёздами
+                   везёт двигатель.
+Прогон это подтверждает: к 250 году ворота дают 20 систем и 65 миров, движки
+15.6 и 53.4, открыватели 13.0 и 44.4.
+
+У ЛЮБОГО ПОРТАЛА ЕСТЬ ДАЛЬНОСТЬ, и это главный ограничитель карты. Марки
+Mk1..Mk4 (46, 66, 90, 130) подобраны под кольца: Mk1 достаёт только до первого,
+Mk4 — до пятого. Дальние звёзды видно, но линий к ним нет, пока кто-то не
+осилит следующую марку; марка патентуется, поэтому держатель Mk3 какое-то время
+единственный, кто вообще может уйти в третье кольцо.
 Способ ограничивает не только открытие системы, но и ДОСТУП: работать в
 открытой системе можно, только если до неё дотягивается сеть. Без этого правила
-все три давали одинаковую партию — проверено прогоном.
+все три способа давали одинаковую партию — проверено прогоном.
 
 ЕДА ВОЗИТСЯ, И У ПРАВИТЕЛЬСТВА МИРА СВОЙ КОШЕЛЁК И СВОЙ УМ. Оно собирает налог
 с филиалов, считает баланс, закупает еду у сытого мира, оплачивает перевозку и
@@ -189,11 +204,20 @@ PTYPES[].cap   — предел населения, .farm — урожай с ф
                  нечего; умножается на nerve и на дешевизну; помнится 24-60
                  месяцев.
 
-ПРОВЕРЕННЫЕ ПРОГОНОМ ТАЙМИНГИ (8 сеймов, средние):
-  к 80 году   под воротами 5.0 систем и 8.6 миров,
-              под движками 2.5 и 5.1, под открывателями 2.1 и 4.0;
-  к 250 году  все три способа сходятся к девяти системам;
+RINGS         — кольца карты: радиусы 0, 38, 86, 145, 216, 300 и по 1, 7, 10,
+                 12, 12, 8 звёзд. Итого 50. Расстояние между соседями в кольце
+                 растёт с 34 до 236 — отсюда ощущение края.
+MARKRANGE     — дальности марок: 46, 66, 90, 130 (под кольца).
+MARKDIFF      — их сложность: 1300, 2500, 4000, 5800.
+
+ПРОВЕРЕННЫЕ ПРОГОНОМ ТАЙМИНГИ (5 сеймов, средние):
+  марки       Mk1 на 24 году, Mk2 на 70, Mk3 на 125, Mk4 на 195;
+  первая новая система на 60-100 году;
+  к 250 году  ворота 20 систем и 65 миров, движки 15.6 и 53.4,
+              открыватели 13.0 и 44.4 — из пятидесяти звёзд;
   за партию   150-310 отказов и 13-56 свёрнутых сборок.
+Галактика больше НЕ раскупается за полвека: на 50 звёздах с дальностями к концу
+партии освоена примерно треть, и это лечит старую болячку из журнала.
 
 
 6. ТЕСТЫ (node test/run.js)
@@ -238,8 +262,12 @@ test/harness.js вырезает ядро из этого файла, подсо
   Наука общая для компании, а не привязана к лабораториям конкретного мира.
   Войны, отделение окраин и коалиции живут только в истории git и на общую
   карту не перенесены.
-  Патент истекает — и к концу партии зависимости всё равно слабеют. Окно
-  интересного по-прежнему первые полтора века.
+  Патент истекает — и к концу партии зависимости всё равно слабеют.
+  Пятое кольцо почти недостижимо: до соседей в нём 236, а Mk4 бьёт на 130,
+  дотуда дотягиваются только радиальные переходы из четвёртого кольца.
+  Подписи в первом кольце всё равно тесно стоят, когда открыто много систем;
+  карта таскается мышью и приближается колесом (двойной клик возвращает вид),
+  но своего масштаба у неё пока нет — только общий зум.
 
 
 8. СЛЕДУЮЩИЕ ШАГИ, по приоритету
@@ -450,6 +478,7 @@ threshold-market — эта ветка: население, рынок дета�
       <span><svg width="14" height="12"><polygon points="7,1 12,6 7,11 2,6" fill="#8894ae"/></svg> добывающая платформа</span>
       <span><svg width="14" height="12"><circle cx="7" cy="6" r="4.4" fill="#8894ae"/></svg> колониальный модуль</span>
       <span><svg width="14" height="12"><rect x="2.5" y="2.5" width="9" height="8" fill="#8894ae"/></svg> транспорт: еда и люди</span>
+      <span>карта: тащить мышью, колесо — приблизить</span>
       <span>форма — что за корабль, цвет — чей он</span>
     </div>
 
@@ -481,6 +510,11 @@ threshold-market — эта ветка: население, рынок дета�
     <div class="block">
       <div class="lab">Что выбрано</div>
       <div id="inspect"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Портальная сеть</div>
+      <div id="portal"></div>
     </div>
 
     <div class="block">
@@ -610,6 +644,22 @@ var THRESHOLD = (function () {
   ];
   function moveOf(k){ for (var i=0;i<MOVES.length;i++) if (MOVES[i].key===k) return MOVES[i]; }
 
+  // Марки. Портал любой природы бьёт на ограниченное расстояние, и это главный
+  // ограничитель карты: Mk1 дотягивается только до первого кольца, дальние
+  // звёзды физически недоступны, пока кто-то не осилит следующую марку.
+  // Дальности подобраны под кольца: 46 — до первого и вдоль него, 66 — до
+  // второго, 90 — до третьего, 130 — до четвёртого и пятого.
+  var MARKRANGE = [46, 66, 90, 130];
+  var MARKDIFF  = [1300, 2500, 4000, 5800];
+  var MARKS = [];
+  function makeMarks() {
+    MARKS = MARKRANGE.map(function (r, i) {
+      return { key: move.key + (i + 1), short: "Mk" + (i + 1), range: r, mark: i + 1,
+               name: move.name + " Mk" + (i + 1), diff: MARKDIFF[i] };
+    });
+  }
+  function markOf(k){ for (var i=0;i<MARKS.length;i++) if (MARKS[i].key===k) return MARKS[i]; }
+
   var TEMPLATE = [
     { name:"Тайко Дриллинг",   color:"#6fd39b", craft:"буры",      nerve:0.9,
       apt:{ drill:1.9, hull:0.7, hold:0.6, drive:0.4, life:0.4, goods:0.35,
@@ -640,6 +690,7 @@ var THRESHOLD = (function () {
   var timer = null, running = true, speed = 1, flash = {};
   var view = { mode:"system", sys:0 };
   var pick = null, hits = [];
+  var cam = { x:0, y:0, k:1 };            // камера карты: перетаскивание и зум
   var headless = typeof document === "undefined";
 
   function Y(){ return Math.floor(tick / 12); }
@@ -659,8 +710,8 @@ var THRESHOLD = (function () {
   function makersOf(k){ return corps.filter(function (c) { return canBuild(c, k); }); }
   function anyKnows(k){ return corps.some(function (c) { return c.known[k]; }); }
   function anyMakes(k){ return makersOf(k).length > 0; }
-  function allTech(){ return COMPS.concat(COLTECH); }
-  function techOf(k){ return compOf(k) || colOf(k); }
+  function allTech(){ return COMPS.concat(COLTECH).concat(MARKS); }
+  function techOf(k){ return compOf(k) || colOf(k) || markOf(k); }
 
   // ===================== рычаги в localStorage =====================
   var LSKEY = "threshold.worlds.levers";
@@ -705,42 +756,63 @@ var THRESHOLD = (function () {
     return s;
   }
 
-  function linked(a, b){ return links.some(function (l) { return (l.a===a && l.b===b) || (l.a===b && l.b===a); }); }
-  function addLink(a, b){ if (a !== b && !linked(a, b)) links.push({ a:a, b:b }); }
-  function neighbors(i){
-    var r = [];
-    links.forEach(function (l) { if (l.a === i) r.push(l.b); else if (l.b === i) r.push(l.a); });
-    return r;
+  // Карта: пятьдесят звёзд кольцами вокруг Тиры, и чем дальше кольцо, тем реже
+  // в нём звёзды. Поэтому дальний край галактики — это не "ещё немного", а
+  // пропасть: до соседа в пятом кольце вчетверо дальше, чем в первом.
+  // Всё в экранных единицах, чтобы дальности портала и расстояния меряли
+  // одним и тем же — иначе баланс дальностей невозможно держать в голове.
+  var RINGS = [{ r:0, n:1 }, { r:38, n:7 }, { r:86, n:10 }, { r:145, n:12 }, { r:216, n:12 }, { r:300, n:8 }];
+  var ROMAN = ["", "II", "III", "IV", "V"];
+
+  function sysName(i) {
+    if (i < SYSNAMES.length) return SYSNAMES[i];
+    return SYSNAMES[i % SYSNAMES.length] + " " + ROMAN[Math.floor(i / SYSNAMES.length)];
   }
-  function computeDepth() {
-    systems.forEach(function (s) { s.depth = 99; });
-    systems[0].depth = 0;
-    var q = [0];
-    while (q.length) {
-      var i = q.shift();
-      neighbors(i).forEach(function (j) {
-        if (systems[j].depth > systems[i].depth + 1) { systems[j].depth = systems[i].depth + 1; q.push(j); }
-      });
-    }
-  }
+
   function makeGalaxy() {
-    var N = 9, pts = [{ x:172, y:352 }], guard = 0;
-    while (pts.length < N && guard++ < 6000) {
-      var p = { x:80 + Math.random()*680, y:70 + Math.random()*540 };
-      if (pts.every(function (q) { return dist(p, q) > 145; })) pts.push(p);
-    }
-    var names = SYSNAMES.slice(1).sort(function () { return Math.random() - 0.5; });
     var pool = BODYNAMES.slice().sort(function () { return Math.random() - 0.5; });
-    systems = pts.map(function (p, i) { return makeSystem(i, i ? names[i-1] : SYSNAMES[0], p.x, p.y, pool); });
+    var names = SYSNAMES.slice(1).sort(function () { return Math.random() - 0.5; });
+    names.unshift(SYSNAMES[0]);
+    systems = [];
+    var id = 0;
+    RINGS.forEach(function (ring, ri) {
+      var a0 = rnd6();
+      for (var k = 0; k < ring.n; k++) {
+        var a = ring.r ? a0 + k * (6.2832 / ring.n) + (Math.random() - 0.5) * 0.22 : 0;
+        var rr = ring.r * (0.94 + Math.random() * 0.12);
+        var x = CW / 2 + Math.cos(a) * rr, y = CH / 2 + Math.sin(a) * rr;
+        var nm = id < names.length ? names[id] : sysName(id);
+        var s = makeSystem(id, nm, x, y, pool);
+        s.ring = ri; s.depth = ri;
+        systems.push(s); id++;
+      }
+    });
     links = [];
-    for (var i = 1; i < systems.length; i++) {
-      var best = 0, bd = 1e9;
-      for (var j = 0; j < i; j++) { var d = dist(systems[i], systems[j]); if (d < bd) { bd = d; best = j; } }
-      addLink(i, best);
-    }
-    for (var a = 0; a < systems.length; a++) for (var b = a+1; b < systems.length; b++)
-      if (dist(systems[a], systems[b]) < 225 && Math.random() < 0.45) addLink(a, b);
-    computeDepth();
+  }
+
+  // Соседство теперь не рисуется заранее, а считается дальностью портала:
+  // "рядом" — значит, дотягивается техника, а не значит, что кто-то провёл
+  // линию на карте. От марки к марке карта сама раскрывается кольцами.
+  function within(i, range) {
+    var out = [];
+    for (var j = 0; j < systems.length; j++)
+      if (j !== i && dist(systems[i], systems[j]) <= range) out.push(j);
+    return out;
+  }
+  function rangeOf(c) {
+    var best = 0;
+    MARKS.forEach(function (m) { if (canBuild(c, m.key)) best = Math.max(best, m.range); });
+    return best;
+  }
+  function galaxyRange() {
+    var best = 0;
+    corps.forEach(function (c) { best = Math.max(best, rangeOf(c)); });
+    return best;
+  }
+  function bestMark() {
+    var out = null;
+    MARKS.forEach(function (m) { if (corps.some(function (c) { return canBuild(c, m.key); })) out = m; });
+    return out;
   }
 
   // Мир — это населённая планета: люди, еда, кошелёк правительства и места под
@@ -767,6 +839,10 @@ var THRESHOLD = (function () {
   }
 
   function build(forcedMove) {
+    // Способ и его марки выбираются ПЕРВЫМИ: от них зависит список технологий,
+    // а значит и то, во что компаниям вообще можно вкладываться.
+    move = forcedMove ? moveOf(forcedMove) : MOVES[Math.floor(Math.random() * MOVES.length)];
+    makeMarks();
     corps = TEMPLATE.map(function (t, i) {
       var c = { id:i, name:t.name, color:t.color, craft:t.craft, nerve:t.nerve, apt:t.apt,
                 cash:900, known:{}, spent:{}, stock:{}, wip:{}, target:null, order:null,
@@ -780,7 +856,6 @@ var THRESHOLD = (function () {
     allTech().forEach(function (f) { patents[f.key] = { owner:-1, since:0, told:false }; });
 
     worlds = []; projects = []; voyages = []; feed = []; flash = {}; pick = null; routes = {};
-    move = forcedMove ? moveOf(forcedMove) : MOVES[Math.floor(Math.random() * MOVES.length)];
     makeGalaxy();
     home = makeWorld(systems[0].bodies[0], 18, -1);
     home.cap = 22;                       // родина обжита давно и держит больше
@@ -802,19 +877,24 @@ var THRESHOLD = (function () {
   // Можно ли отправить обычный рейс (еду, людей) из системы в систему.
   // Под движками — можно всегда, но корабль обязан нести двигатель; под
   // проходами — только по прожжённому; под воротами — только между воротами.
+  // Здесь и лежит выгода каждого способа:
+  //   ворота       — между воротами летают ДАРОМ и на любое расстояние, но
+  //                  ворота нужны в каждой системе;
+  //   открыватели  — по прожжённому проходу даром и навсегда, но каждый проход
+  //                  прожигается отдельно и не длиннее дальности марки;
+  //   движки       — платишь двигателем за каждый рейс, и каждый рейс не
+  //                  длиннее дальности марки.
   function canTravel(a, b) {
     if (a === b) return true;
-    if (move.key === "drives") return true;
     if (move.key === "gates") return gated(a) && gated(b);
-    // проходы складываются в сеть: можно и в несколько прыжков
-    var seen = {}, q = [a];
+    if (move.key === "drives") return dist(systems[a], systems[b]) <= galaxyRange();
+    var seen = {}, q = [a];                      // проходы складываются в сеть
     seen[a] = 1;
     while (q.length) {
       var i = q.shift();
       if (i === b) return true;
-      var nb = neighbors(i);
-      for (var j = 0; j < nb.length; j++) {
-        if (!seen[nb[j]] && routeOpen(i, nb[j])) { seen[nb[j]] = 1; q.push(nb[j]); }
+      for (var j = 0; j < systems.length; j++) {
+        if (!seen[j] && routeOpen(i, j)) { seen[j] = 1; q.push(j); }
       }
     }
     return false;
@@ -824,8 +904,9 @@ var THRESHOLD = (function () {
   // остаётся косметикой: первый прогон показал, что все три дают одинаковую
   // партию, потому что в открытой системе можно было строить даром.
   function reachable(id) {
-    if (id === 0 || move.key === "drives") return true;
-    if (move.key === "gates") return gated(id) || neighbors(id).some(gated);
+    if (id === 0) return true;
+    if (move.key === "drives") return canTravel(0, id) || systems[id].unlocked && dist(systems[0], systems[id]) <= galaxyRange() * 3;
+    if (move.key === "gates") return gated(id) || within(id, galaxyRange()).some(gated);
     return canTravel(0, id);
   }
   // Что должен нести межзвёздный транспорт сверх обычного набора.
@@ -1015,7 +1096,18 @@ var THRESHOLD = (function () {
     allTech().forEach(function (f) {
       if (knows(c, f.key)) return;
       var worth;
-      if (compOf(f.key)) worth = f.key === "drive" ? 3.0 : (f.key === "drill" || f.key === "hold" ? 2.2 : 1.8);
+      if (markOf(f.key)) {
+        // следующая марка стоит ровно столько, сколько звёзд она открывает
+        var m = markOf(f.key), have = galaxyRange();
+        if (m.range <= have) return;                       // эту дальность уже перекрыли
+        var gain = 0;
+        systems.forEach(function (s) {
+          if (!s.unlocked) return;
+          gain += within(s.id, m.range).filter(function (n) { return !systems[n].unlocked; }).length;
+        });
+        worth = 1.2 + Math.min(12, gain) * 0.45;
+      }
+      else if (compOf(f.key)) worth = f.key === "drive" ? 3.0 : (f.key === "drill" || f.key === "hold" ? 2.2 : 1.8);
       else {
         var free = 0;
         systems.forEach(function (s) {
@@ -1246,14 +1338,20 @@ var THRESHOLD = (function () {
   function freeRocks(s){ return s.rocks.filter(function (r) { return !r.taken; }); }
   function buildable(vt){ return Object.keys(vt.need).every(function (k) { return anyMakes(k); }); }
   function anyRock(){ return systems.some(function (s) { return s.unlocked && reachable(s.id) && freeRocks(s).length; }); }
-  function jumpTarget() {
-    var out = null;
+  // Ближайшая закрытая звезда, до которой ДОТЯГИВАЕТСЯ марка этой компании.
+  // Отсюда и берётся ощущение края карты: дальние звёзды видны, но пока не
+  // осилена следующая марка, до них не дострелить.
+  function jumpTarget(c) {
+    var range = c ? rangeOf(c) : galaxyRange();
+    if (range <= 0) return null;
+    var out = null, bd = 1e9;
     systems.forEach(function (s) {
-      if (!s.unlocked || out) return;
-      neighbors(s.id).forEach(function (n) {
-        if (out || systems[n].unlocked) return;
+      if (!s.unlocked) return;
+      within(s.id, range).forEach(function (n) {
+        if (systems[n].unlocked) return;
         if (voyages.some(function (v) { return v.to === n && (v.kind === "jump" || v.kind === "opener"); })) return;
-        out = { from:s.id, to:n };
+        var d = dist(s, systems[n]);
+        if (d < bd) { bd = d; out = { from:s.id, to:n }; }
       });
     });
     return out;
@@ -1262,21 +1360,30 @@ var THRESHOLD = (function () {
   // Ворота ставят там, где от них больше толку: где за системой лежат закрытые
   // соседи и где колония сидит на привозной еде — без ворот хлебовоз до неё
   // просто не долетит.
-  function gateTarget() {
+  // Ворота ставят в системе, до которой дотягивается марка от УЖЕ построенных
+  // ворот. Первые ворота ставят дома. Дальше сеть растёт кольцами, и каждая
+  // новая система стоит отдельных ворот — зато внутри сети возят даром.
+  function gateTarget(c) {
+    var range = c ? rangeOf(c) : galaxyRange();
+    if (!systems[0].gate.built && !systems[0].gate.building) return { sys:0, score:99 };
+    if (range <= 0) return null;
     var best = null;
     systems.forEach(function (s) {
-      if (!s.unlocked || s.gate.built || s.gate.building) return;
-      var locked = neighbors(s.id).filter(function (n) { return !systems[n].unlocked; }).length;
+      if (s.gate.built || s.gate.building) return;
+      if (!within(s.id, range).some(gated)) return;
       var hungry = s.bodies.some(function (b) {
         return b.world && b.world.pop.farm * b.world.type.farm < popOf(b.world);
       });
-      var score = locked * 2 + (hungry ? 3 : 0);
+      // ценнее ворота там, где за ними ещё не открытые звёзды, и там, где
+      // колония сидит на привозной еде: без ворот хлебовоз не долетит
+      var beyond = within(s.id, range).filter(function (n) { return !systems[n].unlocked; }).length;
+      var score = (s.unlocked ? 0 : 3) + beyond * 1.5 + (hungry ? 4 : 0);
       if (score <= 0) return;
       if (!best || score > best.score) best = { sys:s.id, score:score };
     });
     return best;
   }
-  function expandTarget(){ return move.key === "gates" ? gateTarget() : jumpTarget(); }
+  function expandTarget(c){ return move.key === "gates" ? gateTarget(c) : jumpTarget(c); }
   function orderCost(vt) {
     var sum = 0;
     Object.keys(vt.need).forEach(function (k) { sum += market[k].price * vt.need[k]; });
@@ -1291,7 +1398,7 @@ var THRESHOLD = (function () {
       [vtype("mine"), vtype(move.vt)].forEach(function (vt) {
         if (!buildable(vt)) return;
         if (vt.key === "mine" && !anyRock()) return;
-        if (vt.key !== "mine" && (!hasColonyAnywhere(c) || !expandTarget())) return;
+        if (vt.key !== "mine" && (!hasColonyAnywhere(c) || !expandTarget(c))) return;
         var score = vt.key !== "mine" ? 46 : (vt.yield * 0.55 * vt.term) / Math.max(20, orderCost(vt));
         var own = 0, all = 0;
         Object.keys(vt.need).forEach(function (k) { all += vt.need[k]; if (canBuild(c, k)) own += vt.need[k]; });
@@ -1371,13 +1478,13 @@ var THRESHOLD = (function () {
       if (!c.order || !full(c.order.need, c.order.got)) return;
       var vt = vtype(c.order.type);
       if (vt.key === "gate") {
-        var gt = gateTarget();
+        var gt = gateTarget(c);
         if (!gt) return;
         systems[gt.sys].gate.building = true;
         systems[gt.sys].yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, gateHere:gt.sys,
                                      parts:c.order.parts.slice(), left:vt.build, total:vt.build });
       } else if (vt.key === "jump" || vt.key === "opener") {
-        var jt = jumpTarget();
+        var jt = jumpTarget(c);
         if (!jt) return;
         systems[jt.from].yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:jt.to,
                                       parts:c.order.parts.slice(), left:vt.build, total:vt.build });
@@ -1433,14 +1540,11 @@ var THRESHOLD = (function () {
           // отсюда. Поэтому под воротами экспансия идёт кольцами, а не ниточкой.
           var g = systems[yd.gateHere];
           g.gate.built = true; g.gate.building = false; g.gate.owner = yd.lead; g.pulse = 1;
-          var opened = [];
-          neighbors(g.id).forEach(function (n) {
-            if (systems[n].unlocked) return;
-            systems[n].unlocked = true; systems[n].pulse = 1; opened.push(systems[n].name);
-          });
+          var first = !g.unlocked;
+          g.unlocked = true;
           say("<b>" + lead.name + "</b> открыла звёздные ворота в " + g.name +
-              (opened.length ? ". Коридор дотянулся до: " + opened.join(", ") + "." : "."));
-          if (!jumped && opened.length) { jumped = true; say("Первый межзвёздный переход совершён."); }
+              (first ? ": система вошла в сеть." : ". Теперь до неё возят даром."));
+          if (!jumped && first) { jumped = true; say("Первый межзвёздный переход совершён."); }
         } else if (yd.vt.key === "jump" || yd.vt.key === "opener") {
           voyages.push({ kind:yd.vt.key, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color,
                          parts:yd.parts, t:0, dur:70 + Math.random()*30, born:dateStr() });
@@ -1698,22 +1802,50 @@ var THRESHOLD = (function () {
     });
   }
 
-  function nodeR(s) { return 7 + Math.min(7, (s.mines + s.bodies.filter(function (b) { return b.world; }).length) * 1.6); }
-  function seenSys(s) { return s.unlocked || neighbors(s.id).some(function (n) { return systems[n].unlocked; }); }
+  function nodeR(s) { return 5 + Math.min(5, (s.mines + s.bodies.filter(function (b) { return b.world; }).length) * 1.2); }
+  function seenSys(s) { return s.unlocked || within(s.id, Math.max(galaxyRange(), MARKRANGE[0])).some(function (n) { return systems[n].unlocked; }); }
 
   function drawMap() {
     hits = [];
     cx.fillStyle = "#080d19"; cx.fillRect(0, 0, CW, CH);
-    links.forEach(function (l) {
-      var a = systems[l.a], b = systems[l.b];
-      var both = a.unlocked && b.unlocked;
-      if (!both && !a.unlocked && !b.unlocked) return;
-      var open = routeOpen(l.a, l.b);
+    // Пятьдесят звёзд в один экран не влезают читаемо, поэтому карта таскается
+    // мышью и приближается колесом. Всё, что ниже, рисуется в координатах
+    // КАРТЫ; попадания по клику пересчитываются обратно в них же.
+    cx.save(); cx.translate(cam.x, cam.y); cx.scale(cam.k, cam.k);
+    // Пунктир — докуда дотягивается нынешняя марка. Он и показывает край:
+    // дальние звёзды видны, но линий к ним нет, пока не осилят следующую.
+    var range = galaxyRange();
+    if (range > 0) {
+      systems.forEach(function (s) {
+        if (!s.unlocked) return;
+        within(s.id, range).forEach(function (n) {
+          if (systems[n].unlocked && n < s.id) return;
+          cx.beginPath(); cx.moveTo(s.x, s.y); cx.lineTo(systems[n].x, systems[n].y);
+          cx.strokeStyle = systems[n].unlocked ? "#212b45" : "#1a2340";
+          cx.setLineDash([2, 5]); cx.lineWidth = 1; cx.stroke(); cx.setLineDash([]);
+        });
+      });
+    }
+    Object.keys(routes).forEach(function (k) {          // прожжённые проходы
+      var bits = k.split("-"), a = systems[+bits[0]], b = systems[+bits[1]];
+      if (!a || !b) return;
       cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y);
-      cx.strokeStyle = open ? "#5b6bb0" : both ? "#26314f" : "#182140";
-      cx.setLineDash(both || open ? [] : [3, 5]);
-      cx.lineWidth = open ? 2 : 1; cx.stroke(); cx.setLineDash([]);
+      cx.strokeStyle = "#5b6bb0"; cx.lineWidth = 2; cx.stroke();
     });
+    if (move.key === "gates") {                          // сеть ворот
+      var g = systems.filter(function (s) { return s.gate.built; });
+      g.forEach(function (s) {
+        var near = null, nd = 1e9;
+        g.forEach(function (o) {
+          if (o === s) return;
+          var d = dist(s, o);
+          if (d < nd) { nd = d; near = o; }
+        });
+        if (!near) return;
+        cx.beginPath(); cx.moveTo(s.x, s.y); cx.lineTo(near.x, near.y);
+        cx.strokeStyle = "#40508c"; cx.lineWidth = 1.6; cx.stroke();
+      });
+    }
     voyages.forEach(function (v) {
       var a, b;
       if (v.kind === "jump") { a = systems[v.sysFrom]; b = systems[v.to]; }
@@ -1767,18 +1899,21 @@ var THRESHOLD = (function () {
         cx.fillStyle = corps[+id].color; cx.fill();
       });
       hits.push({ x:s.x, y:s.y, r:26, kind:"sys", data:s });
-      cx.font = (s.id === 0 ? "600 " : "500 ") + "11.5px system-ui, sans-serif";
+      cx.font = (s.id === 0 ? "600 " : "500 ") + "10px system-ui, sans-serif";
       cx.fillStyle = s.id === 0 ? "#e4e9f4" : "#9aa5bd";
       cx.textAlign = "center"; cx.textBaseline = "top";
-      cx.fillText(s.name, s.x, s.y + r + 17);
+      cx.fillText(s.name, s.x, s.y + r + 13);
       var popHere = ws.reduce(function (a2, b) { return a2 + popOf(b.world); }, 0);
-      cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = "#5d6881";
-      cx.fillText(ws.length ? ws.length + " мир. · " + fmt(popHere) + " чел." : s.bodies.length + " планет",
-                  s.x, s.y + r + 31);
+      if (ws.length) {
+        cx.font = "500 9px system-ui, sans-serif"; cx.fillStyle = "#5d6881";
+        cx.fillText(ws.length + " мир. · " + fmt(popHere) + " чел.", s.x, s.y + r + 24);
+      }
     });
+    cx.restore();
     cx.font = "500 11px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
     cx.textAlign = "left"; cx.textBaseline = "top";
-    cx.fillText("клик по системе — внутрь, по кораблю — что везёт", 16, 16);
+    cx.fillText("клик по системе — внутрь, по кораблю — что везёт · тащить мышью, колесо — приблизить", 16, 16);
+    if (cam.k !== 1 || cam.x || cam.y) cx.fillText("×" + cam.k.toFixed(1) + " · двойной клик вернёт вид", 16, 32);
   }
 
   function frame(ts) {
@@ -1892,13 +2027,37 @@ var THRESHOLD = (function () {
       });
       var meta = makers.length
         ? (pat ? pat + " · " : "") + "склад " + m.stock + " · заказано " + m.want
-        : "никто не делает · вложено " + Math.round(corps.reduce(function (a, c) { return a + c.spent[f.key]; }, 0)) +
+        : "никто не делает · лучший на " + Math.round(Math.max.apply(null, corps.map(function (c) { return c.spent[f.key]; }))) +
           " из " + f.diff + (chasers.length ? " · ищут: " + chasers.join(", ") : "");
       return '<div class="row"><div class="rhead"><span class="rname">' + f.name + '</span>' + dots +
              '<span class="price ' + dir + '">' + m.price.toFixed(1) + '</span></div>' +
              (makers.length ? "" : '<div class="bar">' + seg + '<u style="left:55%"></u></div>') +
              '<div class="rmeta">' + meta + '</div></div>';
     }).join("");
+
+    var range = galaxyRange();
+    el("portal").innerHTML =
+      '<div class="row"><div class="rhead"><span class="rname">' + move.name + '</span>' +
+      '<span class="price">дальность ' + Math.round(range) + '</span></div>' +
+      '<div class="rmeta">' + move.hint + '</div></div>' +
+      MARKS.map(function (m) {
+        var p = patents[m.key], holders = makersOf(m.key);
+        var dots = holders.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+        // сколько закрытых звёзд эта марка достаёт из уже открытых систем
+        var opens = 0;
+        systems.forEach(function (s) {
+          if (!s.unlocked) return;
+          opens += within(s.id, m.range).filter(function (n) { return !systems[n].unlocked; }).length;
+        });
+        var meta = holders.length
+          ? (patLive(m.key) ? "патент " + corps[p.owner].name + " до " + (p.since + patTerm) + " · " : "") +
+            "дальность " + m.range + " · достаёт звёзд " + opens
+          : "лучший продвинулся на " + Math.round(Math.max.apply(null, corps.map(function (c) { return c.spent[m.key]; }))) +
+            " из " + m.diff + " · дальность " + m.range;
+        return '<div class="row"><div class="rhead"><span class="rname">' + m.short +
+               (m.range <= range ? "" : " · недоступна") + '</span>' + dots + '</div>' +
+               '<div class="rmeta">' + meta + '</div></div>';
+      }).join("");
 
     el("coltech").innerHTML = COLTECH.map(function (f) {
       var p = patents[f.key], makers = makersOf(f.key);
@@ -1911,7 +2070,7 @@ var THRESHOLD = (function () {
       var meta = makers.length
         ? (patLive(f.key) ? "патент " + corps[p.owner].name + " до " + (p.since + patTerm) + " · " : "") +
           "свободных миров " + free
-        : "вложено " + Math.round(corps.reduce(function (a, c) { return a + c.spent[f.key]; }, 0)) +
+        : "лучший на " + Math.round(Math.max.apply(null, corps.map(function (c) { return c.spent[f.key]; }))) +
           " из " + f.diff + " · миров рядом " + free;
       return '<div class="row"><div class="rhead"><span class="rname">' + f.name + '</span>' + dots + '</div>' +
              '<div class="rmeta">' + meta + '</div></div>';
@@ -2080,12 +2239,46 @@ var THRESHOLD = (function () {
     cv.width = CW * dpr; cv.height = CH * dpr;
     cx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    cv.addEventListener("click", function (e) {
+    // экран -> координаты сцены (на карте ещё и через камеру)
+    function scenePos(e) {
       var rect = cv.getBoundingClientRect();
       var x = (e.clientX - rect.left) / rect.width * CW, y = (e.clientY - rect.top) / rect.height * CH;
+      if (view.mode === "map") { x = (x - cam.x) / cam.k; y = (y - cam.y) / cam.k; }
+      return { x:x, y:y };
+    }
+
+    var drag = null, moved = 0;
+    cv.addEventListener("mousedown", function (e) {
+      if (view.mode !== "map") return;
+      drag = { x:e.clientX, y:e.clientY, cx:cam.x, cy:cam.y }; moved = 0;
+    });
+    window.addEventListener("mousemove", function (e) {
+      if (!drag) return;
+      var rect = cv.getBoundingClientRect();
+      var sx = CW / rect.width, sy = CH / rect.height;
+      var dx = (e.clientX - drag.x) * sx, dy = (e.clientY - drag.y) * sy;
+      moved = Math.max(moved, Math.abs(dx) + Math.abs(dy));
+      cam.x = drag.cx + dx; cam.y = drag.cy + dy;
+    });
+    window.addEventListener("mouseup", function () { setTimeout(function () { drag = null; }, 0); });
+
+    cv.addEventListener("wheel", function (e) {
+      if (view.mode !== "map") return;
+      e.preventDefault();
+      var p = scenePos(e), k = clamp(cam.k * (e.deltaY < 0 ? 1.15 : 0.87), 0.7, 4);
+      // приближаем к точке под курсором, а не к углу канваса
+      cam.x += p.x * (cam.k - k); cam.y += p.y * (cam.k - k);
+      cam.k = k;
+    }, { passive:false });
+
+    cv.addEventListener("dblclick", function () { cam = { x:0, y:0, k:1 }; });
+
+    cv.addEventListener("click", function (e) {
+      if (moved > 4) { moved = 0; return; }          // это было перетаскивание
+      var p = scenePos(e);
       var best = null, bd = 1e9;
       hits.forEach(function (h) {
-        var d = Math.sqrt((x - h.x) * (x - h.x) + (y - h.y) * (y - h.y));
+        var d = Math.sqrt((p.x - h.x) * (p.x - h.x) + (p.y - h.y) * (p.y - h.y));
         if (d <= h.r && d < bd) { bd = d; best = h; }
       });
       if (!best) return;
@@ -2164,7 +2357,7 @@ var THRESHOLD = (function () {
       if (k === "tax") tax = v; else if (k === "sub") subYear = v; else if (k === "subKey") subKey = v;
       else if (k === "fee") tradeFee = v; else if (k === "dole") dole = v; else if (k === "patTerm") patTerm = v;
     },
-    consts: { COMPS:COMPS, COLTECH:COLTECH, PTYPES:PTYPES, VTYPES:VTYPES },
+    consts: { COMPS:COMPS, COLTECH:COLTECH, PTYPES:PTYPES, VTYPES:VTYPES, MOVES:MOVES, get MARKS(){ return MARKS; } },
     popOf: popOf
   };
 })();

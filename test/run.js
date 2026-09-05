@@ -33,7 +33,7 @@ test("ядро стартует без браузера", () => {
   const st = sim.state();
   assert(st.corps.length === 5, "должно быть пять компаний");
   assert(st.worlds.length === 1, "на старте освоена только Тира");
-  assert(st.systems.length === 9, "девять систем");
+  assert(st.systems.length === 50, "пятьдесят систем");
 });
 
 test("двести лет без исключений", () => {
@@ -293,15 +293,17 @@ test("под порталооткрывателями рейсы идут тол
       if (v.from.sys === v.to.sys) return;
       // проходы складываются в сеть, поэтому маршрут может идти в несколько
       // прыжков — проверяем связность по прожжённым, а не прямой отрезок
+      // линий на карте больше нет: сеть складывается из прожжённых проходов,
+      // поэтому связность ищем прямо по ним
       const seen = new Set([v.from.sys]), q = [v.from.sys];
       let ok = false;
       while (q.length && !ok) {
         const i = q.shift();
         if (i === v.to.sys) { ok = true; break; }
-        st.links.forEach((l) => {
-          const n = l.a === i ? l.b : l.b === i ? l.a : null;
+        Object.keys(st.routes).forEach((k) => {
+          const p = k.split("-").map(Number);
+          const n = p[0] === i ? p[1] : p[1] === i ? p[0] : null;
           if (n === null || seen.has(n)) return;
-          if (!st.routes[Math.min(i, n) + "-" + Math.max(i, n)]) return;
           seen.add(n); q.push(n);
         });
       }
