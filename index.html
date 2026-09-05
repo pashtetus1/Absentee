@@ -2192,6 +2192,12 @@ var THRESHOLD = (function () {
 
   // ===================== сцена =====================
   var cv = null, cx = null, CW = 840, CH = 680, last = 0, glow = 0;
+  // Во сколько раз ужимать ЭКРАННЫЕ размеры, чтобы они не росли вместе с зумом
+  // карты. Приближение должно раздвигать звёзды, а не раздувать подписи: при
+  // cam.k = 4 имена, значки и волосяные линии становились вчетверо толще и
+  // слипались в кашу. Позиции по-прежнему масштабируются, всё остальное — нет.
+  // В виде системы зума нет, поэтому там uiz всегда 1.
+  var uiz = 1;
 
   function posOf(o, mx, my) { return { x:mx + Math.cos(o.ang) * o.r, y:my + Math.sin(o.ang) * o.r }; }
 
@@ -2234,20 +2240,23 @@ var THRESHOLD = (function () {
   // с чем и сколько ещё. Первая строка — кто и что, вторая — куда и когда.
   function caption(x, y, lines, col) {
     cx.save();
-    cx.font = "500 9.5px system-ui, sans-serif";
+    cx.font = "500 " + (9.5 * uiz) + "px system-ui, sans-serif";
     var w = 0;
     lines.forEach(function (l) { w = Math.max(w, cx.measureText(l).width); });
-    var pad = 5, h = lines.length * 12 + pad * 2 - 2, bw = w + pad * 2;
-    var bx = x + 14, by = clamp(y - h / 2, 4, CH - h - 4);
-    if (bx + bw > CW - 4) bx = x - 14 - bw;                // не вылезать за правый край
-    cx.beginPath(); cx.moveTo(x + 6, y); cx.lineTo(bx < x ? bx + bw : bx, y);
-    cx.strokeStyle = col; cx.globalAlpha = 0.5; cx.lineWidth = 1; cx.stroke(); cx.globalAlpha = 1;
+    var pad = 5 * uiz, h = lines.length * 12 * uiz + pad * 2 - 2 * uiz, bw = w + pad * 2;
+    // Границы экрана в координатах карты: при зуме видно CW/cam.k на CH/cam.k,
+    // то есть ровно CW*uiz на CH*uiz, — иначе окошко прижималось бы к краю
+    // ГАЛАКТИКИ, а не к краю вида.
+    var bx = x + 14 * uiz, by = clamp(y - h / 2, 4 * uiz, CH * uiz - h - 4 * uiz);
+    if (bx + bw > CW * uiz - 4 * uiz) bx = x - 14 * uiz - bw;   // не вылезать за правый край
+    cx.beginPath(); cx.moveTo(x + 6 * uiz, y); cx.lineTo(bx < x ? bx + bw : bx, y);
+    cx.strokeStyle = col; cx.globalAlpha = 0.5; cx.lineWidth = uiz; cx.stroke(); cx.globalAlpha = 1;
     cx.fillStyle = "rgba(11,17,32,0.88)"; cx.fillRect(bx, by, bw, h);
-    cx.strokeStyle = col; cx.globalAlpha = 0.7; cx.strokeRect(bx + 0.5, by + 0.5, bw - 1, h - 1); cx.globalAlpha = 1;
+    cx.strokeStyle = col; cx.globalAlpha = 0.7; cx.strokeRect(bx + 0.5 * uiz, by + 0.5 * uiz, bw - uiz, h - uiz); cx.globalAlpha = 1;
     cx.textAlign = "left"; cx.textBaseline = "top";
     lines.forEach(function (l, i) {
       cx.fillStyle = i ? "#8894ae" : "#e4e9f4";
-      cx.fillText(l, bx + pad, by + pad - 1 + i * 12);
+      cx.fillText(l, bx + pad, by + pad - uiz + i * 12 * uiz);
     });
     cx.restore();
   }
@@ -2277,9 +2286,9 @@ var THRESHOLD = (function () {
   // окошками у всех превращалась в кашу, а имя узнаётся и на 8 пикселях.
   function tiny(x, y, text, col) {
     cx.save();
-    cx.font = "500 8px system-ui, sans-serif"; cx.textAlign = "left"; cx.textBaseline = "middle";
+    cx.font = "500 " + (8 * uiz) + "px system-ui, sans-serif"; cx.textAlign = "left"; cx.textBaseline = "middle";
     cx.fillStyle = col; cx.globalAlpha = 0.75;
-    cx.fillText(text, x + 9, y + 1);
+    cx.fillText(text, x + 9 * uiz, y + uiz);
     cx.restore();
   }
   // строки полного окна: кто и что, куда и когда, командир, изготовители деталей
@@ -2370,6 +2379,7 @@ var THRESHOLD = (function () {
 
   function drawSystem(s) {
     var mx = CW / 2, my = CH / 2;
+    uiz = 1;                     // в системе зума нет, экранные размеры как есть
     hits = [];
     cx.fillStyle = "#080d19"; cx.fillRect(0, 0, CW, CH);
 
@@ -2554,6 +2564,7 @@ var THRESHOLD = (function () {
     // мышью и приближается колесом. Всё, что ниже, рисуется в координатах
     // КАРТЫ; попадания по клику пересчитываются обратно в них же.
     cx.save(); cx.translate(cam.x, cam.y); cx.scale(cam.k, cam.k);
+    uiz = 1 / cam.k;             // дальше всё, что не расстояние, ужимается на зум
     // Пунктир — докуда дотягивается нынешняя марка. Он и показывает край:
     // дальние звёзды видны, но линий к ним нет, пока не осилят следующую.
     var range = galaxyRange();
@@ -2564,7 +2575,7 @@ var THRESHOLD = (function () {
           if (systems[n].unlocked && n < s.id) return;
           cx.beginPath(); cx.moveTo(s.x, s.y); cx.lineTo(systems[n].x, systems[n].y);
           cx.strokeStyle = systems[n].unlocked ? "#212b45" : "#1a2340";
-          cx.setLineDash([2, 5]); cx.lineWidth = 1; cx.stroke(); cx.setLineDash([]);
+          cx.setLineDash([2 * uiz, 5 * uiz]); cx.lineWidth = uiz; cx.stroke(); cx.setLineDash([]);
         });
       });
     }
@@ -2572,7 +2583,7 @@ var THRESHOLD = (function () {
       var bits = k.split("-"), a = systems[+bits[0]], b = systems[+bits[1]];
       if (!a || !b) return;
       cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y);
-      cx.strokeStyle = "#5b6bb0"; cx.lineWidth = 2; cx.stroke();
+      cx.strokeStyle = "#5b6bb0"; cx.lineWidth = 2 * uiz; cx.stroke();
     });
     if (move.key === "gates") {                          // сеть ворот
       var g = systems.filter(function (s) { return s.gate.built; });
@@ -2585,7 +2596,7 @@ var THRESHOLD = (function () {
         });
         if (!near) return;
         cx.beginPath(); cx.moveTo(s.x, s.y); cx.lineTo(near.x, near.y);
-        cx.strokeStyle = "#40508c"; cx.lineWidth = 1.6; cx.stroke();
+        cx.strokeStyle = "#40508c"; cx.lineWidth = 1.6 * uiz; cx.stroke();
       });
     }
     voyages.forEach(function (v) {
@@ -2596,82 +2607,85 @@ var THRESHOLD = (function () {
       else { a = systems[v.from.sys]; b = systems[v.to.sys]; if (a === b) return; }
       var k = clamp(vis(v), 0, 1), x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
       cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(x, y);
-      cx.strokeStyle = v.color; cx.globalAlpha = 0.3; cx.lineWidth = 1.2; cx.stroke(); cx.globalAlpha = 1;
+      cx.strokeStyle = v.color; cx.globalAlpha = 0.3; cx.lineWidth = 1.2 * uiz; cx.stroke(); cx.globalAlpha = 1;
       var isJump = v.kind === "jump" || v.kind === "opener";
       var rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
       // те же взлёт и посадка, что в системе: из точки у звезды-отправителя и в
       // точку у звезды-получателя — иначе одно и то же движение выглядит
       // по-разному на двух видах
-      var szm = 6.5 * grow(k, 0.08, 0.08);
+      var szm = 6.5 * uiz * grow(k, 0.08, 0.08);
       if (szm > 0.12) { flame(x, y, szm, rot); ship(isJump ? "jump" : "cargo", x, y, szm, rot, v.color); }
       // на карте рейсов десятки — подпись только у выбранного и у того, над
       // которым мышь, иначе карта превращается в кашу из окошек
       if (pick && pick.data === v) caption(x, y, windowLines(v, true), v.color);
       else tiny(x, y, v.captain, v.color);
-      hits.push({ x:x, y:y, r:12, kind:isJump ? "jumpship" : "cargo", data:v });
+      hits.push({ x:x, y:y, r:12 * uiz, kind:isJump ? "jumpship" : "cargo", data:v });
     });
     systems.forEach(function (s) {
-      var r = nodeR(s);
+      // Звезда — ЗНАЧОК системы, а не тело с размером: ужимается на зум, чтобы
+      // при приближении узлы расходились, а не разбухали в пятна. Зона охоты
+      // вольницы (45) ужиматься НЕ должна — это настоящее расстояние в космосе.
+      var r = nodeR(s) * uiz;
       if (!seenSys(s)) {
         // Далёкая звезда обязана быть ВИДНА: карта из пятидесяти точек, где
         // сорок три почти сливаются с фоном, читается как пустая, и тогда
         // непонятно даже, работает ли зум. Видно — но недостижимо.
-        cx.beginPath(); cx.arc(s.x, s.y, 2.6, 0, 6.2832); cx.fillStyle = "#46527a"; cx.fill();
+        cx.beginPath(); cx.arc(s.x, s.y, 2.6 * uiz, 0, 6.2832); cx.fillStyle = "#46527a"; cx.fill();
         return;
       }
       if (!s.unlocked) {
-        cx.beginPath(); cx.arc(s.x, s.y, 8, 0, 6.2832);
-        cx.strokeStyle = "#3a4460"; cx.setLineDash([2, 4]); cx.lineWidth = 1.2; cx.stroke(); cx.setLineDash([]);
-        cx.font = "500 10.5px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
+        cx.beginPath(); cx.arc(s.x, s.y, 8 * uiz, 0, 6.2832);
+        cx.strokeStyle = "#3a4460"; cx.setLineDash([2 * uiz, 4 * uiz]); cx.lineWidth = 1.2 * uiz; cx.stroke(); cx.setLineDash([]);
+        cx.font = "500 " + (10.5 * uiz) + "px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
         cx.textAlign = "center"; cx.textBaseline = "top";
-        cx.fillText("неизведанная", s.x, s.y + 13);
+        cx.fillText("неизведанная", s.x, s.y + 13 * uiz);
         return;
       }
       if (s.pulse > 0) {
-        cx.beginPath(); cx.arc(s.x, s.y, r + 6 + (1 - s.pulse) * 22, 0, 6.2832);
-        cx.strokeStyle = "#9aa8ff"; cx.globalAlpha = s.pulse * 0.7; cx.lineWidth = 1.6; cx.stroke(); cx.globalAlpha = 1;
+        cx.beginPath(); cx.arc(s.x, s.y, r + (6 + (1 - s.pulse) * 22) * uiz, 0, 6.2832);
+        cx.strokeStyle = "#9aa8ff"; cx.globalAlpha = s.pulse * 0.7; cx.lineWidth = 1.6 * uiz; cx.stroke(); cx.globalAlpha = 1;
       }
       if (view.sys === s.id) {
-        cx.beginPath(); cx.arc(s.x, s.y, r + 10, 0, 6.2832);
-        cx.strokeStyle = "#3d4a70"; cx.lineWidth = 1; cx.stroke();
+        cx.beginPath(); cx.arc(s.x, s.y, r + 10 * uiz, 0, 6.2832);
+        cx.strokeStyle = "#3d4a70"; cx.lineWidth = uiz; cx.stroke();
       }
       // логово вольницы: красное кольцо — зона охоты, мимо лучше не летать
       if (corps.some(function (c) { return c.pirate && c.home && c.home.sys === s.id; })) {
         cx.beginPath(); cx.arc(s.x, s.y, 45, 0, 6.2832);
-        cx.strokeStyle = "#ff5c5c"; cx.globalAlpha = 0.35; cx.setLineDash([4, 6]); cx.lineWidth = 1.2;
+        cx.strokeStyle = "#ff5c5c"; cx.globalAlpha = 0.35; cx.setLineDash([4 * uiz, 6 * uiz]); cx.lineWidth = 1.2 * uiz;
         cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
       }
       if (s.gate.built) {            // ворота: система в сети, до неё долетит хлебовоз
-        cx.beginPath(); cx.arc(s.x, s.y, r + 6, 0, 6.2832);
-        cx.strokeStyle = "#9aa8ff"; cx.lineWidth = 1.6; cx.stroke();
+        cx.beginPath(); cx.arc(s.x, s.y, r + 6 * uiz, 0, 6.2832);
+        cx.strokeStyle = "#9aa8ff"; cx.lineWidth = 1.6 * uiz; cx.stroke();
       } else if (s.gate.building) {
-        cx.beginPath(); cx.arc(s.x, s.y, r + 6, 0, 6.2832);
-        cx.strokeStyle = "#3f4a78"; cx.setLineDash([2, 4]); cx.lineWidth = 1.4; cx.stroke(); cx.setLineDash([]);
+        cx.beginPath(); cx.arc(s.x, s.y, r + 6 * uiz, 0, 6.2832);
+        cx.strokeStyle = "#3f4a78"; cx.setLineDash([2 * uiz, 4 * uiz]); cx.lineWidth = 1.4 * uiz; cx.stroke(); cx.setLineDash([]);
       }
-      var g = cx.createRadialGradient(s.x, s.y, 1, s.x, s.y, r + 9);
+      var g = cx.createRadialGradient(s.x, s.y, uiz, s.x, s.y, r + 9 * uiz);
       g.addColorStop(0, "#fff3d0"); g.addColorStop(0.45, "rgba(242,179,61,0.55)"); g.addColorStop(1, "rgba(242,179,61,0)");
-      cx.beginPath(); cx.arc(s.x, s.y, r + 9, 0, 6.2832); cx.fillStyle = g; cx.fill();
+      cx.beginPath(); cx.arc(s.x, s.y, r + 9 * uiz, 0, 6.2832); cx.fillStyle = g; cx.fill();
       cx.beginPath(); cx.arc(s.x, s.y, r * 0.5, 0, 6.2832); cx.fillStyle = "#fff6dd"; cx.fill();
       var ws = s.bodies.filter(function (b) { return b.world; }), here = {};
       ws.forEach(function (b) { b.world.branches.forEach(function (br) { here[br.corp] = 1; }); });
       var ids = Object.keys(here);
       ids.forEach(function (id, i) {
         var a = -1.5708 + i * (6.2832 / Math.max(1, ids.length));
-        cx.beginPath(); cx.arc(s.x + Math.cos(a) * (r + 13), s.y + Math.sin(a) * (r + 13), 3.2, 0, 6.2832);
+        cx.beginPath(); cx.arc(s.x + Math.cos(a) * (r + 13 * uiz), s.y + Math.sin(a) * (r + 13 * uiz), 3.2 * uiz, 0, 6.2832);
         cx.fillStyle = corps[+id].color; cx.fill();
       });
-      hits.push({ x:s.x, y:s.y, r:26, kind:"sys", data:s });
-      cx.font = (s.id === 0 ? "600 " : "500 ") + "10px system-ui, sans-serif";
+      hits.push({ x:s.x, y:s.y, r:26 * uiz, kind:"sys", data:s });
+      cx.font = (s.id === 0 ? "600 " : "500 ") + (10 * uiz) + "px system-ui, sans-serif";
       cx.fillStyle = s.id === 0 ? "#e4e9f4" : "#9aa5bd";
       cx.textAlign = "center"; cx.textBaseline = "top";
-      cx.fillText(s.name, s.x, s.y + r + 13);
+      cx.fillText(s.name, s.x, s.y + r + 13 * uiz);
       var popHere = ws.reduce(function (a2, b) { return a2 + popOf(b.world); }, 0);
       if (ws.length) {
-        cx.font = "500 9px system-ui, sans-serif"; cx.fillStyle = "#5d6881";
-        cx.fillText(ws.length + " мир. · " + fmt(popHere) + " чел.", s.x, s.y + r + 24);
+        cx.font = "500 " + (9 * uiz) + "px system-ui, sans-serif"; cx.fillStyle = "#5d6881";
+        cx.fillText(ws.length + " мир. · " + fmt(popHere) + " чел.", s.x, s.y + r + 24 * uiz);
       }
     });
-    cx.restore();
+    cx.restore(); uiz = 1;       // подсказки внизу рисуются уже без масштаба
     cx.font = "500 11px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
     cx.textAlign = "left"; cx.textBaseline = "top";
     cx.fillText("клик по системе — внутрь, по кораблю — что везёт · тащить мышью, Ctrl+колесо — приблизить", 16, 16);
