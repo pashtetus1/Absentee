@@ -216,6 +216,20 @@ Mk4 — до пятого. Дальние звёзды видно, но лини
 везёт двухлетний запас вместо пятилетнего, казна колонии 80 вместо 120 —
 прогон даёт 14-45% голодных колоние-месяцев против единичных.
 
+РОДИНА ОГРОМНА И ПОЧТИ ПУСТА: предел 360 при 18 человечках на старте. К
+открытию межзвёздных перелётов (116-149 год) она заполнена на 4-16% — тесно
+не от людей, а от бедности: дома голодно 50-220 месяцев из первых двухсот
+лет. Рост населения нарочно медленный (0.12% в месяц при пустой планете),
+убыль от голода 0.25% — первая настройка с убылью 0.6% вымаривала родину до
+одного человечка.
+
+СЛУЧАЙНЫЕ СОБЫТИЯ, раз в год: неурожай (6% на мир, урожай вдвое на два-четыре
+года), эпидемия (3%, минус 15% людей), мятеж (0.3% в год на компанию с
+филиалом — уходит в разбой целиком, логово в самом дальнем филиале). Как только
+межзвёздный переход открыт, а пиратов нет, мятеж почти неизбежен (25% в год):
+к началу перелётов хоть кто-то должен быть вне закона. Прогон: первый пират на
+8-71 году, до открытия — всегда.
+
 ГОЛОДНЫЙ МИР ОТДЕЛЯЕТСЯ. Семь лет голода подряд при населении от 0.7 — и
 правительство становится НОВОЙ компанией "Свободный <мир>". Она забирает все
 филиалы на планете (их хозяева теряют место: они этот мир не кормили),
@@ -1169,7 +1183,7 @@ var THRESHOLD = (function () {
               pop:{ farm:seed * 0.6, prod:seed * 0.3, sci:seed * 0.05, free:seed * 0.05 },
               wage:{ farm:2.4, prod:3, sci:4.2 }, food:{ stock:seed * 2, price:1, short:0 },
               gov:{ cash:60 }, slots:2 + Math.round(body.type.cap / 4), rights:[], branches:[],
-              wantOut:0, wantIn:0, founder:founder, born:dateStr(), parts:[], flow:"",
+              wantOut:0, wantIn:0, founder:founder, born:dateStr(), parts:[], flow:"", blight:0,
               // Свежая колония — это разруха: полпустого склада, дорогая еда, пустая
               // казна, цеха не построены, урожай с необжитой земли вдвое меньше.
               // Десять лет (120 месяцев) она живёт на привозном и на терпении.
@@ -1242,7 +1256,10 @@ var THRESHOLD = (function () {
     worlds = []; projects = []; voyages = []; feed = []; flash = {}; pick = null; routes = {}; docks = [];
     makeGalaxy();
     home = makeWorld(systems[0].bodies[0], 18, -1);
-    home.cap = home.cap0 = 22;           // родина обжита давно и держит больше
+    // Родина огромна и почти пуста: 18 человечков на предел 360 — пять процентов.
+    // К открытию межзвёздных перелётов дома должно быть тесно не от людей, а
+    // от бедности: расти есть куда, а кормить и платить нечем.
+    home.cap = home.cap0 = 360;
     home.gov.cash = 200; home.food.stock = 40;
     corps.forEach(function (c) { openBranch(c, home, true); });
 
@@ -1312,7 +1329,8 @@ var THRESHOLD = (function () {
 
     if (w.rough > 0) w.rough--;
     var rough = w.rough > 0;
-    var grown = p.farm * w.type.farm * (rough ? 0.55 : 1) * devMult(w);   // необжитая земля; освоение
+    if (w.blight > 0) w.blight--;
+    var grown = p.farm * w.type.farm * (rough ? 0.55 : 1) * (w.blight > 0 ? 0.5 : 1) * devMult(w);   // разруха, неурожай, освоение
     w.food.stock += grown - total;
     var hungry = w.food.stock < 0;
     if (hungry) w.food.stock = 0;
@@ -1366,7 +1384,9 @@ var THRESHOLD = (function () {
     // суммой по занятиям и панель начинает врать (так уже было).
     w.cap = w.cap0 + devCap(w);                               // освоение поднимает предел
     var fill = total / w.cap;
-    var g = hungry ? -0.006 : 0.0022 * (1 - fill);
+    // рост медленный: родина огромна, и без этого она заполнялась на треть к
+    // первому перелёту, а должна оставаться почти пустой и бедной
+    var g = hungry ? -0.0025 : 0.0012 * (1 - fill);
     var add = total * g;
     if (add >= 0) p.free += add;
     else ["farm","prod","sci","free"].forEach(function (k) { p[k] = Math.max(0, p[k] + add * p[k] / total); });
@@ -1631,6 +1651,39 @@ var THRESHOLD = (function () {
     });
   }
 
+  // ---- случайные события ---------------------------------------------------
+  // Раз в год мир может получить неурожай (урожай вдвое на два-четыре года) или
+  // эпидемию (минус 15% людей), а компания — мятеж: уходит в разбой целиком,
+  // логово — один из её миров. Пока межзвёздный переход не открыт, мятеж редок;
+  // как только открыт, а пиратов нет, он почти неизбежен — к началу перелётов
+  // хоть кто-то должен быть вне закона.
+  function turnPirate(c, lair, why) {
+    c.pirate = true; c.craft = "разбой"; c.nerve = 1.6; c.home = lair;
+    c.name = "Вольница " + lair.body.name;
+    c.color = PIRATES[pirateCount++ % PIRATES.length];
+    say("<b>" + lair.body.name + "</b>: " + why + " — теперь это «" + c.name + "», и всё, что летит мимо " +
+        systems[lair.sys].name + ", в опасности.");
+  }
+  function events() {
+    worlds.forEach(function (w) {
+      if (w.blight <= 0 && Math.random() < 0.06) {
+        w.blight = 24 + Math.floor(Math.random() * 24);
+        say("Неурожай на " + w.body.name + ": урожай упадёт вдвое на " + Math.ceil(w.blight / 12) + " года.");
+      }
+      if (Math.random() < 0.03 && popOf(w) > 1) {
+        ["farm","prod","sci","free"].forEach(function (k) { w.pop[k] *= 0.85; });
+        say("Эпидемия на " + w.body.name + ": потеряно 15% населения.");
+      }
+    });
+    var anyPirate = corps.some(function (c) { return c.pirate; });
+    var chance = moveKnown && !anyPirate ? 0.25 : 0.003;
+    corps.forEach(function (c) {
+      if (c.pirate || !c.branches.length || Math.random() > chance) return;
+      var lair = c.branches[c.branches.length - 1].world;      // самый дальний филиал
+      turnPirate(c, lair, "мятеж в " + c.name);
+    });
+  }
+
   // ---- вольница ---------------------------------------------------------
   // Независимый мир, который голодает ещё четыре года ПОСЛЕ отделения, бросает
   // торговать и уходит в разбой: вольница сидит у своей звезды и перехватывает
@@ -1685,17 +1738,18 @@ var THRESHOLD = (function () {
       if (voyages.some(function (v) { return v.kind === "pops" && v.to === w; })) return;
       var src = null, bs = 0;
       worlds.forEach(function (o) {
-        if (o === w || o.wantOut < 0.25) return;
+        if (o === w || o.wantOut < 0.12) return;      // хватит и голодной горстки
         if (!canTravel(o.sys, w.sys)) return;
         if (o.wantOut > bs) { bs = o.wantOut; src = o; }
       });
       if (!src) return;
       var fk2 = src.sys === w.sys ? "fuel" : "sfuel";
-      if (!govFuelAvail(w, src, fk2)) return;
-      var dkl = takeDock(null, w, src.sys, "liner", needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
-      var parts = dkl ? dkl.parts : govBuyShip(w, src, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
+      // переселенческий строит и заправляет ПРИНИМАЮЩИЙ мир: у голодной колонии цехов нет
+      if (!govFuelAvail(w, w, fk2)) return;
+      var dkl = takeDock(null, w, w.sys, "liner", needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
+      var parts = dkl ? dkl.parts : govBuyShip(w, w, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
       if (!parts) return;
-      govFuel(w, src, fk2);
+      govFuel(w, w, fk2);
       var qty = Math.min(src.wantOut, w.wantIn, 1.6);
       var takeFree = Math.min(src.pop.free, qty);
       src.pop.free -= takeFree;
@@ -2574,7 +2628,7 @@ var THRESHOLD = (function () {
     if (tick % 3 === 0) { patentsExpire(); tickCache.dev = new Map(); tickCache.devBest = null; }
     if (tick % 6 === 0) { foodRun(); corpRelief(); migrationRun(); secessions(); }
     piracy();
-    if (tick % 12 === 0) { reviewOrders(); reviewProjects(); branchTrade(); }
+    if (tick % 12 === 0) { reviewOrders(); reviewProjects(); branchTrade(); events(); }
     assemble(); moveShips(); ventureIncome();
     if (!headless && (speed <= 4 || Date.now() - lastPanel > 120)) { panels(); lastPanel = Date.now(); }
   }
@@ -3077,6 +3131,7 @@ var THRESHOLD = (function () {
       ', надо ' + total.toFixed(1) + ', склад ' + w.food.stock.toFixed(1) +
       (w.food.short > 2 ? ' · <span style="color:var(--bad)">голод</span>' : '') + '</div>' +
       (w.rough > 0 ? '<div class="sub" style="margin:0 0 3px;color:var(--bad)">Разруха: ещё ' + Math.ceil(w.rough / 12) + ' лет</div>' : '') +
+      (w.blight > 0 ? '<div class="sub" style="margin:0 0 3px;color:var(--bad)">Неурожай: ещё ' + w.blight + ' мес.</div>' : '') +
       '<div class="sub" style="margin:0 0 3px">Казна мира ' + Math.round(w.gov.cash) +
       ' · уехать хотят ' + w.wantOut.toFixed(1) + ' · ' + w.flow + '</div>' +
       '<div class="sub" style="margin:0">Филиалы (' + w.branches.length + ' из ' + w.slots + '): ' +
