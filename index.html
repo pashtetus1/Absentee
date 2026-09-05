@@ -37,6 +37,14 @@ x1, x2, x4, x10, x20 (на x20 месяц идёт 15 мс, проверено: 
 а меняет выгодность: налоги, субсидии, срок патента, торговый сбор, пособие.
 Ты не рука, а склонность.
 
+ЗАДАЧА ИГРОКА — своими указами бороться за то, чтобы колонии выжили ВНУТРИ
+государства, а не отделились. Свежая колония десять лет живёт в разруху и на
+привозной еде; семь лет голода — и она объявляет независимость, забирая
+филиалы компаний; ещё пять лет голода — и уходит в разбой. Компании стараются
+этого не допустить, потому что теряют филиалы, но им не хватает то денег, то
+топлива, то желания продавать. Рычаги государства должны сделать так, чтобы
+им хватало.
+
 Целевой формат: мобильный. Сеанс три-пять минут (прочитал сводку, поправил
 рычаг, закрыл). Игра без прямого управления не требует быстрого ввода, поэтому
 на телефоне она работает лучше обычной стратегии. Офлайн-прогресс тут не уловка
@@ -188,7 +196,17 @@ Mk4 — до пятого. Дальние звёзды видно, но лини
 МЕЖЗВЁЗДНЫЙ РЕЙС ВИДЕН И ИЗНУТРИ СИСТЕМЫ: первые 15% пути корабль уходит от
 планеты к краю в сторону целевой звезды, последние 15% — приходит с края к
 цели. Раньше такой корабль жил только на карте, и из системы не было видно
-ни вылета, ни прилёта.
+ни вылета, ни прилёта. Вылет анимирован: корабль выходит из планеты маленьким
+и вырастает в пути, прилёт — сжимается к цели; так видно, что он ОТТУДА, а не
+появился из ниоткуда.
+
+ОТРАБОТАННЫЕ ТРАНСПОРТНИКИ НЕ ПРОПАДАЮТ. Хлебовоз и переселенческий после
+рейса висят на орбите мира-получателя, тускло, с именем командира; клик
+показывает хозяина, цену и из чего собран. Следующий рейс из этой системы
+берёт корабль со стоянки вместо покупки корпуса и трюма заново — свой даром,
+чужой за 60% цены его деталей, деньги хозяину (компании или правительству
+мира). Тот же корабль — тот же командир. На орбите одного мира больше шести
+не держат, старейший списывают.
 
 КОМПАНИИ САМИ КОРМЯТ ГОЛОДАЮЩИЕ МИРЫ, где стоит их филиал, — из корысти, не
 из милосердия: семь лет голода, и мир отделяется, забирая филиал. Компания
@@ -897,7 +915,7 @@ var THRESHOLD = (function () {
 
   // ===================== состояние =====================
   var corps = [], systems = [], links = [], voyages = [], feed = [], market = {}, patents = {};
-  var worlds = [], projects = [], home = null, move = null, routes = {};
+  var worlds = [], projects = [], home = null, move = null, routes = {}, docks = [];
   var tick = 0, treasury = 320, tax = 0.18, subKey = "drive", subYear = 90, tradeFee = 0.06, dole = 0.6, patTerm = 25;
   var jumped = false, trades = 0, turnover = 0, shipped = 0, movedPops = 0, refusals = 0, dropped = 0;
   var hauled = 0, burned = 0, raids = 0;             // деталей отправлено грузовиком; топлива сожжено
@@ -1178,7 +1196,7 @@ var THRESHOLD = (function () {
     DEVS = [];
     COLTECH.forEach(function (col) { ensureDev(col.key, 1); });     // Mk1 каждого класса с самого начала
 
-    worlds = []; projects = []; voyages = []; feed = []; flash = {}; pick = null; routes = {};
+    worlds = []; projects = []; voyages = []; feed = []; flash = {}; pick = null; routes = {}; docks = [];
     makeGalaxy();
     home = makeWorld(systems[0].bodies[0], 18, -1);
     home.cap = home.cap0 = 22;           // родина обжита давно и держит больше
@@ -1442,17 +1460,70 @@ var THRESHOLD = (function () {
       if (w.gov.cash < price + 10) return;
       var fk = src.sys === w.sys ? "fuel" : "sfuel";
       if (!govFuelAvail(w, src, fk)) return;                 // без горючего хлебовоз не полетит
-      var parts = govBuyShip(w, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
+      // сперва корабль со стоянки у поставщика, и только потом покупка нового
+      var dk = takeDock(null, w, src.sys, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
+      var parts = dk ? dk.parts : govBuyShip(w, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
       if (!parts) return;
       govFuel(w, src, fk);
       w.gov.cash -= price; src.gov.cash += price; src.food.stock -= qty;
       // вывоз дорожит еду у поставщика: фермеру платят больше, в поле идут
       // люди, излишек растёт — так экспорт сам себя кормит
       src.food.price = Math.min(6, src.food.price * 1.04);
-      dispatch(src, w, "food", qty, parts);
+      var vf = dispatch(src, w, "food", qty, parts);
+      if (dk) vf.captain = dk.captain;                     // тот же корабль, тот же командир
       shipped += qty;
-      say("Правительство " + w.body.name + " закупило " + qty + " еды на " + src.body.name + ".");
+      say("Правительство " + w.body.name + " закупило " + qty + " еды на " + src.body.name +
+          (dk ? " — на корабле со стоянки." : "."));
     });
+  }
+
+  // ---- стоянка отработанных транспортников -----------------------------
+  // Хлебовоз и переселенческий после рейса не исчезают: корабль остаётся на
+  // орбите мира, куда пришёл, и виден там. Следующий рейс из этой системы
+  // возьмёт его вместо того, чтобы покупать корпус и трюм заново; чужой
+  // корабль покупают у хозяина за 60% от цены его деталей. Владелец — либо
+  // компания (частная помощь), либо правительство мира-получателя.
+  function dockShip(v) {
+    if (v.kind !== "food" && v.kind !== "pops") return;
+    var s = systems[v.to.sys];
+    var d = { kind: v.kind === "pops" ? "liner" : "cargo", parts:v.parts || [], captain:v.captain,
+              sys:s.id, world:v.to, ang:rnd6(), since:tick,
+              corp: v.relief !== undefined ? v.relief : -1, gov: v.relief !== undefined ? null : v.to };
+    docks.push(d);
+    // на орбите одного мира больше шести не держат: старейший списывают
+    var here = docks.filter(function (x) { return x.world === v.to; });
+    if (here.length > 6) docks.splice(docks.indexOf(here[0]), 1);
+  }
+  function dockValue(d) {
+    return d.parts.reduce(function (a, p) { return a + market[p.k].price; }, 0) * 0.6;
+  }
+  // payer — компания (corp) или мир (gov); берёт корабль нужного типа в системе
+  // need — что обязан нести корабль для ЭТОГО рейса: под движками между звёздами
+  // без двигателя не уйти, и корабль, пришедший внутрисистемным рейсом, не годится
+  function fits(parts, need) {
+    var have = {};
+    parts.forEach(function (p) { have[p.k] = (have[p.k] || 0) + 1; });
+    return Object.keys(need).every(function (k) { return (have[k] || 0) >= need[k]; });
+  }
+  function takeDock(payerCorp, payerWorld, sys, kind, need) {
+    var own = null, other = null;
+    docks.forEach(function (d) {
+      if (d.sys !== sys || d.kind !== kind) return;
+      if (need && !fits(d.parts, need)) return;
+      var mine = payerCorp ? d.corp === payerCorp.id : d.gov === payerWorld;
+      if (mine) own = own || d; else other = other || d;
+    });
+    var d = own || other;
+    if (!d) return null;
+    if (!own) {
+      var price = dockValue(d), purse = payerCorp ? payerCorp.cash : payerWorld.gov.cash;
+      if (purse < price + 20) return null;
+      if (payerCorp) payerCorp.cash -= price; else payerWorld.gov.cash -= price;
+      if (d.corp >= 0) corps[d.corp].cash += price; else if (d.gov) d.gov.gov.cash += price;
+      trades++; turnover += price;
+    }
+    docks.splice(docks.indexOf(d), 1);
+    return d;
   }
 
   // ---- частная помощь ---------------------------------------------------
@@ -1501,15 +1572,17 @@ var THRESHOLD = (function () {
       if (!canTravel(src.sys, w.sys)) return;
       var price = qty * 1.2, fk = src.sys === w.sys ? "fuel" : "sfuel";
       if (payer.cash < price + 60) return;
-      var parts = corpBuyShip(payer, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
+      var dk = takeDock(payer, null, src.sys, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
+      var parts = dk ? dk.parts : corpBuyShip(payer, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
       if (!parts) return;
       if (!takeFuel(payer, src.sys, fk, true)) {           // нет горючего у отправителя — вернуть детали
-        parts.forEach(function (p) { addStock(corps[p.from], src.sys, p.k, 1); });
+        if (dk) docks.push(dk); else parts.forEach(function (p) { addStock(corps[p.from], src.sys, p.k, 1); });
         return;
       }
       payer.cash -= price; src.gov.cash += price; src.food.stock -= qty;
       src.food.price = Math.min(6, src.food.price * 1.04);
       var v = dispatch(src, w, "food", qty, parts);
+      if (dk) v.captain = dk.captain;
       v.relief = payer.id; w.reliefAt = tick; shipped += qty;
       say("<b>" + payer.name + "</b> шлёт " + qty + " еды на голодающий " + w.body.name + " — там её филиал.");
     });
@@ -1576,7 +1649,8 @@ var THRESHOLD = (function () {
       if (!src) return;
       var fk2 = src.sys === w.sys ? "fuel" : "sfuel";
       if (!govFuelAvail(w, src, fk2)) return;
-      var parts = govBuyShip(w, src, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
+      var dkl = takeDock(null, w, src.sys, "liner", needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
+      var parts = dkl ? dkl.parts : govBuyShip(w, src, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
       if (!parts) return;
       govFuel(w, src, fk2);
       var qty = Math.min(src.wantOut, w.wantIn, 1.6);
@@ -1584,7 +1658,8 @@ var THRESHOLD = (function () {
       src.pop.free -= takeFree;
       src.pop.farm = Math.max(0, src.pop.farm - (qty - takeFree));
       src.wantOut -= qty;
-      dispatch(src, w, "pops", qty, parts);
+      var vp = dispatch(src, w, "pops", qty, parts);
+      if (dkl) vp.captain = dkl.captain;
       movedPops += qty;
       say("С " + src.body.name + " на " + w.body.name + " уходит " + qty.toFixed(1) + " человечков.");
     });
@@ -2366,8 +2441,9 @@ var THRESHOLD = (function () {
       return;
     }
     if (v.kind === "parts") { v.take({ k:v.k, from:v.corp }); return; }
-    if (v.kind === "food") { v.to.food.stock += v.qty; return; }
+    if (v.kind === "food") { v.to.food.stock += v.qty; dockShip(v); return; }
     if (v.kind === "pops") {
+      dockShip(v);
       v.to.pop.free += v.qty;
       say(v.qty.toFixed(1) + " человечков прибыли на " + v.to.body.name + ".");
     }
@@ -2523,6 +2599,15 @@ var THRESHOLD = (function () {
       var bits = k.split("|"), f = compOf(bits[0]), from = corps[+bits[1]];
       return f.short + (by[k] > 1 ? " ×" + by[k] : "") + " — " + (+bits[1] === ownerId ? "своё" : from.name);
     });
+  }
+  function dockLines(d) {
+    var owner = d.corp >= 0 ? corps[d.corp].name : "правительство " + (d.gov ? d.gov.body.name : "?");
+    var lines = [(d.kind === "liner" ? "Переселенческий" : "Грузовик") + " · на стоянке у " + d.world.body.name,
+                 "хозяин: " + owner + " · цена " + Math.round(dockValue(d)),
+                 "командир " + d.captain];
+    var mk = makersOfParts(d.parts, d.corp);
+    if (mk.length) lines = lines.concat(["из чего собран:"]).concat(mk);
+    return lines;
   }
   function windowLines(o, isVoyage) {
     var head = isVoyage ? voyageLines(o) : shipLines(o);
@@ -2680,11 +2765,28 @@ var THRESHOLD = (function () {
       cx.beginPath();
       sh.trail.forEach(function (p, j) { j ? cx.lineTo(p.x, p.y) : cx.moveTo(p.x, p.y); });
       cx.strokeStyle = sh.color; cx.globalAlpha = 0.22; cx.lineWidth = 1.3; cx.stroke(); cx.globalAlpha = 1;
-      flame(sh.x, sh.y, sh.size, sh.ang);
-      ship(sh.glyph, sh.x, sh.y, sh.size, sh.ang, sh.color);
+      // вылет: корабль выходит из планеты маленьким и вырастает за первую пятую
+      // часть пути; так видно, что он ОТТУДА, а не появился из ниоткуда
+      var grow = 0.3 + 0.7 * Math.min(1, clamp(vis(sh), 0, 1) / 0.2);
+      flame(sh.x, sh.y, sh.size * grow, sh.ang);
+      ship(sh.glyph, sh.x, sh.y, sh.size * grow, sh.ang, sh.color);
       if (pick && pick.data === sh) caption(sh.x, sh.y, windowLines(sh, false), sh.color);
       else tiny(sh.x, sh.y, sh.captain, sh.color);
       hits.push({ x:sh.x, y:sh.y, r:13, kind:"ship", data:sh });
+    });
+
+    // стоянка: отработанные транспортники висят на орбите своего мира, тускло
+    docks.forEach(function (d, i) {
+      if (d.sys !== s.id) return;
+      var b = d.world.body, p = posOf(b, mx, my);
+      var a = d.ang + glow * 0.03, off = b.rad + 16 + (i % 3) * 5;
+      var x = p.x + Math.cos(a) * off, y = p.y + Math.sin(a) * off;
+      cx.globalAlpha = 0.55;
+      ship("cargo", x, y, 5, a + 1.5708, d.corp >= 0 ? corps[d.corp].color : "#8894ae");
+      cx.globalAlpha = 1;
+      if (pick && pick.data === d) caption(x, y, dockLines(d), d.corp >= 0 ? corps[d.corp].color : "#8894ae");
+      else tiny(x, y, d.captain, "#5d6881");
+      hits.push({ x:x, y:y, r:10, kind:"dock", data:d });
     });
 
     voyages.forEach(function (v) {
@@ -2726,8 +2828,11 @@ var THRESHOLD = (function () {
       var x = a.x + (b.x - a.x) * leg, y = a.y + (b.y - a.y) * leg;
       var rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
       var isJump = v.kind === "jump" || v.kind === "opener";
-      flame(x, y, 6.5, rot);
-      ship(isJump ? "jump" : "cargo", x, y, 6.5, rot, v.color);
+      // вылет — растёт от планеты, прилёт — сжимается к ней
+      var sz = 6.5 * (s.id === fromSys ? 0.3 + 0.7 * Math.min(1, leg / 0.6)
+                                        : 0.35 + 0.65 * (1 - Math.max(0, (leg - 0.6) / 0.4)));
+      flame(x, y, sz, rot);
+      ship(isJump ? "jump" : "cargo", x, y, sz, rot, v.color);
       if (pick && pick.data === v) caption(x, y, windowLines(v, true), v.color);
       else tiny(x, y, v.captain, v.color);
       hits.push({ x:x, y:y, r:12, kind:isJump ? "jumpship" : "cargo", data:v });
@@ -2923,6 +3028,15 @@ var THRESHOLD = (function () {
         '<div class="part"><span class="pn">умеют колонизировать</span><span class="pw">' + (who.length ? who.join(", ") : "никто") + '</span></div>' +
         (pr ? '<div class="sub" style="margin-top:7px">Подписка ' + corps[pr.lead].name + ': ' + Math.round(pr.purse) +
               ' из ' + pr.cost + ', вкладчиков ' + pr.backers.length + '</div>' : '') + '</div>';
+      return;
+    }
+    if (pick.kind === "dock") {
+      var owner = d.corp >= 0 ? corps[d.corp].name : "правительство " + (d.gov ? d.gov.body.name : "?");
+      box.innerHTML = '<div class="card"><h3>' + (d.kind === "liner" ? "Переселенческий" : "Грузовик") + ' на стоянке</h3>' +
+        '<div class="sub">на орбите ' + d.world.body.name + ' с ' + Math.floor(d.since / 12) + ' года · командир ' + d.captain + '</div>' +
+        '<div class="part"><span class="pn">хозяин</span><span class="pw">' + owner + '</span></div>' +
+        '<div class="part"><span class="pn">купить можно за</span><span class="pw">' + Math.round(dockValue(d)) + '</span></div>' +
+        '<div class="sub" style="margin:7px 0 2px">Из чего собран:</div>' + partsList(d.parts, d.corp) + '</div>';
       return;
     }
     if (pick.kind === "cargo" && d.kind === "parts") {
@@ -3367,7 +3481,7 @@ var THRESHOLD = (function () {
       return { tick:tick, treasury:treasury, corps:corps, worlds:worlds, systems:systems, links:links, move:move, routes:routes,
                market:market, patents:patents, voyages:voyages, projects:projects,
                trades:trades, shipped:shipped, movedPops:movedPops, refusals:refusals, dropped:dropped,
-               hauled:hauled, burned:burned, raids:raids, feed:feed };
+               hauled:hauled, burned:burned, raids:raids, docks:docks, feed:feed };
     },
     setLever: function (k, v) {
       if (k === "tax") tax = v; else if (k === "sub") subYear = v; else if (k === "subKey") subKey = v;
