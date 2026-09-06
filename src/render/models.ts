@@ -125,6 +125,14 @@ export function dockLines(d: Dock): string[] {
 // Одно окошко на корабль в системе и на рейс между звёздами: сверху разное,
 // снизу одинаковое (командир и из чего собран). Что именно пришло, говорит
 // isVoyage — поэтому приведение здесь не догадка, а разбор по этому признаку.
+/** Где верфь на экране: своя орбита вокруг своей планеты, медленнее стоянок.
+ *  Нужна и отрисовке, и движению — корабль должен выходить ОТСЮДА. */
+export function yardPos(y: Shipyard, mx: number, my: number): { x: number; y: number } {
+  const p = posOf(y.world.body, mx, my), off = y.world.body.rad + 34;
+  const a = y.ang + glow * 0.12;
+  return { x: p.x + Math.cos(a) * off, y: p.y + Math.sin(a) * off };
+}
+
 /** Строки окошка верфи: кто хозяин, кто на стапеле, сколько ждёт следом. */
 export function yardLines(y: Shipyard): string[] {
   const out = [y.owner >= 0 ? "верфь «" + corps[y.owner].name + "»" : "верфь, общая"];
@@ -195,8 +203,12 @@ export function rock(x: number, y: number, rad: number, seed: number, col: strin
 
 export function advance(s: Sys, dt: number): void {
   if (s.pulse > 0) s.pulse = Math.max(0, s.pulse - dt * 0.5);
-  const mx = CW/2, my = CH/2, op = posOf(s.bodies[0], mx, my);
+  const mx = CW/2, my = CH/2;
   s.ships.forEach((sh) => {
+    // Корабль выходит С ВЕРФИ, на которой собран. Раньше все стартовали от
+    // s.bodies[0] — первой планеты в списке, безо всякой причины: выглядело так,
+    // будто их отпускает случайная планета, а не стапель.
+    const op = sh.yard ? yardPos(sh.yard, mx, my) : posOf(s.bodies[0], mx, my);
     const tp = posOf(sh.kind === "colony" ? sh.body : sh.dest.ref, mx, my);
     const k = clamp(vis(sh), 0, 1), e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
     sh.x = op.x + (tp.x - op.x) * e; sh.y = op.y + (tp.y - op.y) * e;

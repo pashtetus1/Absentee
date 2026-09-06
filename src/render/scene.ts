@@ -6,15 +6,27 @@ import { yardAt } from "../shipyard";
 import { S, U, cam, corps, docks, hits, routes, shipyards, systems, voyages } from "../state";
 import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
-import { CH, CW, advanceFrame, cx, glow, last, setUiz, uiz } from "./canvas";
-import { advance, caption, dockLines, flame, grow, posOf, rock, ship, tiny, windowLines, yardLines } from "./models";
+import { CH, CW, advanceFrame, cx, glow, last, setSysK, setUiz, uiz } from "./canvas";
+import { advance, caption, dockLines, flame, grow, posOf, rock, ship, tiny, windowLines, yardLines, yardPos } from "./models";
 import type { Rock, Sys } from "../types";
 
 export function drawSystem(s: Sys): void {
   const mx = CW / 2, my = CH / 2;
-  setUiz(1);                     // в системе зума нет, экранные размеры как есть
   hits.length = 0;
   cx.fillStyle = "#080d19"; cx.fillRect(0, 0, CW, CH);
+
+  // Подгоняем систему под холст: берём самое дальнее, что в ней есть, и ужимаем
+  // так, чтобы оно поместилось с полем. Раньше масштаба не было вовсе, и всё
+  // дальше 340 (внешние планеты, а с недавних пор и ворота на 420) рисовалось
+  // за краем экрана. Подписи и значки при этом НЕ ужимаются: uiz гасит масштаб,
+  // тот же приём, что на карте.
+  let far = 0;
+  s.bodies.forEach((o) => { far = Math.max(far, o.r + o.rad); });
+  s.rocks.forEach((o) => { far = Math.max(far, o.r + o.s); });
+  if (S.move.key === "gates") far = Math.max(far, s.gate.r + 18);
+  const k = Math.min(1, (Math.min(CW, CH) / 2 - 28) / Math.max(1, far));
+  setSysK(k); setUiz(1 / k);
+  cx.save(); cx.translate(mx, my); cx.scale(k, k); cx.translate(-mx, -my);
 
   s.bodies.forEach((o) => {
     cx.beginPath(); cx.arc(mx, my, o.r, 0, 6.2832);
@@ -76,6 +88,12 @@ export function drawSystem(s: Sys): void {
       cx.lineTo(jp.x + Math.cos(a) * (jr + 5), jp.y + Math.sin(a) * (jr + 5));
       cx.strokeStyle = col; cx.lineWidth = 1.6; cx.stroke();
     }
+    // вспышка при открытии: та же s.pulse, что на карте, только здесь у створа
+    if (s.pulse > 0) {
+      cx.beginPath(); cx.arc(jp.x, jp.y, jr + (6 + (1 - s.pulse) * 30), 0, 6.2832);
+      cx.strokeStyle = "#9aa8ff"; cx.globalAlpha = s.pulse * 0.7; cx.lineWidth = 2;
+      cx.stroke(); cx.globalAlpha = 1;
+    }
     if (s.gate.built) {
       const g = cx.createRadialGradient(jp.x, jp.y, 0, jp.x, jp.y, jr);
       g.addColorStop(0, "rgba(154,168,255,0.55)"); g.addColorStop(1, "rgba(154,168,255,0)");
@@ -100,9 +118,7 @@ export function drawSystem(s: Sys): void {
   // Верфь вращается вокруг СВОЕЙ планеты, выше дорожек стоянки. Рисуется
   // голова очереди с дугой готовности; сколько ждёт следом — числом рядом.
   shipyards.filter((y) => y.world.sys === s.id).forEach((yard) => {
-    const p = posOf(yard.world.body, mx, my), off = yard.world.body.rad + 34;
-    const a = yard.ang + glow * 0.12;                 // медленнее стоянок
-    const x = p.x + Math.cos(a) * off, y = p.y + Math.sin(a) * off;
+    const yp = yardPos(yard, mx, my), x = yp.x, y = yp.y;
     const head = yard.queue.find((b) => b.left > 0) || yard.queue[0];
     cx.beginPath(); cx.arc(x, y, 11, 0, 6.2832);
     cx.strokeStyle = yard.owner >= 0 ? corps[yard.owner].color : "#2b3557";
@@ -207,6 +223,7 @@ export function drawSystem(s: Sys): void {
     else tiny(x, y, v.captain, v.color);
     hits.push({ x:x, y:y, r:12, kind:isJump ? "jumpship" : "cargo", data:v });
   });
+  cx.restore();
 }
 
 export function nodeR(s: Sys): number { return 5 + Math.min(5, (s.mines + s.bodies.filter((b) => { return b.world; }).length) * 1.2); }
@@ -266,7 +283,10 @@ export function drawMap(): void {
     // чертёж, дуга — как полёт. Изгиб тем сильнее, чем длиннее перегон, а
     // сторона постоянна для пары звёзд, чтобы встречные не сливались в нить.
     const dxm = b.x - a.x, dym = b.y - a.y, lenm = Math.hypot(dxm, dym) || 1;
-    const bend = isJump ? Math.min(34, lenm * 0.16) * (((a.id + b.id) % 2) ? 1 : -1) : 0;
+    // Дуга у ВСЕХ межзвёздных рейсов, не только у прыжковых: под воротами
+    // прыжковых кораблей не бывает вовсе, а лететь между звёздами всё равно
+    // летают — хлебовозы, детали, перегоны. У них изгиб мягче.
+    const bend = Math.min(34, lenm * (isJump ? 0.16 : 0.09)) * (((a.id + b.id) % 2) ? 1 : -1);
     const cpx = (a.x + b.x) / 2 - dym / lenm * bend, cpy = (a.y + b.y) / 2 + dxm / lenm * bend;
     const at = (u: number) => ({ x: (1-u)*(1-u)*a.x + 2*(1-u)*u*cpx + u*u*b.x,
                                  y: (1-u)*(1-u)*a.y + 2*(1-u)*u*cpy + u*u*b.y });
@@ -277,7 +297,7 @@ export function drawMap(): void {
     else cx.lineTo(x, y);
     cx.strokeStyle = v.color; cx.globalAlpha = 0.3; cx.lineWidth = 1.2 * uiz; cx.stroke(); cx.globalAlpha = 1;
     // тающий след за прыжковым: несколько точек позади вдоль той же дуги
-    if (isJump) for (let q = 1; q <= 6; q++) {
+    for (let q = 1; q <= (isJump ? 6 : 4); q++) {
       const u = k - q * 0.012;
       if (u <= 0) break;
       const sp = at(u);

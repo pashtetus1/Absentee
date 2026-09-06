@@ -10,7 +10,7 @@ import { L, U, Y, cam, hits, patents, proposals, resetCam, systems, worlds } fro
 import { allTech, techOf } from "../tech";
 import { step } from "../tick";
 import { clamp } from "../util";
-import { CH, CW, cv, cx, setCanvas } from "./canvas";
+import { CH, CW, cv, cx, setCanvas, sysK } from "./canvas";
 import { icon } from "./models";
 import { Ctl, el, panels } from "./panels";
 import { frame } from "./scene";
@@ -125,6 +125,9 @@ export function bindUI(): void {
     const rect = cv.getBoundingClientRect();
     let x = (e.clientX - rect.left) / rect.width * CW, y = (e.clientY - rect.top) / rect.height * CH;
     if (U.view.mode === "map") { x = (x - cam.x) / cam.k; y = (y - cam.y) / cam.k; }
+    // вид системы теперь тоже ужат под холст — переводим обратно, иначе клик
+    // приходит мимо всего, что дальше середины
+    else if (sysK !== 1) { x = (x - CW / 2) / sysK + CW / 2; y = (y - CH / 2) / sysK + CH / 2; }
     return { x:x, y:y };
   }
 

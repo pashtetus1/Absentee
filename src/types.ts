@@ -252,6 +252,7 @@ export interface Ship {
   x: number; y: number; ang: number;
   born: string; captain: string;
   parts: Part[];
+  yard?: Shipyard;                // с какой верфи сошёл: оттуда и стартует
   dest?: Dest; vent?: Venture;
   body?: Planet; backers?: { corp: number; sum: number }[];
 }

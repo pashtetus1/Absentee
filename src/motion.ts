@@ -116,14 +116,14 @@ export function moveShips(): void {
         if (far) { ferry(yd, s, "colony"); continue; }
         s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
                        dur:(120 + rnd()*60) / speedOf(yd.lead), body:yd.body, backers:yd.backers, parts:yd.parts,
-                       trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain() });
+                       trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain(), yard:yard });
         say("<b>" + lead.name + "</b> спустила колониальный модуль: курс на " + yd.body.name + ".");
       } else {
         if (far) { ferry(yd, s, "mine"); continue; }
         yd.vent.building = false;
         s.ships.push({ kind:"mine", corp:yd.lead, color:yd.color, glyph:yd.glyph, size:8, t:0,
                        dur:(120 + rnd()*60) / speedOf(yd.lead), dest:yd.dest, vent:yd.vent, parts:yd.parts,
-                       trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain() });
+                       trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain(), yard:yard });
         say("<b>" + lead.name + "</b> спустила платформу: курс на " + yd.dest.label + ".");
       }
       }
