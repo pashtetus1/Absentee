@@ -123,6 +123,24 @@ export function yardAt(sys: number): Shipyard | null {
   return shipyards.find((y) => y.world.sys === sys) || null;
 }
 
+/** Поставить верфь у планеты: общую, пустую, с этого месяца.
+ *
+ *  Одна дверь на два случая — достроенная по предложению и стартовая на
+ *  родине. Родина начинает С верфью: пока её не было, первые сорок-сто лет
+ *  партии уходили на то, чтобы компании допросили казну до первой стройки, а
+ *  до неё не летало ничего вовсе. Первое решение игрока от этого не пропало,
+ *  оно сдвинулось туда, где ему и место: вторая верфь, у колонии, когда в
+ *  домашней встала очередь. */
+export function foundYard(w: World, backers: { corp: number; sum: number }[]): Shipyard {
+  const y: Shipyard = {
+    id: ++seq, world: w, owner: -1, ang: rnd() * 6.2832,
+    queue: [], crew: 0, born: S.tick, backers: backers.slice()
+  };
+  w.yard = y;
+  shipyards.push(y);
+  return y;
+}
+
 function activeAt(w: World): Proposal | undefined {
   return proposals.find((p) => p.world === w && p.state !== "done");
 }
@@ -299,12 +317,7 @@ export function proposalsTick(): void {
     }
     if (p.state === "building") {
       if (--p.left > 0) return;
-      const y: Shipyard = {
-        id: ++seq, world: p.world, owner: -1, ang: rnd() * 6.2832,
-        queue: [], crew: 0, born: S.tick, backers: p.backers.slice()
-      };
-      p.world.yard = y;
-      shipyards.push(y);
+      foundYard(p.world, p.backers);
       p.state = "done";
       say("<b>Верфь у " + p.world.body.name + " построена.</b> Пользоваться могут все.");
     }

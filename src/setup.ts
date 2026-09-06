@@ -1,6 +1,7 @@
 
 import { COLTECH, COMPS, MOVES, TEMPLATE, makeMarks, moveOf } from "./data";
 import { makeGalaxy } from "./galaxy";
+import { foundYard } from "./shipyard";
 import { S, U, clear, corps, docks, feed, fill, flash, gates, market, patents, projects, proposals, say, shipyards, staged, systems, voyages, worlds } from "./state";
 import { DEVS, allTech, ensureDev } from "./tech";
 import { makeWorld, openBranch } from "./world";
@@ -48,7 +49,8 @@ export function build(forcedMove?: string, seed?: number): void {
   S.tick = 0; S.yearNow = 0; S.treasury = 320; S.jumped = false; S.trades = 0; S.turnover = 0; S.shipped = 0; S.movedPops = 0;
   S.refusals = 0; S.dropped = 0; S.moveKnown = false; S.hauled = 0; S.burned = 0; S.raids = 0; S.pirateCount = 0;
   U.view = { mode:"system", sys:0 };
-  say("Тира: восемнадцать человечков, пять компаний и ни одной освоенной детали.");
+  foundYard(S.home, []);                     // стартовая верфь: общая и пустая
+  say("Тира: восемнадцать человечков, пять компаний, одна верфь и ни одной освоенной детали.");
   say("Межзвёздный переход возможен, но какой именно — неизвестно: выяснится, когда кто-нибудь доведёт первую марку.");
 }
 

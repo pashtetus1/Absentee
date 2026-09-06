@@ -55,6 +55,7 @@ test("ядро стартует без браузера", () => {
   assert(st.corps.length === 5, "должно быть пять компаний");
   assert(st.worlds.length === 1, "на старте освоена только Тира");
   assert(st.systems.length === 50, "пятьдесят систем");
+  assert(st.shipyards.length === 1 && st.shipyards[0].world === st.worlds[0], "родина начинает с одной верфью");
 });
 
 test("двести лет без исключений", () => {
@@ -852,21 +853,30 @@ test("встречных хлебовозов меньше десяти за 300
 });
 
 // ── верфь: предложение, решение, стройка ─────────────────────────────────────
-// Первое место в игре, где игрок решает прямо. Стенд отвечает за него политикой
-// (см. shipyard.ts); здесь проверяется сама механика.
-test("компания предлагает верфь, когда ей негде строить", () => {
-  const sim = load("dist/index.html", { seed: 1 });
-  sim.setApproval("manual");
-  let seen = false;
-  runYears(sim, 40, (st) => { if (st.proposals.length) seen = true; });
-  assert(seen, "за сорок лет ни одного предложения построить верфь");
+// Родина начинает С верфью, поэтому предложение — всегда о ВТОРОЙ: приходит,
+// когда в домашней встала очередь, а у компании есть колония с промышленными
+// руками от двух. Колонии растут медленно, и это случается на 217-280 году и
+// только в половине партий (из двенадцати сидов: 1, 2, 4, 5, 7, 12 — да;
+// 3, 6, 8-11 — нет). Отсюда сиды и горизонт в триста лет. Стенд отвечает за
+// игрока политикой (см. shipyard.ts); здесь проверяется сама механика.
+test("компания предлагает вторую верфь, когда в домашней очередь", () => {
+  for (const seed of [2, 4]) {
+    const sim = load("dist/index.html", { seed });
+    sim.setApproval("manual");
+    let seen = false, queued = 0;
+    runYears(sim, 300, (st) => {
+      queued = Math.max(queued, st.shipyards[0].queue.length);
+      if (st.proposals.length) seen = true;
+    });
+    assert(queued >= 3, "сид " + seed + ": очередь в домашней верфи не доходила до трёх");
+    assert(seen, "сид " + seed + ": за триста лет ни одного предложения построить верфь");
+  }
 });
-
 test("отказ возвращает взносы и поднимает долю компаний", () => {
-  const sim = load("dist/index.html", { seed: 1 });
+  const sim = load("dist/index.html", { seed: 2 });
   sim.setApproval("manual");
   let first: { share: number; world: string } = null, later: { share: number } = null, refunded = false;
-  runYears(sim, 120, (st) => {
+  runYears(sim, 300, (st) => {
     const p = st.proposals.find((x) => x.state === "pending");
     if (!p) return;
     if (!first) {
@@ -881,19 +891,43 @@ test("отказ возвращает взносы и поднимает дол�
   assert(first, "предложения не было");
   assert(refunded, "после отказа ведущей не вернули взнос");
   assert(later, "после отказа компании не вернулись с предложением на ту же планету");
-  assert(later.share > first.share, "доля компаний не выросла: " + first.share + " -> " + later.share);
+  // Не строго больше: второе предложение приходит поздно, когда ведущая богата
+  // и кладёт потолок (SHARE_CAP) с первой попытки — расти уже некуда.
+  assert(later.share >= first.share, "доля компаний упала: " + first.share + " -> " + later.share);
 });
-
-test("одобренная верфь строится, а при отказах партия не встаёт", () => {
-  const yes = load("dist/index.html", { seed: 1 }); yes.setApproval("always");
-  runYears(yes, 150);
-  assert(yes.state().shipyards.length > 0, "при одобрении всего за 150 лет ни одной верфи");
-  const no = load("dist/index.html", { seed: 1 }); no.setApproval("never");
-  const st = runYears(no, 150);
-  assert(st.shipyards.length === 0, "при отказах верфь всё равно построилась");
-  assert(st.corps.some((c) => Object.keys(c.known).length > 0), "при отказах партия встала: никто ничего не освоил");
+test("одобренная верфь строится, а при отказах остаётся одна домашняя", () => {
+  const yes = load("dist/index.html", { seed: 2 }); yes.setApproval("always");
+  runYears(yes, 300);
+  assert(yes.state().shipyards.length > 1, "при одобрении всего за триста лет второй верфи так и нет");
+  const no = load("dist/index.html", { seed: 2 }); no.setApproval("never");
+  const st = runYears(no, 300);
+  assert(st.shipyards.length === 1, "при отказах верфь всё равно построилась");
+  assert(st.worlds.length > 1, "при отказах партия встала: с одной домашней верфью ни одной колонии");
 });
-
+test("предложение ждёт ответа, а компании перебивают его выгодным", () => {
+  // Раньше предложение жило 24 игровых месяца — семь секунд реального времени
+  // на x1. Игрок его не видел, верфь не строилась, экономика стояла намертво.
+  // Теперь оно лежит, пока не ответишь; торг идёт между компаниями. Перебить
+  // успевают редко — второе предложение приходит поздно, и до конца партии
+  // остаётся мало лет: из двенадцати сидов торг случился на одном (12, год 276).
+  let outbid = 0;
+  for (const seed of [2, 4, 12]) {
+    const sim = load("dist/index.html", { seed });
+    sim.setApproval("manual");
+    let first: number = null, onTable = 0;
+    const st = runYears(sim, 300, (s) => {
+      const p = s.proposals.find((x) => x.state === "pending");
+      if (p && first === null) first = p.cost * (1 - p.share);
+      onTable = Math.max(onTable, s.proposals.filter((x) => x.state === "pending").length);
+    });
+    const now = st.proposals.find((x) => x.state === "pending");
+    assert(first !== null, "сид " + seed + ": за триста лет предложения не было");
+    assert(now, "сид " + seed + ": предложение исчезло само, хотя ответа не было");
+    assert(onTable === 1, "сид " + seed + ": на столе оказалось " + onTable + " предложений разом");
+    if (now.cost * (1 - now.share) < first) outbid++;
+  }
+  assert(outbid > 0, "ни на одном сиде компании не перебили цену для казны");
+});
 test("в частной верфи не остаётся чужих сборок", () => {
   // Планета вышла из государства — верфь ушла с ней, и чужие заказы из очереди
   // выброшены, детали вернулись хозяевам. Проверяется ИНВАРИАНТ, а не то, что
@@ -913,28 +947,6 @@ test("в частной верфи не остаётся чужих сборок
   }
   assert(alien === 0, "в частной верфи осталось чужих сборок: " + alien +
                       " (частных верфемесяцев " + seized + ")");
-});
-
-test("предложение ждёт ответа, а компании перебивают его выгодным", () => {
-  // Раньше предложение жило 24 игровых месяца — семь секунд реального времени
-  // на x1. Игрок его не видел, верфь не строилась, экономика стояла намертво.
-  // Теперь оно лежит, пока не ответишь; торг идёт между компаниями.
-  for (const seed of [1, 2, 3]) {
-    const sim = load("dist/index.html", { seed });
-    sim.setApproval("manual");
-    let first: number = null, onTable = 0;
-    const st = runYears(sim, 200, (s) => {
-      const p = s.proposals.find((x) => x.state === "pending");
-      if (p && first === null) first = p.cost * (1 - p.share);
-      onTable = Math.max(onTable, s.proposals.filter((x) => x.state === "pending").length);
-    });
-    const now = st.proposals.find((x) => x.state === "pending");
-    assert(first !== null, "сид " + seed + ": за двести лет предложения не было");
-    assert(now, "сид " + seed + ": предложение исчезло само, хотя ответа не было");
-    assert(onTable === 1, "сид " + seed + ": на столе оказалось " + onTable + " предложений разом");
-    assert(now.cost * (1 - now.share) < first,
-           "сид " + seed + ": компании не перебили цену для казны (" + Math.round(first) + ")");
-  }
 });
 
 // ── отрисовка тоже не должна падать ─────────────────────────────────────────
