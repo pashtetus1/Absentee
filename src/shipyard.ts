@@ -15,11 +15,12 @@
 // Деньги за стройку получает планета: верфь не строится верфью, её строит
 // планета, и её казне за это платят.
 
+import { vtype } from "./data";
 import { rnd } from "./rng";
 import { L, S, corps, proposals, say, shipyards, systems } from "./state";
 import { canTravel } from "./travel";
 import { dist } from "./util";
-import type { Corp, Proposal, Shipyard, World } from "./types";
+import type { Corp, Part, Proposal, Shipyard, World } from "./types";
 
 export const PROPOSAL_LIFE = 24;            // месяцев висит, ожидая игрока
 export const RETRY_MIN = 36, RETRY_MAX = 60; // через сколько предложат снова
@@ -63,6 +64,27 @@ export function nearestYard(sys: number, c: Corp | null): Shipyard | null {
     if (q < bq || (q === bq && d < bd)) { bq = q; bd = d; best = y; }
   });
   return best;
+}
+
+/** Заказать транспорт на верфи. Возвращает false, если строить негде.
+ *
+ *  Раньше грузовик и переселенческий возникали мгновенно из купленных деталей:
+ *  поля build у них не использовались вообще. Теперь они идут через верфь, как
+ *  всё остальное, и оттого стоянка отработанных кораблей стала по-настоящему
+ *  ценной — взять готовый почти всегда быстрее, чем заказать новый.
+ */
+export function orderTransport(kind: string, parts: Part[], sys: number,
+                               forWorld: World | null, forCorp: Corp | null): boolean {
+  const y = nearestYard(sys, forCorp);
+  if (!y) return false;
+  const vt = vtype(kind);
+  y.queue.push({
+    vt: vt, lead: forCorp ? forCorp.id : (forWorld.branches.length ? forWorld.branches[0].corp : 0),
+    color: forCorp ? forCorp.color : "#8894ae", glyph: vt.glyph, parts: parts.slice(),
+    left: vt.build * YARD_WORK, total: vt.build * YARD_WORK,
+    forWorld: forWorld, forCorp: forCorp ? forCorp.id : undefined
+  });
+  return true;
 }
 
 /** Верфь в этой системе, если есть. */

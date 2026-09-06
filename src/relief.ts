@@ -4,16 +4,14 @@ import { compOf, vtype } from "./data";
 import { corpBuyShip, takeDock } from "./docks";
 import { dispatch, surplusWorld } from "./food";
 import { takeFuel } from "./market";
+import { rnd } from "./rng";
+import { orderTransport } from "./shipyard";
 import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
 import { devMult } from "./tech";
 import { canTravel, needWith, travelExtra } from "./travel";
 import { clamp } from "./util";
 import { addStock, popOf } from "./world";
-import type { Corp, Pop, World } from "./types";
-
-import type { Rock } from "./types";
-
-import { rnd } from "./rng";
+import type { Corp, Pop, Rock, World } from "./types";
 
 export function corpRelief(): void {
   worlds.forEach((w) => {
@@ -34,8 +32,12 @@ export function corpRelief(): void {
     const price = qty * src.food.price, fk = src.sys === w.sys ? "fuel" : "sfuel";
     if (payer.cash < price + 60) return;
     const dk = takeDock(payer, null, src.sys, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
-    const parts = dk ? dk.parts : corpBuyShip(payer, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
-    if (!parts) return;
+    if (!dk) {
+      const bought = corpBuyShip(payer, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
+      if (bought) orderTransport("cargo", bought, src.sys, null, payer);
+      return;
+    }
+    const parts = dk.parts;
     if (!takeFuel(payer, src.sys, fk, true)) {           // нет горючего у отправителя — вернуть детали
       if (dk) docks.push(dk); else parts.forEach((p) => { addStock(corps[p.from], src.sys, p.k, 1); });
       return;

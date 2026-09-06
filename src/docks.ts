@@ -7,6 +7,7 @@
 
 import { askPrice } from "./market";
 import { L, S, corps, docks, market, systems } from "./state";
+import { canTravel } from "./travel";
 import { rnd6 } from "./util";
 import { addStock, stockAt } from "./world";
 import type { Corp, Dock, Part, Voyage, World } from "./types";
@@ -38,12 +39,19 @@ export function fits(parts: Part[], need: Record<string, number>): boolean {
 }
 export function takeDock(payerCorp: Corp | null, payerWorld: World | null, sys: number, kind: string, need: Record<string, number>): Dock {
   let own: Dock = null, other: Dock = null;
+  // Свою систему предпочитаем, но берём и из достижимой: перегон корабля к
+  // месту погрузки отдельным рейсом не считаем — он уходит в срок самого рейса.
+  let ownFar: Dock = null, otherFar: Dock = null;
   docks.forEach((d) => {
-    if (d.sys !== sys || d.kind !== kind) return;
+    if (d.kind !== kind) return;
     if (need && !fits(d.parts, need)) return;
+    const here = d.sys === sys;
+    if (!here && !canTravel(d.sys, sys)) return;
     const mine = payerCorp ? d.corp === payerCorp.id : d.gov === payerWorld;
-    if (mine) own = own || d; else other = other || d;
+    if (mine) { if (here) own = own || d; else ownFar = ownFar || d; }
+    else { if (here) other = other || d; else otherFar = otherFar || d; }
   });
+  own = own || ownFar; other = other || otherFar;
   const d = own || other;
   if (!d) return null;
   if (!own) {

@@ -107,6 +107,7 @@ export interface World {
   flow: string; blight: number;
   rough: number;                  // месяцы разрухи: свежая колония живёт на привозном
   yard?: Shipyard;                // верфь у планеты, если построена
+  ordered?: number;               // сколько транспортов уже заказано этой планетой
   yardTries?: number;             // сколько раз предлагали верфь здесь
   yardRetryAt?: number;           // раньше этого месяца не предложат снова
   edge?: boolean;                 // планета дошла до края, жребий уже брошен
@@ -202,6 +203,8 @@ export interface Yard {
   parts: Part[]; left: number; total: number;
   vent?: Venture; dest?: Dest; dst?: number;
   to?: number; gateHere?: number; fuelWait?: number;
+  forWorld?: World;               // транспорт: чьей планете он достанется
+  forCorp?: number;               // транспорт: чьей компании (иначе государственный)
   from?: number;                  // прыжок: откуда стартовать; не система верфи, если её нет в дальности
   body?: Planet; backers?: { corp: number; sum: number }[];
 }

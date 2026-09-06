@@ -7,18 +7,8 @@
 // нулю, и тогда экспорт замирает сам собой. Голод должен случаться не от
 // безденежья, а от того, что еды физически нет.
 
-import { pickCaptain, vtype } from "./data";
-import { takeDock } from "./docks";
-import { askPrice, govFuel, govFuelAvail } from "./market";
-import { L, S, corps, dateStr, say, voyages, worlds } from "./state";
-import { speedOf } from "./tech";
-import { canTravel, needWith, travelExtra } from "./travel";
-import { addStock, popOf, stockAt } from "./world";
-import type { Corp, Part, Voyage, World } from "./types";
 
-import { rnd } from "./rng";
 
-import { harvestOf } from "./labour";
 
 // Резерв мира — сколько месяцев прокорма он держит про запас. Одно число на
 // два решения, и вокруг него ЗАЗОР: отдают только сверх 120% резерва, просят
@@ -26,6 +16,19 @@ import { harvestOf } from "./labour";
 // шести месяцев, просил ниже двенадцати), полосы перекрывались, и мир попадал
 // под оба условия сразу. Зазор разводит их вдвое: между "могу отдать" и "надо
 // просить" лежит пустая полоса, в которой мир не делает ничего.
+
+import { pickCaptain, vtype } from "./data";
+import { takeDock } from "./docks";
+import { harvestOf } from "./labour";
+import { askPrice, govFuel, govFuelAvail } from "./market";
+import { rnd } from "./rng";
+import { orderTransport } from "./shipyard";
+import { L, S, corps, dateStr, say, voyages, worlds } from "./state";
+import { speedOf } from "./tech";
+import { canTravel, needWith, travelExtra } from "./travel";
+import { addStock, popOf, stockAt } from "./world";
+import type { Corp, Part, Voyage, World } from "./types";
+
 export const RESERVE = 18;          // месяцев прокорма
 export const GIVE_OVER = 1.2;       // отдаёт лишь то, что сверх этой доли резерва
 export const ASK_UNDER = 0.6;       // просит, когда запас упал ниже этой доли
@@ -129,8 +132,17 @@ export function foodRun(): void {
     if (!govFuelAvail(w, src, fk)) return;                 // без горючего хлебовоз не полетит
     // сперва корабль со стоянки у поставщика, и только потом покупка нового
     const dk = takeDock(null, w, src.sys, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
-    const parts = dk ? dk.parts : govBuyShip(w, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
-    if (!parts) return;
+    if (!dk) {
+      // Готового нет — заказываем на верфи и ждём. Заказ висит, пока корабль не
+      // сойдёт со стапеля: без этого голодная планета заказывала бы каждые
+      // полгода, и верфь забивалась хлебовозами, которых никто не дождётся.
+      if ((w.ordered || 0) < 1) {
+        const bought = govBuyShip(w, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
+        if (bought && orderTransport("cargo", bought, src.sys, w, null)) w.ordered = (w.ordered || 0) + 1;
+      }
+      return;
+    }
+    const parts = dk.parts;
     govFuel(w, src, fk);
     w.gov.cash -= price; src.gov.cash += price; src.food.stock -= qty;
     // вывоз дорожит еду у поставщика: фермеру платят больше, в поле идут

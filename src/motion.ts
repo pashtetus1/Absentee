@@ -8,9 +8,10 @@ import { dockShip } from "./docks";
 import { takeFuel } from "./market";
 import { rnd } from "./rng";
 import { yardAt } from "./shipyard";
-import { S, U, corps, dateStr, routes, say, shipyards, staged, systems, voyages } from "./state";
+import { S, U, corps, dateStr, docks, routes, say, shipyards, staged, systems, voyages } from "./state";
 import { speedOf } from "./tech";
 import { routeKey } from "./travel";
+import { rnd6 } from "./util";
 import { makeWorld, openBranch } from "./world";
 import type { Ship, Sys, Voyage, Yard } from "./types";
 
@@ -57,6 +58,24 @@ export function moveShips(): void {
       // межзвёздное, внутрисистемному — местное; ворота никуда не летят.
       // межзвёздному рейсу — межзвёздное топливо: и прыжковому, и воротам
       // на сторону, и готовой платформе, которую ещё вести в чужую систему
+      // транспорт: топлива при спуске не жжёт, просто встаёт на стоянку
+      if (yd.vt.key === "cargo" || yd.vt.key === "liner") {
+        yard.queue.splice(q, 1);
+        const home = yd.forWorld || yard.world;
+        docks.push({ kind: yd.vt.key, parts: yd.parts, captain: pickCaptain(),
+                     sys: yard.world.sys, world: yard.world, ang: rnd6(), since: S.tick,
+                     corp: yd.forCorp !== undefined ? yd.forCorp : -1,
+                     gov: yd.forCorp !== undefined ? null : home,
+                     lane: docks.filter((x) => x.world === yard.world).length % 3 });
+        // на орбите одной планеты больше шести не держат: старейший списывают,
+        // тот же потолок, что у пришедших рейсом (dockShip)
+        const here = docks.filter((x) => x.world === yard.world);
+        if (here.length > 6) docks.splice(docks.indexOf(here[0]), 1);
+        if (yd.forWorld) yd.forWorld.ordered = Math.max(0, (yd.forWorld.ordered || 0) - 1);
+        say("<b>" + (yd.forCorp !== undefined ? corps[yd.forCorp].name : "Правительство " + home.body.name) +
+            "</b>: " + yd.vt.name + " сошёл со стапеля у " + yard.world.body.name + ".");
+        continue;
+      }
       const far = yd.dst !== undefined && yd.dst !== s.id;
       const fuelKind = yd.vt.key === "gate" ? (yd.gateHere !== s.id ? "sfuel" : null)
                    : (yd.vt.key === "jump" || yd.vt.key === "opener" || far) ? "sfuel" : "fuel";

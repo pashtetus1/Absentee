@@ -3,6 +3,7 @@ import { vtype } from "./data";
 import { takeDock } from "./docks";
 import { dispatch, govBuyShip } from "./food";
 import { govFuel, govFuelAvail } from "./market";
+import { orderTransport } from "./shipyard";
 import { S, say, voyages, worlds } from "./state";
 import { canTravel, needWith, travelExtra } from "./travel";
 import type { World } from "./types";
@@ -22,8 +23,14 @@ export function migrationRun(): void {
     // переселенческий строит и заправляет ПРИНИМАЮЩИЙ мир: у голодной колонии цехов нет
     if (!govFuelAvail(w, w, fk2)) return;
     const dkl = takeDock(null, w, w.sys, "liner", needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
-    const parts = dkl ? dkl.parts : govBuyShip(w, w, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
-    if (!parts) return;
+    if (!dkl) {
+      if ((w.ordered || 0) < 1) {
+        const bought = govBuyShip(w, w, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
+        if (bought && orderTransport("liner", bought, w.sys, w, null)) w.ordered = (w.ordered || 0) + 1;
+      }
+      return;
+    }
+    const parts = dkl.parts;
     govFuel(w, w, fk2);
     const qty = Math.min(src.wantOut, w.wantIn, 1.6);
     const takeFree = Math.min(src.pop.free, qty);
