@@ -848,7 +848,9 @@ var THRESHOLD = (function () {
     var fill = total / w.cap;
     // рост медленный: родина огромна, и без этого она заполнялась на треть к
     // первому перелёту, а должна оставаться почти пустой и бедной
-    var g = hungry ? -0.0025 : 0.0012 * (1 - fill);
+    // Голод должен КУСАТЬСЯ. При прежних 0.25% в месяц за четыре года голода мир
+    // терял 11% людей — то есть голодал часто (треть месяцев) и безнаказанно.
+    var g = hungry ? -0.004 : 0.0012 * (1 - fill);
     var add = total * g;
     if (add >= 0) p.free += add;
     else ["farm","prod","sci","free"].forEach(function (k) { p[k] = Math.max(0, p[k] + add * p[k] / total); });
@@ -871,13 +873,23 @@ var THRESHOLD = (function () {
   // (колония отделяется и становится игроком), только теперь её рождает голод.
   var EXTRA = ["#c9a0ff","#8ef0d0","#ffd27a","#ff9ecf","#9ad4ff","#d4ff7a","#ffb4a0","#a0ffe0"];
   var PIRATES = ["#ff5c5c","#ff8c42","#e04f8f","#ff3b6b"], pirateCount = 0;
-  function spawnCorp(w) {
+  // Имя зависит от того, какой жребий выпал миру (см. despair), поэтому
+  // приходит снаружи, а не собирается здесь: "Свободный" годится только для
+  // того исхода, где мир и правда ушёл из государства.
+  function freeName(w) {
+    return "Свободн" + (/[аяь]$/.test(w.body.name.replace(/ [IVX]+$/, "")) ? "ая " : "ый ") + w.body.name;
+  }
+  // origin — какой жребий выпал миру, bornAt — где это случилось. По имени
+  // происхождение НЕ определить: piracy() переименовывает контору в "Вольницу",
+  // и артель с независимостью становятся неотличимы. А home не годится как
+  // запись о родине: turnPirate при мятеже переносит логово на другой мир.
+  function spawnCorp(w, name, origin) {
     var founder = corps[w.founder >= 0 ? w.founder : 0];
-    var c = { id:corps.length, name:"Свободн" + (/[аяь]$/.test(w.body.name.replace(/ [IVX]+$/, "")) ? "ая " : "ый ") + w.body.name,
+    var c = { id:corps.length, name:name || freeName(w),
               color:EXTRA[(corps.length - TEMPLATE.length) % EXTRA.length], craft:"выживание",
               nerve:1.3, apt:{}, cash:Math.max(60, w.gov.cash * 0.8), known:{}, spent:{}, stock:{},
               target:null, order:null, branches:[], sold:0, bought:0, cool:0, embargo:{}, ask:{},
-              native:w.type.tech, home:w };
+              native:w.type.tech, home:w, origin:origin || "государство", bornAt:w };
     Object.keys(founder.apt).forEach(function (k) { c.apt[k] = founder.apt[k] * 0.8; });
     c.apt[w.type.tech] = 1.6;                        // свой мир они понимают лучше всех
     allTech().forEach(function (f) { c.spent[f.key] = 0; });
@@ -886,33 +898,70 @@ var THRESHOLD = (function () {
     corps.push(c);
     return c;
   }
-  function secessions() {
+  // ---- край -------------------------------------------------------------
+  // Четыре года голода подряд — и мир доходит до края. Что из этого выйдет,
+  // РЕШАЕТ ЖРЕБИЙ из трёх равных долей, а не лестница из ступеней. Раньше исход
+  // был один и предсказуемый (независимость, потом разбой), и игроку оставалось
+  // считать месяцы до известного события. Теперь кризис один, а лицо у него
+  // каждый раз другое, и страховаться приходится заранее:
+  //   артель      — люди скидываются в свою контору, мир остаётся в государстве
+  //                 и чужие цеха на месте. Дешевле всех, но конкурент появился.
+  //   вольница    — та же контора, но сразу в разбой. Мир формально ваш, только
+  //                 закона на нём больше нет, и всё, что летит мимо, в опасности.
+  //   государство — мир уходит целиком и забирает чужие филиалы. Самый дорогой
+  //                 исход: вы теряете и мир, и цеха на нём.
+  // Общее у всех трёх: касса мира скидывается в общее дело (остаётся пятая
+  // часть), счётчик голода обнуляется, второй раз жребий не тянут.
+  function despair() {
     worlds.forEach(function (w) {
-      if (w.founder < 0 || w.free || w.food.short < 84 || popOf(w) < 0.7) return;   // семь лет голода
-      var c = spawnCorp(w);
-      var lost = w.branches.map(function (b) { return corps[b.corp].name; });
-      // прежние филиалы отбираются: их хозяева не кормили этот мир
-      w.branches.forEach(function (b) {
-        var o = corps[b.corp];
-        o.branches = o.branches.filter(function (x) { return x !== b; });
-      });
-      w.branches = [];
-      openBranch(c, w, true);
-      w.gov.cash *= 0.2; w.founder = c.id; w.free = true; w.food.short = 0;
-      say("<b>" + w.body.name + "</b> объявил независимость после семи лет голода: " +
-          "теперь это компания «" + c.name + "». Филиалы " + (lost.length ? lost.join(", ") : "никого") + " отобраны.");
+      if (w.founder < 0 || w.edge || w.food.short < 48 || popOf(w) < 0.5) return;   // четыре года голода
+      w.edge = true;
+      var roll = Math.random(), c;
+      if (roll < 0.3333) {
+        c = spawnCorp(w, "Артель " + w.body.name, "артель");
+        openBranch(c, w, true);
+        say("<b>" + w.body.name + "</b> четыре года голодает — и люди скинулись в свою контору: " +
+            "теперь это «" + c.name + "». Мир остался в государстве, чужие цеха на месте.");
+      } else if (roll < 0.6667) {
+        c = spawnCorp(w, "Вольница " + w.body.name, "вольница");
+        openBranch(c, w, true);
+        c.pirate = true; c.craft = "разбой"; c.nerve = 1.6;
+        c.color = PIRATES[pirateCount++ % PIRATES.length];
+        say("<b>" + w.body.name + "</b> четыре года голодает — и берётся за оружие, не дожидаясь никого: " +
+            "теперь это «" + c.name + "», и всё, что летит мимо " + systems[w.sys].name + ", в опасности. " +
+            "Мир при этом из государства не вышел.");
+      } else {
+        c = spawnCorp(w, null, "государство");
+        var lost = w.branches.map(function (b) { return corps[b.corp].name; });
+        // прежние филиалы отбираются: их хозяева не кормили этот мир
+        w.branches.forEach(function (b) {
+          var o = corps[b.corp];
+          o.branches = o.branches.filter(function (x) { return x !== b; });
+        });
+        w.branches = [];
+        openBranch(c, w, true);
+        w.founder = c.id; w.free = true;
+        say("<b>" + w.body.name + "</b> объявил независимость после четырёх лет голода: " +
+            "теперь это компания «" + c.name + "». Филиалы " + (lost.length ? lost.join(", ") : "никого") + " отобраны.");
+      }
+      w.gov.cash *= 0.2; w.food.short = 0;
     });
   }
 
-  // Поставщик — мир с наибольшим излишком сверх двухмесячного запаса. Партия
-  // ЧАСТИЧНАЯ: везём сколько есть, а не ждём, пока накопится на всю. Раньше
-  // требовали излишек на 36 месяцев, дом столько не держал, заказ срывался
-  // почти каждый месяц — и бесплодные колонии вымирали при полной казне.
+  // Поставщик — мир с наибольшим излишком СВЕРХ ПОЛУГОДОВОГО ЗАПАСА на себя.
+  // Партия ЧАСТИЧНАЯ: везём сколько есть, а не ждём, пока накопится на всю.
+  // Раньше требовали излишек на 36 месяцев, дом столько не держал, заказ
+  // срывался почти каждый месяц — и бесплодные колонии вымирали при полной
+  // казне. Обратная крайность была не лучше: при резерве в два месяца родина
+  // отдавала последнее и кормила всю галактику без перебоев. Полгода — это
+  // мера: запас родины ходит от 12 до 40 месяцев, но в плохие годы падает к
+  // нулю, и тогда экспорт замирает сам собой. Голод должен случаться не от
+  // безденежья, а от того, что еды физически нет.
   function surplusWorld(need, from) {
     var best = null, bs = 0;
     worlds.forEach(function (w) {
       if (w === from) return;
-      var extra = w.food.stock - popOf(w) * 2;
+      var extra = w.food.stock - popOf(w) * 6;
       if (extra > bs) { bs = extra; best = w; }
     });
     return bs >= Math.min(need, 4) ? { w:best, extra:bs } : null;
@@ -981,7 +1030,11 @@ var THRESHOLD = (function () {
       if (!pickSrc) return;
       var src = pickSrc.w, qty = Math.max(1, Math.min(want, Math.floor(pickSrc.extra)));
       if (!canTravel(src.sys, w.sys)) return;          // дороги нет — мир голодает
-      var price = qty * 1.2;
+      // Цена РЫНОЧНАЯ, а не плоские 1.2: у голодного поставщика еда дорогая, и
+      // каждый вывоз дорожит её ещё на 4% (см. ниже). Раньше food.price жила
+      // сама по себе и в сделке не участвовала — кормить было одинаково дёшево
+      // всегда, сколько бы рейсов ни ушло.
+      var price = qty * src.food.price;
       if (w.gov.cash < price + 10) return;
       var fk = src.sys === w.sys ? "fuel" : "sfuel";
       if (!govFuelAvail(w, src, fk)) return;                 // без горючего хлебовоз не полетит
@@ -1098,7 +1151,7 @@ var THRESHOLD = (function () {
       if (!pickSrc) return;
       var src = pickSrc.w, qty = Math.max(1, Math.min(want, Math.floor(pickSrc.extra)));
       if (!canTravel(src.sys, w.sys)) return;
-      var price = qty * 1.2, fk = src.sys === w.sys ? "fuel" : "sfuel";
+      var price = qty * src.food.price, fk = src.sys === w.sys ? "fuel" : "sfuel";
       if (payer.cash < price + 60) return;
       var dk = takeDock(payer, null, src.sys, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
       var parts = dk ? dk.parts : corpBuyShip(payer, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
@@ -1150,22 +1203,23 @@ var THRESHOLD = (function () {
   }
 
   // ---- вольница ---------------------------------------------------------
-  // Независимый мир, который голодает ещё четыре года ПОСЛЕ отделения, бросает
-  // торговать и уходит в разбой: вольница сидит у своей звезды и перехватывает
-  // всё, что летит мимо — еду везёт домой, детали на склад, переселенцев
-  // забирает. Это единственная сила в игре, которая ОТНИМАЕТ, а не покупает.
+  // Второй заход. Жребий на краю (despair) уже решил первый исход, но голод на
+  // этом не кончается: артель или свободный мир, который голодает ещё три года,
+  // тоже берётся за оружие. Вольница сидит у своей звезды и перехватывает всё,
+  // что летит мимо — еду везёт домой, детали на склад, переселенцев забирает.
+  // Это единственная сила в игре, которая ОТНИМАЕТ, а не покупает.
   // Прыжковые и открыватели не трогает: с них нечего взять.
   function piracy() {
     corps.forEach(function (p) {
       if (!p.home || p.pirate) return;
-      // пять лет голода после независимости и жребий: не всякий голодный мир
-      // становится разбойником, но чем дольше голод, тем вернее
-      if (p.home.food.short < 60 || popOf(p.home) < 0.5 || Math.random() > 0.03) return;
+      // три года голода после первого жребия и монетка: не всякий голодный мир
+      // берётся за оружие, но чем дольше голод, тем вернее
+      if (p.home.food.short < 36 || popOf(p.home) < 0.5 || Math.random() > 0.03) return;
       p.pirate = true; p.craft = "разбой"; p.nerve = 1.6;
       p.name = "Вольница " + p.home.body.name;
       p.color = PIRATES[pirateCount++ % PIRATES.length];
       p.home.food.short = 0;
-      say("<b>" + p.home.body.name + "</b> голодает и после независимости — и уходит в разбой: теперь это «" +
+      say("<b>" + p.home.body.name + "</b> голодает и дальше — и уходит в разбой: теперь это «" +
           p.name + "», и всё, что летит мимо " + systems[p.home.sys].name + ", в опасности.");
     });
     corps.forEach(function (p) {
@@ -2183,7 +2237,7 @@ var THRESHOLD = (function () {
     economy(); research(); tickCache.dev = new Map(); tickCache.devBest = null;
     produce(); trade(); stalledOrders(); stalledProjects();
     if (tick % 3 === 0) { patentsExpire(); tickCache.dev = new Map(); tickCache.devBest = null; }
-    if (tick % 6 === 0) { foodRun(); corpRelief(); migrationRun(); secessions(); }
+    if (tick % 6 === 0) { foodRun(); corpRelief(); migrationRun(); despair(); }
     piracy();
     if (tick % 12 === 0) { reviewOrders(); reviewProjects(); branchTrade(); events(); }
     assemble(); moveShips(); ventureIncome();
