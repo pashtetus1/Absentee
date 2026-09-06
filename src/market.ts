@@ -218,8 +218,13 @@ export function stalledProjects(): void {
 export function stalledOrders(): void {
   corps.forEach((c) => {
     if (!c.order) return;
+    // Летящее вычитается: деталь в пути — это не нехватка, а доставка. Рейс идёт
+    // 140-190 месяцев, порог сворачивания — 72, и без этой поправки заказ, у
+    // которого всё уже куплено и летит, объявлялся застрявшим, сворачивался, а
+    // компания покупала те же детали заново: четыре бура в воздухе вместо двух.
+    const fly = c.order.fly || {};
     const missing = COMPS.filter((f) => {
-      return (c.order.need[f.key] || 0) - (c.order.got[f.key] || 0) > 0;
+      return (c.order.need[f.key] || 0) - (c.order.got[f.key] || 0) - (fly[f.key] || 0) > 0;
     });
     if (!missing.length) { c.order.wait = 0; return; }
     c.order.wait = (c.order.wait || 0) + 1;

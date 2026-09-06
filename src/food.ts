@@ -20,6 +20,18 @@ import { rnd } from "./rng";
 
 import { harvestOf } from "./labour";
 
+// Резерв мира — сколько месяцев прокорма он держит про запас. Одно число на
+// два решения, и вокруг него ЗАЗОР: отдают только сверх 120% резерва, просят
+// только ниже 60%. Раньше пороги были разными по построению (отдавал сверх
+// шести месяцев, просил ниже двенадцати), полосы перекрывались, и мир попадал
+// под оба условия сразу. Зазор разводит их вдвое: между "могу отдать" и "надо
+// просить" лежит пустая полоса, в которой мир не делает ничего.
+export const RESERVE = 18;          // месяцев прокорма
+export const GIVE_OVER = 1.2;       // отдаёт лишь то, что сверх этой доли резерва
+export const ASK_UNDER = 0.6;       // просит, когда запас упал ниже этой доли
+
+export function reserveOf(w: World): number { return popOf(w) * RESERVE; }
+
 export function surplusWorld(need: number, from: World): { w: World; extra: number; } {
   let best: World = null, bs = 0;
   worlds.forEach((w) => {
@@ -32,7 +44,7 @@ export function surplusWorld(need: number, from: World): { w: World; extra: numb
     // мир в дефиците не может оказаться источником, а значит не может быть
     // донором и просителем одновременно.
     if (harvestOf(w) < popOf(w)) return;
-    const extra = w.food.stock - popOf(w) * 6;
+    const extra = w.food.stock - reserveOf(w) * GIVE_OVER;
     if (extra > bs) { bs = extra; best = w; }
   });
   return bs >= Math.min(need, 4) ? { w:best, extra:bs } : null;
@@ -90,12 +102,18 @@ export function dispatch(from: World, to: World, kind: string, qty: number, part
 
 export function foodRun(): void {
   worlds.forEach((w) => {
-    const total = popOf(w), grown = w.pop.farm * w.type.farm, deficit = total - grown;
+    // Урожай спрашиваем у harvestOf — у той же функции, которой мир кормится на
+    // самом деле и по которой чуть ниже решается, может ли он быть донором.
+    // Пока здесь стояла своя грубая оценка (фермеры на урожайность типа, без
+    // освоения), освоенный мир проходил ОБЕ проверки сразу: по настоящему
+    // урожаю кормил себя и потому отдавал соседу, а по грубой числился в
+    // дефиците и тут же просил у него же. Отсюда и брались встречные хлебовозы.
+    const total = popOf(w), grown = harvestOf(w), deficit = total - grown;
     if (deficit <= 0.05) return;
     const incoming = voyages.reduce((a, v) => { return a + (v.kind === "food" && v.to === w ? v.qty : 0); }, 0);
     // порог и партия под долгие рейсы: хлебовоз идёт годами, и заказывать
     // надо задолго до того, как склад опустеет
-    if (w.food.stock + incoming > total * 12) return;
+    if (w.food.stock + incoming > reserveOf(w) * ASK_UNDER) return;
     const want = Math.ceil(deficit * 36);
     const pickSrc = surplusWorld(want, w);
     if (!pickSrc) return;

@@ -82,23 +82,25 @@ async function main(): Promise<void> {
   const pairs = new Set<string>(); parts.forEach((p) => p.pairs.forEach((x) => pairs.add(x)));
   const n = sum("games"), food = sum("food"), crossed = sum("crossed");
 
-  console.log(file + " · " + n + " партий по " + YEARS + " лет · " + jobs + " процессов · " +
-              ((Date.now() - started) / 1000).toFixed(1) + " с");
-  // при малом числе партий — каждая строкой: так видно разброс, а не только среднее
+  const each = parts.flatMap((p) => p.each).sort((a, b) => a.seed - b.seed);
+  const clean = each.filter((g) => g.crossed === 0).length;
+
+  console.log(file + " · " + n + " партий по " + YEARS + " лет · " + ((Date.now() - started) / 1000).toFixed(1) + " с");
+  console.log("");
+  // при малом числе партий — каждая строкой: так виден разброс, а не только среднее
   if (n <= 16) {
-    const each = parts.flatMap((p) => p.each).sort((a, b) => a.seed - b.seed);
-    console.log("  сид | миров | людей | голодают | хлебовозов | навстречу");
-    each.forEach((g) => console.log("  " + String(g.seed).padStart(3) + " | " + String(g.worlds).padStart(5) +
-      " | " + String(Math.round(g.pop)).padStart(5) + " | " + String(g.hungry).padStart(8) +
-      " | " + String(g.food).padStart(10) + " | " + String(g.crossed).padStart(9)));
+    console.log("  сид  планет   людей   голодают   хлебовозов   из них навстречу");
+    each.forEach((g) => console.log(
+      "  " + String(g.seed).padStart(3) + String(g.worlds).padStart(8) + String(Math.round(g.pop)).padStart(8) +
+      String(g.hungry).padStart(11) + String(g.food).padStart(13) + String(g.crossed).padStart(19)));
+    console.log("");
   }
-  console.log("  на 300-м году в среднем: миров " + (sum("worlds") / n).toFixed(1) +
+  console.log("  в среднем на партию: планет " + (sum("worlds") / n).toFixed(1) +
               ", людей " + (sum("pop") / n).toFixed(0) +
-              ", голодают " + (sum("hungry") / n).toFixed(1));
-  console.log("  хлебовозов всего " + food + " (" + (food / n).toFixed(1) + " на партию)");
-  console.log("  из них летели навстречу другому: " + crossed +
-              " (" + (crossed / n).toFixed(2) + " на партию, " + (100 * crossed / Math.max(1, food)).toFixed(2) + "%)" +
-              " на " + pairs.size + " маршрутах");
+              ", голодают " + (sum("hungry") / n).toFixed(1) +
+              ", хлебовозов " + (food / n).toFixed(0));
+  console.log("  встречных хлебовозов за все партии: " + crossed +
+              (crossed ? "  (в " + clean + " партиях из " + n + " — ни одного)" : ""));
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
