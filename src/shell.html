@@ -39,6 +39,12 @@
   .panel.below { margin-top:14px; }
   .block { padding:13px 15px; border-bottom:1px solid var(--line); }
   .block:last-child { border-bottom:none; }
+  /* Единственное место, где игра ЖДЁТ ответа: должно быть видно с первого
+     взгляда, иначе предложение теряется среди сводок и рычагов. */
+  .block.ask { background:#1a2136; border-left:3px solid var(--gold); }
+  .block.ask .lab { color:var(--gold); }
+  .decide { padding:5px 12px; font-size:13px; }
+  .decide[data-ok="1"] { background:var(--gold); color:#141a29; border-color:var(--gold); font-weight:600; }
   .lab { font-size:12px; color:var(--dim); margin-bottom:5px; }
   .figures { display:flex; gap:18px; }
   .fig { flex:1 1 auto; }
@@ -200,6 +206,11 @@
       <div class="note" id="stats" style="margin-top:7px"></div>
     </div>
 
+    <div class="block ask" id="propblock" hidden>
+      <div class="lab">Решение государства</div>
+      <div id="proposals"></div>
+    </div>
+
     <div class="block">
       <div class="lab">Что выбрано</div>
       <div id="inspect"></div>
@@ -255,11 +266,6 @@
       <div class="sliderhead"><div class="lab" style="margin:0">Пособие свободным</div><div class="sval" id="doleval">0.6</div></div>
       <input type="range" id="dole" min="0" max="15" step="1" value="3" aria-label="Пособие">
       <div class="hint" id="dolehint"></div>
-    </div>
-
-    <div class="block" id="propblock" hidden>
-      <div class="lab">Предложения</div>
-      <div id="proposals"></div>
     </div>
 
     <div class="block">

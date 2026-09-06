@@ -315,7 +315,7 @@ export function panels(): void {
   el("propblock").hidden = proposals.length === 0;
   el("proposals").innerHTML = proposals.map((p) => {
     const lead = corps[p.lead], ask = Math.round(p.cost * (1 - p.share));
-    const status = p.state === "pending" ? "ждёт решения " + Math.max(0, p.until - S.tick) + " мес"
+    const status = p.state === "pending" ? "ждёт вашего решения"
                  : p.state === "approved" ? "одобрено, собирают" : "строится, " + p.left + " мес";
     const head = '<div class="srow"><span class="rname">Верфь у ' + p.world.body.name + '</span>' +
                  '<span class="rval">' + status + '</span></div>';
@@ -325,10 +325,13 @@ export function panels(): void {
                  (p.attempt > 1 ? ' · попытка ' + p.attempt : '') + '</div>';
     const parts = '<div class="rmeta">детали: ' + Object.keys(p.need).map((k) =>
                   compOf(k).short + ' ' + (p.got[k] || 0) + '/' + p.need[k]).join(', ') + '</div>';
+    const why = p.state !== "pending" ? '' :
+      '<div class="rmeta" style="color:var(--dim);margin-top:4px">Без верфи компаниям негде строить: ' +
+      'ни кораблей, ни платформ, ни колоний. Откажете — вернутся позже, попросив у казны меньше.</div>';
     const btns = p.state !== "pending" ? '' :
       '<div style="margin-top:6px"><button class="decide" data-prop="' + p.id + '" data-ok="1">Одобрить</button> ' +
       '<button class="decide" data-prop="' + p.id + '" data-ok="0">Отказать</button></div>';
-    return '<div class="row">' + head + meta + parts + btns + '</div>';
+    return '<div class="row">' + head + meta + parts + why + btns + '</div>';
   }).join("");
 
   el("feed").innerHTML = feed.slice(0, 10).map((f) => {

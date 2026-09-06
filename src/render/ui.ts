@@ -3,8 +3,10 @@
 import { setTickMs, tickMs } from "../clock";
 import { markName, markOf, moveName } from "../data";
 import { loadLevers, saveLevers } from "../levers";
+import { seedOf } from "../rng";
 import { build } from "../setup";
-import { L, U, Y, cam, hits, patents, resetCam, systems, worlds } from "../state";
+import { decideById } from "../shipyard";
+import { L, U, Y, cam, hits, patents, proposals, resetCam, systems, worlds } from "../state";
 import { allTech, techOf } from "../tech";
 import { step } from "../tick";
 import { clamp } from "../util";
@@ -12,12 +14,7 @@ import { CH, CW, cv, cx, setCanvas } from "./canvas";
 import { icon } from "./models";
 import { Ctl, el, panels } from "./panels";
 import { frame } from "./scene";
-
 import type { Hit } from "../types";
-
-import { seedOf } from "../rng";
-
-import { decideById } from "../shipyard";
 
 export function scene(): void {
   const map = U.view.mode === "map";
@@ -96,6 +93,24 @@ function seedToUrl(): void {
   const tail = "#seed=" + seedOf();
   // replaceState не всегда разрешён для file://, поэтому с запасным путём
   try { history.replaceState(null, "", tail); } catch (e) { location.hash = tail; }
+}
+
+// Новое предложение останавливает время: без верфи экономика стоит вовсе, и
+// пропущенное решение выглядит как сломанная игра. Пауза только на ПЕРВОЕ
+// появление каждого предложения, чтобы не дёргать на каждом кадре.
+export function togglePause(): void {
+  U.running = !U.running;
+  const b = el("play");
+  b.textContent = U.running ? "Пауза" : "Пуск";
+  b.className = U.running ? "live" : "";
+  if (U.running) run(); else clearInterval(U.timer);
+}
+
+let seenProposals = 0;
+export function watchProposals(): void {
+  const pending = proposals.filter((p) => p.state === "pending").length;
+  if (pending > seenProposals && U.running) togglePause();
+  seenProposals = pending;
 }
 
 export function bindUI(): void {
@@ -196,13 +211,6 @@ export function bindUI(): void {
   el("dole").addEventListener("input", (e: Event) => {
     L.dole = +(e.target as Ctl).value / 5; el("doleval").textContent = L.dole.toFixed(1); dolehint(); saveLevers();
   });
-  function togglePause(): void {
-    U.running = !U.running;
-    const b = el("play");
-    b.textContent = U.running ? "Пауза" : "Пуск";
-    b.className = U.running ? "live" : "";
-    if (U.running) run(); else clearInterval(U.timer);
-  }
   el("play").addEventListener("click", togglePause);
   // Прилипшую снизу кнопку на айфоне НАКРЫВАЕТ нижняя панель браузера.
   // position:fixed отсчитывается от layout-вьюпорта, а тот у мобильного

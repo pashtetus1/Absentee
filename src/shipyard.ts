@@ -6,7 +6,9 @@
 //
 // Компания, которой негде строить, открывает предложение: своя планета, доля,
 // которую компании готовы внести деньгами, и детали, которые они свезут.
-// Остальное — казна. Предложение висит PROPOSAL_LIFE месяцев и ждёт игрока.
+// Остальное — казна. Предложение лежит на столе, пока его не приняли или пока
+// другая компания не перебила его БОЛЕЕ ВЫГОДНЫМ — таким, где казна платит
+// меньше. Срока жизни у него нет: это решение ждёт человека, а не тик.
 // Одобрено — казна докладывает остаток, когда может, детали едут на планету,
 // планета строит. Отклонено или просрочено — взносы возвращаются, и через
 // RETRY месяцев компании приходят снова, подняв свою долю: ещё не построенная
@@ -14,6 +16,13 @@
 //
 // Деньги за стройку получает планета: верфь не строится верфью, её строит
 // планета, и её казне за это платят.
+
+
+// Предложение ЖДЁТ ответа сколько угодно. Раньше оно жило 24 игровых месяца —
+// то есть около семи секунд реального времени на x1 и треть секунды на x20:
+// игрок физически не успевал его увидеть, экономика стояла без верфи, и партия
+// выглядела сломанной. Срок жизни в игровых месяцах для решения, которое ждёт
+// ЧЕЛОВЕКА, — ошибка меры: тут время идёт по настенным часам, а не по тику.
 
 import { vtype } from "./data";
 import { rnd } from "./rng";
@@ -23,8 +32,8 @@ import { dist } from "./util";
 import { addStock } from "./world";
 import type { Corp, Part, Proposal, Shipyard, World } from "./types";
 
-export const PROPOSAL_LIFE = 24;            // месяцев висит, ожидая игрока
-export const RETRY_MIN = 36, RETRY_MAX = 60; // через сколько предложат снова
+export const RETRY_MIN = 36, RETRY_MAX = 60; // после ОТКАЗА государства — через сколько вернутся
+export const OUTBID_EDGE = 0.9;             // перебить можно, только став дешевле для казны на десятину
 export const SHARE_START = 0.4;             // доля компаний в первой попытке
 export const SHARE_STEP = 0.1;              // на сколько растёт с каждым отказом
 export const SHARE_CAP = 0.7;               // больше компании не дадут
@@ -107,6 +116,9 @@ export function reviewProposals(): void {
     // компания хотела сделать, но не нашла верфи (needYard)
     if (!(c.order || c.needYard) || c.pirate || c.cash < 200) return;
     if (proposals.some((p) => p.lead === c.id && p.state !== "done")) return;
+    // Пока на столе лежит нерешённое предложение, новое имеет смысл только
+    // если оно ДЕШЕВЛЕ для казны: иначе игрок утонет в стопке равных бумаг.
+    const onTable = proposals.find((p) => p.state === "pending");
     const homeSys = c.branches.length ? c.branches[0].world.sys : 0;
     // Есть верфь, и очередь в ней короткая — незачем строить ещё. Длинная
     // очередь — тот самый повод: без него в партии навсегда оставалась одна
@@ -116,24 +128,33 @@ export function reviewProposals(): void {
     let w: World = null, top = -1;
     c.branches.forEach((b) => {
       const x = b.world;
-      if (x.yard || activeAt(x) || (x.yardRetryAt || 0) > S.tick) return;
+      // Чужое предложение на этой же планете не мешает: перебить его можно,
+      // и ниже оно снимается, если новое дешевле для казны. Своё — мешает.
+      const act = activeAt(x);
+      if (x.yard || (act && act.state !== "pending") || (x.yardRetryAt || 0) > S.tick) return;
       if (x.pop.prod < 2) return;                 // без рабочих рук верфь стояла бы вечно
       if (x.pop.prod > top) { top = x.pop.prod; w = x; }
     });
     if (!w) return;
     const tries = w.yardTries || 0;
-    const share = Math.min(SHARE_CAP, SHARE_START + SHARE_STEP * tries);
     const cost = yardCost(w);
+    // Доля компаний зависит от КОШЕЛЬКА ведущего: богатая кладёт больше и тем
+    // перебивает чужое предложение. Без этого доля была одна на всех, цена для
+    // казны совпадала, и торг между компаниями не начинался никогда.
+    const afford = (c.cash * 0.4) / cost;
+    const share = Math.max(SHARE_START + SHARE_STEP * tries, Math.min(SHARE_CAP, afford));
     const put = Math.min(c.cash * 0.4, cost * share);
     if (put < 40) return;
+    if (onTable && cost * (1 - share) >= askOf(onTable) * OUTBID_EDGE) return;
     c.cash -= put;
     proposals.push({
       id: ++seq, world: w, lead: c.id, cost: cost, purse: put, share: share, stateSum: 0,
       need: { ...YARD_PARTS }, got: {}, parts: [],
       backers: [{ corp: c.id, sum: put }],
-      state: "pending", since: S.tick, until: S.tick + PROPOSAL_LIFE,
+      state: "pending", since: S.tick, until: 0,        // срока нет: ждёт человека
       attempt: tries + 1, left: YARD_BUILD
     });
+    if (onTable) outbid(onTable, proposals[proposals.length - 1]);
     say("<b>" + c.name + "</b> предлагает построить верфь у " + w.body.name + ": компании дадут " +
         Math.round(share * 100) + "%, от казны просят " + Math.round(cost * (1 - share)) +
         (tries ? " (попытка " + (tries + 1) + ")" : "") + ".");
@@ -197,6 +218,18 @@ function retryLater(p: Proposal, why: string): void {
       (p.share < SHARE_CAP ? ", готовые дать больше." : "."));
 }
 
+/** Во сколько предложение обходится казне: по этому их и сравнивают. */
+export function askOf(p: Proposal): number { return p.cost * (1 - p.share); }
+
+/** Снять предложение, которое перебили более выгодным. */
+function outbid(old: Proposal, better: Proposal): void {
+  refund(old);
+  old.state = "declined";
+  say("Предложение по верфи у " + old.world.body.name + " (казне " + Math.round(askOf(old)) +
+      ") снято: <b>" + corps[better.lead].name + "</b> просит меньше — " + Math.round(askOf(better)) +
+      " за верфь у " + better.world.body.name + ".");
+}
+
 /** Игрок (или политика стенда) решает судьбу предложения. */
 export function decide(p: Proposal, ok: boolean): void {
   if (p.state !== "pending") return;
@@ -222,7 +255,7 @@ export function proposalsTick(): void {
       if (L.approve === "always") decide(p, true);
       else if (L.approve === "never") decide(p, false);
       else if (L.approve === "random") decide(p, rnd() < 0.5);
-      else if (S.tick >= p.until) retryLater(p, "государство не ответило в срок");
+      // в manual ждём человека: не протухает
       return;
     }
     if (p.state === "approved") {

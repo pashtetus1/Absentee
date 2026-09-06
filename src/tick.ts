@@ -11,10 +11,10 @@ import { moveShips } from "./motion";
 import { assemble, branchTrade, reviewOrders, reviewProjects } from "./orders";
 import { corpRelief, events, piracy } from "./relief";
 import { panels } from "./render/panels";
+import { watchProposals } from "./render/ui";
 import { patentsExpire, research } from "./science";
-import { L, S, U, headless, resetTickCache, tickCache, worlds } from "./state";
-
 import { proposalsTick, reviewProposals } from "./shipyard";
+import { L, S, U, headless, resetTickCache, tickCache, worlds } from "./state";
 
 export function step(): void {
   S.tick++; markTick(); S.yearNow = Math.floor(S.tick / 12);
@@ -27,6 +27,7 @@ export function step(): void {
   piracy();
   if (S.tick % 12 === 0) { reviewOrders(); reviewProjects(); reviewProposals(); branchTrade(); events(); }
   assemble(); moveShips(); ventureIncome();
+  if (!headless) watchProposals();
   if (!headless && (L.speed <= 4 || Date.now() - U.lastPanel > 120)) { panels(); U.lastPanel = Date.now(); }
 }
 
