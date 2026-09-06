@@ -20,6 +20,19 @@ export const PIRATES = ["#ff5c5c","#ff8c42","#e04f8f","#ff3b6b"];
 // Имя зависит от того, какой жребий выпал миру (см. despair), поэтому
 // приходит снаружи, а не собирается здесь: "Свободный" годится только для
 // того исхода, где мир и правда ушёл из государства.
+// Ватага зовётся по своему логову — так игрок сразу знает, у какой звезды её
+// ждать. Но имя обязано быть РАЗНЫМ: в списке контор три «Вольницы Вьюга»
+// неразличимы, и непонятно, кого из них ты только что обидел.
+const ORD = ["", "Вторая ", "Третья ", "Четвёртая ", "Пятая "];
+export function pirateName(w: World): string {
+  const tail = "ольница " + w.body.name;
+  for (let i = 0; i < ORD.length; i++) {
+    const n = i ? ORD[i] + "в" + tail : "В" + tail;
+    if (!corps.some((c) => c.name === n)) return n;
+  }
+  return "Вольница " + w.body.name + " " + corps.length;
+}
+
 export function freeName(w: World): string {
   return "Свободн" + (/[аяь]$/.test(w.body.name.replace(/ [IVX]+$/, "")) ? "ая " : "ый ") + w.body.name;
 }
@@ -67,7 +80,7 @@ export function despair(): void {
       say("<b>" + w.body.name + "</b> четыре года голодает — и люди скинулись в свою контору: " +
           "теперь это «" + c.name + "». Мир остался в государстве, чужие цеха на месте.");
     } else if (roll < 0.6667) {
-      c = spawnCorp(w, "Вольница " + w.body.name, "вольница");
+      c = spawnCorp(w, pirateName(w), "вольница");
       openBranch(c, w, true);
       c.pirate = true; c.craft = "разбой"; c.nerve = 1.6;
       c.color = PIRATES[S.pirateCount++ % PIRATES.length];

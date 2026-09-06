@@ -1,5 +1,5 @@
 
-import { PIRATES } from "./colony";
+import { PIRATES, pirateName } from "./colony";
 import { compOf, vtype } from "./data";
 import { corpBuyShip, takeDock } from "./docks";
 import { dispatch, surplusWorld } from "./food";
@@ -61,11 +61,28 @@ export function corpRelief(): void {
 // хоть кто-то должен быть вне закона.
 export function turnPirate(c: Corp, lair: World, why: string): void {
   c.pirate = true; c.craft = "разбой"; c.nerve = 1.6; c.home = lair;
-  c.name = "Вольница " + lair.body.name;
+  c.name = pirateName(lair);
   c.color = PIRATES[S.pirateCount++ % PIRATES.length];
   say("<b>" + lair.body.name + "</b>: " + why + " — теперь это «" + c.name + "», и всё, что летит мимо " +
       systems[lair.sys].name + ", в опасности.");
 }
+// Куда уходит бунтующая контора. НЕ на столицу: логово под окнами государства
+// выглядело нелепее всего — а именно оно и выпадало чаще прочих, потому что
+// «самый дальний филиал» на деле означал последний открытый, и у конторы,
+// которая дальше родины ещё не шагнула, им была родина. И не туда, где уже
+// сидит чужая ватага: два логова у одной звезды — это две одинаковые строки
+// в списке контор, а не две силы на карте.
+function lairFor(c: Corp): World {
+  let best: World = null, far = -1;
+  c.branches.forEach((b) => {
+    const w = b.world;
+    if (w === S.home || corps.some((p) => { return p.pirate && p.home === w; })) return;
+    const d = systems[w.sys].depth;
+    if (d > far) { far = d; best = w; }
+  });
+  return best;
+}
+
 export function events(): void {
   worlds.forEach((w) => {
     if (w.blight <= 0 && rnd() < 0.06) {
@@ -77,12 +94,22 @@ export function events(): void {
       say("Эпидемия на " + w.body.name + ": потеряно 15% населения.");
     }
   });
-  const anyPirate = corps.some((c) => { return c.pirate; });
-  const chance = S.moveKnown && !anyPirate ? 0.25 : 0.003;
+  // Первый разбойник по-прежнему гарантирован: к началу перелётов кто-то
+  // должен быть вне закона. Дальше — только с ПОВОДОМ. Монетка без повода
+  // (0.003 в месяц, то есть 3.5% в год) за триста лет делала пиратом каждого:
+  // к 168-му году в разбое было 55% контор, включая четыре стартовые из пяти.
+  // Флаг считаем на ходу, а не один раз до цикла: иначе в один месяц уходили
+  // в разбой сразу несколько контор, все с гарантированным шансом.
+  let outlaw = corps.some((c) => { return c.pirate; });
   corps.forEach((c) => {
-    if (c.pirate || !c.branches.length || rnd() > chance) return;
-    const lair = c.branches[c.branches.length - 1].world;      // самый дальний филиал
+    if (c.pirate || !c.branches.length) return;
+    const first = S.moveKnown && !outlaw;
+    if (rnd() > (first ? 0.25 : 0.008)) return;
+    const lair = lairFor(c);
+    if (!lair) return;
+    if (!first && lair.food.short < 36) return;    // повод: три года голода на том филиале
     turnPirate(c, lair, "мятеж в " + c.name);
+    outlaw = true;
   });
 }
 
@@ -100,7 +127,7 @@ export function piracy(): void {
     // берётся за оружие, но чем дольше голод, тем вернее
     if (p.home.food.short < 36 || popOf(p.home) < 0.5 || rnd() > 0.03) return;
     p.pirate = true; p.craft = "разбой"; p.nerve = 1.6;
-    p.name = "Вольница " + p.home.body.name;
+    p.name = pirateName(p.home);
     p.color = PIRATES[S.pirateCount++ % PIRATES.length];
     p.home.food.short = 0;
     say("<b>" + p.home.body.name + "</b> голодает и дальше — и уходит в разбой: теперь это «" +
