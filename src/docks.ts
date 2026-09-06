@@ -11,7 +11,7 @@ import { rnd6 } from "./util";
 import { addStock, stockAt } from "./world";
 import type { Corp, Dock, Part, Voyage, World } from "./types";
 
-export function dockShip(v: Voyage) {
+export function dockShip(v: Voyage): void {
   if (v.kind !== "food" && v.kind !== "pops") return;
   var s = systems[v.to.sys];
   var d = { kind: v.kind === "pops" ? "liner" : "cargo", parts:v.parts || [], captain:v.captain,
@@ -25,18 +25,18 @@ export function dockShip(v: Voyage) {
   var here = docks.filter(function (x) { return x.world === v.to; });
   if (here.length > 6) docks.splice(docks.indexOf(here[0]), 1);
 }
-export function dockValue(d: Dock) {
+export function dockValue(d: Dock): number {
   return d.parts.reduce(function (a, p) { return a + market[p.k].price; }, 0) * 0.6;
 }
 // payer — компания (corp) или мир (gov); берёт корабль нужного типа в системе
 // need — что обязан нести корабль для ЭТОГО рейса: под движками между звёздами
 // без двигателя не уйти, и корабль, пришедший внутрисистемным рейсом, не годится
-export function fits(parts: Part[], need: Record<string, number>) {
+export function fits(parts: Part[], need: Record<string, number>): boolean {
   var have: Record<string, number> = {};
   parts.forEach(function (p) { have[p.k] = (have[p.k] || 0) + 1; });
   return Object.keys(need).every(function (k) { return (have[k] || 0) >= need[k]; });
 }
-export function takeDock(payerCorp: Corp | null, payerWorld: World | null, sys: number, kind: string, need: Record<string, number>) {
+export function takeDock(payerCorp: Corp | null, payerWorld: World | null, sys: number, kind: string, need: Record<string, number>): Dock {
   var own: Dock = null, other: Dock = null;
   docks.forEach(function (d) {
     if (d.sys !== sys || d.kind !== kind) return;
@@ -62,7 +62,7 @@ export function takeDock(payerCorp: Corp | null, payerWorld: World | null, sys: 
 // покупает еду и хлебовоз и шлёт их — из корысти, не из милосердия. Семь лет
 // голода — и мир отделяется, забирая филиал; дешевле накормить. Помощь идёт
 // не чаще раза в два года на мир, и только пока у компании есть деньги.
-export function corpBuyShip(c: Corp, at: World, need: Record<string, number>) {
+export function corpBuyShip(c: Corp, at: World, need: Record<string, number>): { k: string; from: number; }[] {
   var taken: Part[] = [], ok = true;
   Object.keys(need).forEach(function (k) {
     for (var i = 0; i < need[k]; i++) {

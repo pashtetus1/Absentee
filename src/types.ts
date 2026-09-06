@@ -71,7 +71,7 @@ export interface Sys {
   depth: number;                  // удалённость от родины, "переход N"
   pulse: number;
   bodies: Planet[]; rocks: Rock[]; ventures: Venture[];
-  ships: Ship[]; yards: Yard[]; stations: any[];
+  ships: Ship[]; yards: Yard[]; stations: Station[];
   mines: number;
   belt: boolean;                  // есть ли пояс астероидов
   gate: Gate;
@@ -97,10 +97,14 @@ export interface World {
   cap: number; cap0: number;
   pop: Pop; wage: Wage; food: Food;
   gov: { cash: number };
-  slots: number; rights: any[]; branches: Branch[];
+  slots: number;
+  rights: number[];                // номера компаний, получивших право на филиал
+  branches: Branch[];
   wantOut: number; wantIn: number;
   founder: number;                // кто основал; -1 у родины
-  born: string; parts: any[]; flow: string; blight: number;
+  born: string;
+  parts: Part[];                  // из чего был собран колониальный модуль
+  flow: string; blight: number;
   rough: number;                  // месяцы разрухи: свежая колония живёт на привозном
   edge?: boolean;                 // мир дошёл до края, жребий уже брошен
   free?: boolean;                 // мир объявил независимость и вышел из государства
@@ -148,6 +152,10 @@ export interface Order {
   gateAt?: number;                // в какой системе ставят ворота
 }
 
+/** Счёт того, что уже везут: чтобы не заказать одно и то же дважды.
+ *  Есть и у заказа, и у подписки, и у топливного счёта компании. */
+export interface FlyAcct { fly?: Record<string, number>; }
+
 /** Одна купленная деталь: что (k), у кого (from), почём. */
 export interface Part { k: string; from: number; price?: number; sys?: number; }
 
@@ -167,7 +175,12 @@ export interface Project {
 // ---- то, что летает и работает ----------------------------------------
 
 /** Куда направляется корабль: астероид, планета, система. */
-export interface Dest { kind: string; ref: any; label: string; }
+export interface Dest { kind: string; ref: Rock | Planet; label: string; }
+
+/** Платформа, вставшая на астероид: видимый след предприятия в системе. */
+export interface Station {
+  dest: Dest; color: string; glyph: string; size: number; vent: Venture; ang: number;
+}
 
 /** Разработка астероидов: жила, из которой капает доход, пока не кончится. */
 export interface Venture {
@@ -206,7 +219,15 @@ export interface Ship {
  *  код движения, который относится к ним одинаково: летит, долетел, перехватили.
  */
 export interface Voyage {
-  kind: string; to: any;
+  kind: string;
+  // ЕДИНСТВЕННОЕ оставшееся any в ядре, и оно намеренное. Здесь лежит либо мир,
+  // либо номер системы — смотря какой это рейс. Написать "World | number"
+  // недорого, но тогда двадцать два места в коде движения обрастут
+  // приведениями, а приведение не проверяет, оно только переносит допущение.
+  // Настоящее решение — разбить Voyage на два типа с разбором по kind, и код
+  // движения к этому уже готов: он почти везде и так ветвится по kind.
+  // Это отдельная работа, а не побочный эффект типизации.
+  to: any;
   qty?: number;                   // сколько везёт; у парома и прыжка груза нет
   parts?: Part[];                 // груз деталей; у рейса с ОДНОЙ деталью его нет
   color: string; t: number; dur: number; tp?: number;
@@ -216,7 +237,7 @@ export interface Voyage {
   k?: string;                     // какая деталь
   corp?: number;                  // чей корабль
   forCorp?: number;               // для кого везут
-  acct?: { fly: Record<string, number> };
+  acct?: FlyAcct;
   take?: (part: Part) => void;    // что сделать по прибытии
   relief?: number;                // чья частная помощь; иначе везёт правительство
   cargo?: string;                 // что за груз у платформы или модуля
@@ -237,3 +258,65 @@ export interface Dock {
 
 export interface MarketRow { price: number; last: number; want: number; stock: number; }
 export interface Patent { owner: number; since: number; told: boolean; }
+
+/** Кеш на один тик. Живёт ровно один месяц симуляции, см. state.ts. */
+export interface TickCache {
+  wealth: Record<number, number>;              // богатство компании по её номеру
+  prize: boolean | null;                       // остался ли "последний астероид"
+  dev: Map<World, number>;                     // уровень освоения мира
+  sellers: Record<string, Corp[]> | null;      // у кого есть эта деталь
+  devBest: Record<number, Record<string, number>> | null;   // лучшая марка освоения: компания -> класс
+}
+
+/** Куда можно ткнуть на текущем кадре. Собирается заново каждой отрисовкой.
+ *
+ *  data нарочно широкое: под одним кругом на экране может оказаться планета,
+ *  корабль, рейс, стоянка или предприятие, и разбирается это по kind. Сузить
+ *  до объединения можно, но тогда каждое обращение к data потребует проверки
+ *  kind ещё раз — ту самую, которую панель уже сделала.
+ */
+/** Что сейчас выбрано игроком: планета, корабль, рейс, стоянка, предприятие.
+ *  Названо Chosen, а не Pick: Pick — встроенный служебный тип TypeScript, и
+ *  своё определение с таким именем он молча перекрывает (см. журнал, п. 9). */
+export interface Chosen { kind: string; data: any; }
+
+/** То же, но с кругом на экране: чем именно попадают мышью. */
+export interface Hit extends Chosen { x: number; y: number; r: number; }
+
+/** Снимок партии, который ядро отдаёт наружу: стенду и тестам.
+ *
+ *  Это ДОГОВОР с test/, а не внутренняя структура. Поле, убранное отсюда,
+ *  ломает тесты при сборке — так и задумано: раньше они узнавали об этом
+ *  падением на середине прогона.
+ */
+export interface Snapshot {
+  tick: number; treasury: number;
+  corps: Corp[]; worlds: World[]; systems: Sys[];
+  move: Move; routes: Record<string, boolean>;
+  market: Record<string, MarketRow>; patents: Record<string, Patent>;
+  voyages: Voyage[]; projects: Project[]; docks: Dock[];
+  trades: number; shipped: number; movedPops: number; refusals: number;
+  dropped: number; hauled: number; burned: number; raids: number;
+  feed: { d: string; t: string }[];
+}
+
+/** Ядро, каким его видит стенд и тесты: см. src/main.ts.
+ *
+ *  Всё, что экспортирует main.ts, становится полем THRESHOLD в собранном
+ *  файле. Этот интерфейс — тот же список, записанный один раз, чтобы тесты
+ *  спорили с компилятором, а не с прогоном на трёхстах годах.
+ */
+export interface Core {
+  step(): void;
+  build(forcedMove?: string): void;
+  state(): Snapshot;
+  setLever(k: string, v: number | string): void;
+  icon(ctx: CanvasRenderingContext2D, kind: string, x: number, y: number, s: number, col: string): void;
+  consts: {
+    COMPS: Comp[]; COLTECH: ColTech[]; PTYPES: PType[];
+    VTYPES: VType[]; MOVES: Move[]; ENGINES: Engine[]; MARKS: Mark[];
+  };
+  speedOf(corpId: number): number;
+  popOf(w: World): number;
+  setView(mode: string, sys?: number): void;
+}

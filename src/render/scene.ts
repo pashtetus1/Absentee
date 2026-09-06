@@ -9,7 +9,9 @@ import { CH, CW, advanceFrame, cx, glow, last, setUiz, uiz } from "./canvas";
 import { advance, caption, dockLines, flame, grow, posOf, rock, ship, tiny, windowLines } from "./models";
 import type { Sys } from "../types";
 
-export function drawSystem(s: Sys) {
+import type { Rock } from "../types";
+
+export function drawSystem(s: Sys): void {
   var mx = CW / 2, my = CH / 2;
   setUiz(1);                     // в системе зума нет, экранные размеры как есть
   hits.length = 0;
@@ -77,7 +79,7 @@ export function drawSystem(s: Sys) {
   // цвета компании на ободе. Одна ось опознания на всю сцену — цвет отвечает
   // на "чьё это", а форма кораблика означала бы, что он всё ещё летит.
   s.stations.forEach(function (st) {
-    var t = st.dest.ref, base = posOf(t, mx, my), off = t.s + 5;
+    var t = st.dest.ref as Rock, base = posOf(t, mx, my), off = t.s + 5;
     var x = base.x + Math.cos(st.ang) * off, y = base.y + Math.sin(st.ang) * off;
     cx.fillStyle = st.color; cx.fillRect(x - 2.5, y - 2.5, 5, 5);
     hits.push({ x:x, y:y, r:9, kind:"vent", data:st.vent });
@@ -186,10 +188,10 @@ export function drawSystem(s: Sys) {
   });
 }
 
-export function nodeR(s: Sys) { return 5 + Math.min(5, (s.mines + s.bodies.filter(function (b) { return b.world; }).length) * 1.2); }
-export function seenSys(s: Sys) { return s.unlocked || within(s.id, Math.max(galaxyRange(), MARKRANGE[0])).some(function (n) { return systems[n].unlocked; }); }
+export function nodeR(s: Sys): number { return 5 + Math.min(5, (s.mines + s.bodies.filter(function (b) { return b.world; }).length) * 1.2); }
+export function seenSys(s: Sys): boolean { return s.unlocked || within(s.id, Math.max(galaxyRange(), MARKRANGE[0])).some(function (n) { return systems[n].unlocked; }); }
 
-export function drawMap() {
+export function drawMap(): void {
   hits.length = 0;
   cx.fillStyle = "#080d19"; cx.fillRect(0, 0, CW, CH);
   // Пятьдесят звёзд в один экран не влезают читаемо, поэтому карта таскается
@@ -324,7 +326,7 @@ export function drawMap() {
   if (cam.k !== 1 || cam.x || cam.y) cx.fillText("×" + cam.k.toFixed(1) + " · двойной клик вернёт вид", 16, 32);
 }
 
-export function frame(ts: number) {
+export function frame(ts: number): void {
   var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
   advanceFrame(ts, dt);
   systems.forEach(function (s) { advance(s, dt); });

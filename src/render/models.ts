@@ -12,21 +12,21 @@ import { clamp } from "../util";
 import { CH, CW, cx, getCx, glow, setCx, uiz } from "./canvas";
 import type { Dock, Part, Ship, Sys, Voyage } from "../types";
 
-export function posOf(o: { ang: number; r: number }, mx: number, my: number) { return { x:mx + Math.cos(o.ang) * o.r, y:my + Math.sin(o.ang) * o.r }; }
+export function posOf(o: { ang: number; r: number }, mx: number, my: number): { x: number; y: number; } { return { x:mx + Math.cos(o.ang) * o.r, y:my + Math.sin(o.ang) * o.r }; }
 
 // ---- модельки кораблей ------------------------------------------------
 // Один силуэт на ТИП корабля; между компаниями он не меняется, различает их
 // только цвет. Это прямое продолжение правила из журнала: форма отвечает на
 // "что это", цвет — на "чьё это". Рисуется в поле восьми единиц, нос смотрит
 // вверх (вызывающий код доворачивает на atan2 + 90 градусов).
-export function poly(pts: number[]) {
+export function poly(pts: number[]): void {
   cx.beginPath();
   for (var i = 0; i < pts.length; i += 2) i ? cx.lineTo(pts[i], pts[i+1]) : cx.moveTo(pts[i], pts[i+1]);
   cx.closePath(); cx.fill();
 }
 // Огонёк за кормой. Дрожит по glow, чтобы корабль читался живым, а не
 // штампом; рисуется ДО корпуса, чтобы корпус его перекрывал.
-export function flame(x: number, y: number, s: number, rot: number) {
+export function flame(x: number, y: number, s: number, rot: number): void {
   cx.save();
   cx.translate(x, y); cx.rotate(rot || 0); cx.scale(s / 8, s / 8);
   var flick = 1 + Math.sin(glow * 23 + x * 0.7 + y * 0.3) * 0.28;
@@ -44,14 +44,14 @@ export function flame(x: number, y: number, s: number, rot: number) {
 // сжимается обратно в точку у цели. Так видно, ОТКУДА он вышел и КУДА делся,
 // а не "моргнул" посреди пустоты. out/back — доли пути на рост и на сжатие;
 // ноль означает "с этого конца не анимировать" (корабль там уходит за край).
-export function grow(k: number, out?: number, back?: number) {
+export function grow(k: number, out?: number, back?: number): number {
   var a = out === undefined ? 0.2 : out, b = back === undefined ? 0.2 : back;
   return Math.min(a > 0 ? clamp(k / a, 0, 1) : 1, b > 0 ? clamp((1 - k) / b, 0, 1) : 1);
 }
 // Окошко с подписью, которое тащится за кораблём. Рейсы идут годами, и весь
 // смысл долгого полёта в том, чтобы захотелось посмотреть: кто летит, куда,
 // с чем и сколько ещё. Первая строка — кто и что, вторая — куда и когда.
-export function caption(x: number, y: number, lines: string[], col: string) {
+export function caption(x: number, y: number, lines: string[], col: string): void {
   cx.save();
   cx.font = "500 " + (9.5 * uiz) + "px system-ui, sans-serif";
   var w = 0;
@@ -73,16 +73,16 @@ export function caption(x: number, y: number, lines: string[], col: string) {
   });
   cx.restore();
 }
-export function eta(t: number, dur: number) {
+export function eta(t: number, dur: number): string {
   var m = Math.max(0, Math.round((1 - clamp(t, 0, 1)) * dur)), yr = Math.floor(m / 12), mo = m % 12;
   return "ещё " + (yr ? yr + " г. " : "") + mo + " мес.";
 }
-export function shipLines(sh: Ship) {              // корабль внутри системы
+export function shipLines(sh: Ship): string[] {              // корабль внутри системы
   var who = corps[sh.corp].name;
   if (sh.kind === "colony") return ["Колониальный модуль · " + who, "→ " + sh.body.name + " · " + eta(sh.t, sh.dur)];
   return ["Платформа · " + who, "→ " + sh.dest.label + " · " + eta(sh.t, sh.dur)];
 }
-export function voyageLines(v: Voyage) {             // рейс между звёздами или между мирами
+export function voyageLines(v: Voyage): string[] {             // рейс между звёздами или между мирами
   if (v.kind === "jump" || v.kind === "opener")
     return [(v.kind === "opener" ? "Открыватель · " : "Прыжковый · ") + corps[v.corp].name,
             "→ " + systems[v.to].name + " · " + eta(v.t, v.dur)];
@@ -97,7 +97,7 @@ export function voyageLines(v: Voyage) {             // рейс между зв
 // Без клика — только имя командира, мелко и тускло. Полное окно с деталями
 // и их изготовителями тащится за кораблём лишь после клика по нему: карта с
 // окошками у всех превращалась в кашу, а имя узнаётся и на 8 пикселях.
-export function tiny(x: number, y: number, text: string, col: string) {
+export function tiny(x: number, y: number, text: string, col: string): void {
   cx.save();
   cx.font = "500 " + (8 * uiz) + "px system-ui, sans-serif"; cx.textAlign = "left"; cx.textBaseline = "middle";
   cx.fillStyle = col; cx.globalAlpha = 0.75;
@@ -105,7 +105,7 @@ export function tiny(x: number, y: number, text: string, col: string) {
   cx.restore();
 }
 // строки полного окна: кто и что, куда и когда, командир, изготовители деталей
-export function makersOfParts(parts: Part[], ownerId: number) {
+export function makersOfParts(parts: Part[], ownerId: number): string[] {
   var by: Record<string, number> = {};
   (parts || []).forEach(function (p) { var k = p.k + "|" + p.from; by[k] = (by[k] || 0) + 1; });
   return Object.keys(by).map(function (k) {
@@ -113,7 +113,7 @@ export function makersOfParts(parts: Part[], ownerId: number) {
     return f.short + (by[k] > 1 ? " ×" + by[k] : "") + " — " + (+bits[1] === ownerId ? "своё" : from.name);
   });
 }
-export function dockLines(d: Dock) {
+export function dockLines(d: Dock): string[] {
   var owner = d.corp >= 0 ? corps[d.corp].name : "правительство " + (d.gov ? d.gov.body.name : "?");
   var lines = [(d.kind === "liner" ? "Переселенческий" : "Грузовик") + " · на стоянке у " + d.world.body.name,
                "хозяин: " + owner + " · цена " + Math.round(dockValue(d)),
@@ -122,16 +122,20 @@ export function dockLines(d: Dock) {
   if (mk.length) lines = lines.concat(["из чего собран:"]).concat(mk);
   return lines;
 }
-export function windowLines(o: any, isVoyage: boolean) {
-  var head = isVoyage ? voyageLines(o) : shipLines(o);
-  var owner = isVoyage ? (o.forCorp !== undefined ? o.forCorp : o.corp) : o.corp;
+// Одно окошко на корабль в системе и на рейс между звёздами: сверху разное,
+// снизу одинаковое (командир и из чего собран). Что именно пришло, говорит
+// isVoyage — поэтому приведение здесь не догадка, а разбор по этому признаку.
+export function windowLines(o: Ship | Voyage, isVoyage: boolean): string[] {
+  var v = o as Voyage, sh = o as Ship;
+  var head = isVoyage ? voyageLines(v) : shipLines(sh);
+  var owner = isVoyage ? (v.forCorp !== undefined ? v.forCorp : v.corp) : sh.corp;
   var lines = head.concat(["командир " + o.captain]);
-  if (isVoyage && o.kind === "parts") lines.push("везёт: " + compOf(o.k).short + " — " + corps[o.corp].name);
+  if (isVoyage && v.kind === "parts") lines.push("везёт: " + compOf(v.k).short + " — " + corps[v.corp].name);
   var mk = makersOfParts(o.parts, owner);
   if (mk.length) lines = lines.concat(["из чего собран:"]).concat(mk);
   return lines;
 }
-export function ship(kind: string, x: number, y: number, s: number, rot: number, col: string) {
+export function ship(kind: string, x: number, y: number, s: number, rot: number, col: string): void {
   cx.save();
   cx.translate(x, y); cx.rotate(rot || 0); cx.scale(s / 8, s / 8);
   cx.fillStyle = col; cx.lineJoin = "round";
@@ -165,7 +169,7 @@ export function ship(kind: string, x: number, y: number, s: number, rot: number,
   }
   cx.restore();
 }
-export function rock(x: number, y: number, rad: number, seed: number, col: string) {
+export function rock(x: number, y: number, rad: number, seed: number, col: string): void {
   cx.beginPath();
   for (var i = 0; i < 9; i++) {
     var a = i / 9 * 6.2832, rr = rad * (0.74 + 0.36 * Math.abs(Math.sin(seed + i * 2.3)));
@@ -175,7 +179,7 @@ export function rock(x: number, y: number, rad: number, seed: number, col: strin
   cx.closePath(); cx.fillStyle = col; cx.fill();
 }
 
-export function advance(s: Sys, dt: number) {
+export function advance(s: Sys, dt: number): void {
   if (s.pulse > 0) s.pulse = Math.max(0, s.pulse - dt * 0.5);
   var mx = CW/2, my = CH/2, op = posOf(s.bodies[0], mx, my);
   s.ships.forEach(function (sh) {
@@ -194,7 +198,7 @@ export function advance(s: Sys, dt: number) {
 // Нарисовать модельку в ЧУЖОЙ контекст: ею красится легенда в панели, ею же
 // её отдают наружу через THRESHOLD.icon. Контекст подменяется на время вызова
 // и возвращается обратно — иначе следующий кадр рисовал бы в значок.
-export function icon(ctx: any, kind: string, x: number, y: number, s: number, col: string) {
+export function icon(ctx: CanvasRenderingContext2D, kind: string, x: number, y: number, s: number, col: string): void {
   var keep = getCx();
   setCx(ctx); ship(kind, x, y, s, 0, col); setCx(keep);
 }

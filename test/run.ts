@@ -5,26 +5,36 @@
 // случилась бы незаметно: в браузере такая ошибка выглядит как замерший экран
 // или как правдоподобное, но неверное число в панели.
 
-const { load } = require("./harness");
+import { load } from "./harness.ts";
+
+import type { Corp, Pop, Snapshot, Voyage } from "../src/types.ts";
+
+// Тесты метят уже посчитанные рейсы, чтобы один и тот же не попал в счёт
+// дважды. Пометка нужна только здесь, поэтому и живёт здесь, а не в типах
+// ядра: домену про неё знать незачем.
+type Counted = Voyage & { counted?: boolean };
 
 let failed = 0, passed = 0;
-const results = [];
+const results: string[] = [];
 
-function test(name, fn) {
+function test(name: string, fn: () => void): void {
   try { fn(); passed++; results.push("  ок   " + name); }
-  catch (e) { failed++; results.push("  ПЛОХО " + name + "\n         " + e.message); }
+  catch (e) { failed++; results.push("  ПЛОХО " + name + "\n         " + (e as Error).message); }
 }
-function assert(cond, msg) { if (!cond) throw new Error(msg); }
-function close(a, b, eps, msg) {
+function assert(cond: unknown, msg: string): asserts cond { if (!cond) throw new Error(msg); }
+function close(a: number, b: number, eps: number, msg: string): void {
   if (Math.abs(a - b) > eps) throw new Error(msg + " (" + a.toFixed(3) + " против " + b.toFixed(3) + ")");
 }
 
 // склад теперь с адресом: c.stock[система][деталь]
-const stockOf = (c, k) => Object.values(c.stock).reduce((a, s) => a + (s[k] || 0), 0);
-const eachStock = (c, fn) => Object.keys(c.stock).forEach((sys) =>
-  Object.keys(c.stock[sys]).forEach((k) => fn(k, c.stock[sys][k], sys)));
+const stockOf = (c: Corp, k: string): number =>
+  Object.values(c.stock).reduce((a, s) => a + (s[k] || 0), 0);
+const eachStock = (c: Corp, fn: (k: string, n: number, sys: string) => void): void =>
+  Object.keys(c.stock).forEach((sys) =>
+    Object.keys(c.stock[sys]).forEach((k) => fn(k, c.stock[sys][k], sys)));
 
-function runYears(sim, years, check) {
+function runYears(sim: { step(): void; state(): Snapshot }, years: number,
+                  check?: (st: Snapshot, month: number) => void): Snapshot {
   for (let i = 0; i < years * 12; i++) {
     sim.step();
     if (check) check(sim.state(), i);
@@ -53,7 +63,7 @@ test("население неотрицательно и конечно", () => 
   const sim = load("dist/index.html", { seed: 3 });
   runYears(sim, 120, (st) => {
     st.worlds.forEach((w) => {
-      ["farm","prod","sci","free"].forEach((k) => {
+      (["farm","prod","sci","free"] as (keyof Pop)[]).forEach((k) => {
         assert(Number.isFinite(w.pop[k]), "население " + k + " на " + w.body.name + " стало не числом");
         assert(w.pop[k] >= -1e-9, "отрицательное население " + k + " на " + w.body.name);
       });
@@ -337,7 +347,7 @@ test("под движками межзвёздный транспорт везё
 // оставил островов: до любой звезды должна быть цепочка прыжков на старшей
 // марке, иначе часть карты — мёртвый груз.
 test("на старшей марке достижима вся галактика", () => {
-  const D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const D = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
   for (const seed of [1, 2, 3, 4, 5]) {
     const sim = load("dist/index.html", { seed });
     const S = sim.state().systems;
@@ -541,7 +551,7 @@ test("доведённый до края мир рождает компанию"
 // ветка перестанет вызываться), исходы схлопнутся в один и этого никто не
 // заметит: партия по-прежнему будет выглядеть живой.
 test("на краю выпадают все три исхода, а не один", () => {
-  const kinds = {};
+  const kinds: Record<string, number> = {};
   [3, 6, 1, 4, 11].forEach((seed) => {
     const sim = load("dist/index.html", { seed });
     const st = runYears(sim, 300);
@@ -628,7 +638,7 @@ test("отработанные транспортники встают на ст
   const seen = new Set();
   runYears(sim, 300, (st) => {
     maxDocks = Math.max(maxDocks, st.docks.length);
-    const per = {};
+    const per: Record<string, number> = {};
     st.docks.forEach((d) => { const k = d.world.body.name; per[k] = (per[k] || 0) + 1; assert(per[k] <= 6, k + ": на орбите " + per[k] + " кораблей"); });
     st.feed.forEach((f) => { if (!seen.has(f) && /со стоянки/.test(f.t)) { seen.add(f); reused++; } });
   });
@@ -642,7 +652,7 @@ test("отработанные транспортники встают на ст
 // компания вне закона — иначе вольница появлялась только через голод и поздно.
 test("к открытию перелётов родина заполнена на проценты, а не наполовину", () => {
   const sim = load("dist/index.html", { seed: 1 });
-  let fillAtOpen = null;
+  let fillAtOpen: number = null;
   runYears(sim, 150, (st) => {
     if (fillAtOpen === null && st.systems.filter((s) => s.unlocked).length > 1) {
       const h = st.worlds[0];
@@ -668,7 +678,7 @@ test("к началу перелётов кто-то уже вне закона"
 test("покупатель не заказывает то, что уже летит", () => {
   const sim = load("dist/index.html", { seed: 3 });
   runYears(sim, 300, (st) => {
-    const per = {};
+    const per: Record<string, number> = {};
     st.voyages.forEach((v) => {
       if (v.kind !== "parts") return;
       const key = v.forCorp + "|" + v.k + "|" + v.to;
@@ -688,7 +698,7 @@ test("детали везут в систему с филиалом, а не в 
   const sim = load("dist/index.html", { seed: 1 });
   let bad = 0, total = 0;
   runYears(sim, 300, (st) => {
-    st.voyages.forEach((v) => {
+    (st.voyages as Counted[]).forEach((v) => {
       if (v.kind !== "parts" || v.counted) return;
       v.counted = true; total++;
       const s = st.systems[v.to];
@@ -704,7 +714,7 @@ test("готовый корабль сам идёт в чужую систему
   const sim = load("dist/index.html", { seed: 1 });
   let ferries = 0;
   runYears(sim, 300, (st) => {
-    st.voyages.forEach((v) => {
+    (st.voyages as Counted[]).forEach((v) => {
       if (v.kind !== "ferry" || v.counted) return;
       v.counted = true; ferries++;
       assert(v.cargo === "colony" || v.cargo === "mine", "странный перегон: " + v.cargo);

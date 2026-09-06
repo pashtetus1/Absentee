@@ -14,7 +14,7 @@ import { panels } from "./render/panels";
 import { patentsExpire, research } from "./science";
 import { L, S, U, headless, resetTickCache, tickCache, worlds } from "./state";
 
-export function step() {
+export function step(): void {
   S.tick++; markTick(); S.yearNow = Math.floor(S.tick / 12);
   resetTickCache();
   worlds.forEach(labour);

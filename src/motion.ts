@@ -12,7 +12,7 @@ import { routeKey } from "./travel";
 import { makeWorld, openBranch } from "./world";
 import type { Ship, Sys, Voyage, Yard } from "./types";
 
-export function ferry(yd: Yard, s: Sys, kind: string) {
+export function ferry(yd: Yard, s: Sys, kind: string): void {
   var lead = corps[yd.lead];
   voyages.push({ kind:"ferry", cargo:kind, sysFrom:s.id, to:yd.dst, corp:yd.lead, color:yd.color,
                  parts:yd.parts, body:yd.body, backers:yd.backers, dest:yd.dest, vent:yd.vent,
@@ -20,7 +20,7 @@ export function ferry(yd: Yard, s: Sys, kind: string) {
   say("<b>" + lead.name + "</b> отправила " + yd.vt.name + " из " + s.name + " в " + systems[yd.dst].name + ".");
 }
 
-export function moveShips() {
+export function moveShips(): void {
   systems.forEach(function (s) {
     for (var y = s.yards.length - 1; y >= 0; y--) {
       var yd = s.yards[y];
@@ -84,7 +84,7 @@ export function moveShips() {
   }
 }
 
-export function arriveShip(sh: Ship, s: Sys) {
+export function arriveShip(sh: Ship, s: Sys): void {
   if (U.pick && U.pick.data === sh) U.pick = null;
   if (sh.kind === "colony" && sh.body.world) {   // кто-то успел раньше
     sh.body.claimed = false;
@@ -106,7 +106,7 @@ export function arriveShip(sh: Ship, s: Sys) {
   }
 }
 
-export function arriveVoyage(v: Voyage) {
+export function arriveVoyage(v: Voyage): void {
   if (U.pick && U.pick.data === v) U.pick = null;      // иначе в панели висит "в пути 102%"
   if (v.kind === "jump" || v.kind === "opener") {
     var t = systems[v.to];

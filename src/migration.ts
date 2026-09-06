@@ -7,7 +7,7 @@ import { S, say, voyages, worlds } from "./state";
 import { canTravel, needWith, travelExtra } from "./travel";
 import type { World } from "./types";
 
-export function migrationRun() {
+export function migrationRun(): void {
   worlds.forEach(function (w) {
     if (w.wantIn < 0.6 || w.gov.cash < 90) return;
     if (voyages.some(function (v) { return v.kind === "pops" && v.to === w; })) return;

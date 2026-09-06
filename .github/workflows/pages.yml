@@ -45,9 +45,12 @@ jobs:
         with:
           fetch-depth: 0     # нужны все ветки, а не только та, куда пушнули
 
+      # 24, а не 20: тесты написаны на TypeScript и запускаются как есть
+      # (node test/run.ts) — типы срезает сам Node, отдельной сборки для них
+      # нет. В 20 такого ещё не было.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Прогнать тесты ветки ${{ github.ref_name }}
         run: |

@@ -7,7 +7,7 @@ import { COMPS } from "./data";
 import { canBuild, corps, market } from "./state";
 import { addStock, stockAt, totalStock } from "./world";
 
-export function produce() {
+export function produce(): void {
   corps.forEach(function (c) {
     var mine = COMPS.filter(function (f) { return canBuild(c, f.key); });
     if (!mine.length) return;

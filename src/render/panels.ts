@@ -21,7 +21,7 @@ import type { Part, World } from "../types";
 export type Ctl = HTMLElement & { value: any; textContent: any; disabled: boolean; checked: boolean };
 export function el(id: string): Ctl { return document.getElementById(id) as Ctl; }
 
-export function partsList(parts: Part[], ownerId: number) {
+export function partsList(parts: Part[], ownerId: number): string {
   if (!parts || !parts.length) return '<div class="empty">Состав неизвестен.</div>';
   var by: Record<string, number> = {};
   parts.forEach(function (p) { var k = p.k + "|" + p.from; by[k] = (by[k] || 0) + 1; });
@@ -33,7 +33,7 @@ export function partsList(parts: Part[], ownerId: number) {
   }).join("");
 }
 
-export function worldCard(w: World) {
+export function worldCard(w: World): string {
   var p = w.pop, total = popOf(w);
   return '<div class="card"><h3>' + w.body.name + ' · ' + w.type.name + '</h3>' +
     '<div class="sub">' + fmt(total) + ' из ' + w.cap + ' человечков · ' +
@@ -56,7 +56,7 @@ export function worldCard(w: World) {
     '</div>';
 }
 
-export function inspector() {
+export function inspector(): void {
   var box = el("inspect");
   if (!U.pick) { box.innerHTML = '<div class="empty">Ткни в планету, корабль, станцию или верфь.</div>'; return; }
   var d = U.pick.data;
@@ -127,7 +127,7 @@ export function inspector() {
   box.innerHTML = '<div class="empty">—</div>';
 }
 
-export function panels() {
+export function panels(): void {
   el("market").innerHTML = COMPS.map(function (f) {
     var m = market[f.key], makers = makersOf(f.key);
     var dots = makers.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");

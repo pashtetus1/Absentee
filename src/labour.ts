@@ -6,9 +6,9 @@ import { clamp } from "./util";
 import { popOf } from "./world";
 import type { Pop, Wage, World } from "./types";
 
-export function squeeze(jobs: number, workers: number) { return clamp(1 + 0.5 * (jobs - workers) / Math.max(1.2, workers), 0.55, 2.2); }
+export function squeeze(jobs: number, workers: number): number { return clamp(1 + 0.5 * (jobs - workers) / Math.max(1.2, workers), 0.55, 2.2); }
 
-export function labour(w: World) {
+export function labour(w: World): void {
   var p = w.pop, total = popOf(w);
   if (total <= 0.02) return;
 

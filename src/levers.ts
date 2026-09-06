@@ -5,11 +5,11 @@ import { L } from "./state";
 import { techOf } from "./tech";
 
 export var LSKEY = "threshold.worlds.levers";
-export function saveLevers() {
+export function saveLevers(): void {
   try { localStorage.setItem(LSKEY, JSON.stringify({ tax:L.tax, subKey:L.subKey, subYear:L.subYear, fee:L.tradeFee,
                                                      dole:L.dole, patTerm:L.patTerm, speed:L.speed })); } catch (e) {}
 }
-export function loadLevers() {
+export function loadLevers(): void {
   var v = null;
   try { v = JSON.parse(localStorage.getItem(LSKEY) || "null"); } catch (e) {}
   if (!v) return;

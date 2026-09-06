@@ -27,8 +27,15 @@
     "moduleResolution": "bundler",
     "lib": ["ES2018", "DOM"],
     "noEmit": true,
+    // Тесты запускаются как есть: node test/run.ts, без отдельной сборки —
+    // Node сам срезает типы. Отсюда два требования: импорт с расширением .ts
+    // и erasableSyntaxOnly, который запрещает синтаксис, который Node срезать
+    // не умеет (enum, namespace, поля-параметры конструктора).
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "types": ["node"],
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

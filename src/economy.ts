@@ -2,7 +2,9 @@
 import { L, S, UPKEEP, corps, say, systems, worlds } from "./state";
 import { popOf } from "./world";
 
-export function ventureIncome() {
+import type { Rock } from "./types";
+
+export function ventureIncome(): void {
   systems.forEach(function (s) {
     for (var i = s.ventures.length - 1; i >= 0; i--) {
       var v = s.ventures[i];
@@ -11,7 +13,7 @@ export function ventureIncome() {
       v.left--;
       if (v.left <= 0) {
         say("Платформа " + corps[v.lead].name + " на " + v.dest.label + " выработала ресурс.");
-        v.dest.ref.taken = false; s.mines--;
+        (v.dest.ref as Rock).taken = false; s.mines--;
         s.stations = s.stations.filter(function (st) { return st.vent !== v; });
         s.ventures.splice(i, 1);
       }
@@ -19,7 +21,7 @@ export function ventureIncome() {
   });
 }
 
-export function economy() {
+export function economy(): void {
   corps.forEach(function (c) {
     if (c.cool > 0) c.cool--;
     var earn = 0, wages = 0;

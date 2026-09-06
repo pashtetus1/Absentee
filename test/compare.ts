@@ -11,7 +11,9 @@
 // патенты, компании, миры, рейсы. Первое же расхождение печатается с адресом
 // внутри слепка — этого хватает, чтобы понять, ЧТО разъехалось.
 
-const { load } = require("./harness");
+import { load } from "./harness.ts";
+
+import type { Pop, Snapshot } from "../src/types.ts";
 
 const SEEDS = [1, 7, 42];
 const YEARS = 300;
@@ -19,13 +21,16 @@ const YEARS = 300;
 // Слепок нарочно плоский: пары "адрес — число". Глубокое сравнение объектов
 // спотыкается о цикл body.world -> w.body, а плоский список ещё и показывает
 // место расхождения без раскопок.
-function digest(st) {
-  const out = [];
-  const put = (k, v) => out.push([k, typeof v === "number" ? Math.round(v * 1e6) / 1e6 : v]);
+type Entry = [string, string | number | boolean];
+
+function digest(st: Snapshot): Entry[] {
+  const out: Entry[] = [];
+  const put = (k: string, v: any) => out.push([k, typeof v === "number" ? Math.round(v * 1e6) / 1e6 : v]);
 
   put("tick", st.tick);
   put("treasury", st.treasury);
-  ["trades","shipped","movedPops","refusals","dropped","hauled","burned","raids"].forEach((k) => put(k, st[k]));
+  ([ "trades", "shipped", "movedPops", "refusals", "dropped", "hauled", "burned", "raids" ] as const)
+    .forEach((k) => put(k, st[k]));
   put("move", st.move && st.move.key);
   put("worlds", st.worlds.length);
   put("voyages", st.voyages.length);
@@ -63,7 +68,7 @@ function digest(st) {
     const at = "world[" + i + "]";
     put(at + ".name", w.body.name);
     put(at + ".sys", w.sys);
-    ["farm","prod","sci","free"].forEach((k) => put(at + ".pop." + k, w.pop[k]));
+    (["farm","prod","sci","free"] as (keyof Pop)[]).forEach((k) => put(at + ".pop." + k, w.pop[k]));
     put(at + ".food", w.food.stock);
     put(at + ".gov", w.gov.cash);
     put(at + ".branches", w.branches.length);
@@ -77,7 +82,7 @@ function digest(st) {
   return out;
 }
 
-function run(file, seed) {
+function run(file: string, seed: number): Entry[] {
   const sim = load(file, { seed });
   for (let i = 0; i < YEARS * 12; i++) sim.step();
   return digest(sim.state());
@@ -89,7 +94,7 @@ if (!a || !b) { console.error("нужно два файла: node test/compare.j
 let bad = 0;
 for (const seed of SEEDS) {
   const da = run(a, seed), db = run(b, seed);
-  const diffs = [];
+  const diffs: string[] = [];
   const len = Math.max(da.length, db.length);
   for (let i = 0; i < len && diffs.length < 12; i++) {
     const ka = da[i], kb = db[i];

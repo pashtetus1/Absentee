@@ -18,14 +18,14 @@ export const PIRATES = ["#ff5c5c","#ff8c42","#e04f8f","#ff3b6b"];
 // Имя зависит от того, какой жребий выпал миру (см. despair), поэтому
 // приходит снаружи, а не собирается здесь: "Свободный" годится только для
 // того исхода, где мир и правда ушёл из государства.
-export function freeName(w: World) {
+export function freeName(w: World): string {
   return "Свободн" + (/[аяь]$/.test(w.body.name.replace(/ [IVX]+$/, "")) ? "ая " : "ый ") + w.body.name;
 }
 // origin — какой жребий выпал миру, bornAt — где это случилось. По имени
 // происхождение НЕ определить: piracy() переименовывает контору в "Вольницу",
 // и артель с независимостью становятся неотличимы. А home не годится как
 // запись о родине: turnPirate при мятеже переносит логово на другой мир.
-export function spawnCorp(w: World, name: string, origin: string) {
+export function spawnCorp(w: World, name: string, origin: string): Corp {
   var founder = corps[w.founder >= 0 ? w.founder : 0];
   var c = { id:corps.length, name:name || freeName(w),
             color:EXTRA[(corps.length - TEMPLATE.length) % EXTRA.length], craft:"выживание",
@@ -54,7 +54,7 @@ export function spawnCorp(w: World, name: string, origin: string) {
 //                 исход: вы теряете и мир, и цеха на нём.
 // Общее у всех трёх: касса мира скидывается в общее дело (остаётся пятая
 // часть), счётчик голода обнуляется, второй раз жребий не тянут.
-export function despair() {
+export function despair(): void {
   worlds.forEach(function (w) {
     if (w.founder < 0 || w.edge || w.food.short < 48 || popOf(w) < 0.5) return;   // четыре года голода
     w.edge = true;

@@ -16,7 +16,7 @@ import { canTravel, needWith, travelExtra } from "./travel";
 import { addStock, popOf, stockAt } from "./world";
 import type { Corp, Part, Voyage, World } from "./types";
 
-export function surplusWorld(need: number, from: World) {
+export function surplusWorld(need: number, from: World): { w: World; extra: number; } {
   var best: World = null, bs = 0;
   worlds.forEach(function (w) {
     if (w === from) return;
@@ -38,7 +38,7 @@ export function surplusWorld(need: number, from: World) {
 // payer платит, at — чья система даёт детали и топливо. Хлебовоз для голодной
 // колонии строится у ПОСТАВЩИКА еды: у колонии цехов нет, а без этого правила
 // она умирала с полным складом провизии, не дождавшись первого рейса.
-export function govBuyShip(payer: World, at: World, need: Record<string, number>) {
+export function govBuyShip(payer: World, at: World, need: Record<string, number>): { k: string; from: number; }[] {
   var w = payer;
   var taken: Part[] = [], cost = 0, ok = true;
   Object.keys(need).forEach(function (k) {
@@ -66,7 +66,7 @@ export function govBuyShip(payer: World, at: World, need: Record<string, number>
   return taken.map(function (t) { return { k:t.k, from:t.from }; });
 }
 
-export function dispatch(from: World, to: World, kind: string, qty: number, parts: Part[]) {
+export function dispatch(from: World, to: World, kind: string, qty: number, parts: Part[]): Voyage {
   var v = { kind:kind, from:from, to:to, qty:qty, parts:parts,
             color: parts.length ? corps[parts[0].from].color : "#8894ae",
             // корабль летит на двигателях того, кто его построил
@@ -76,7 +76,7 @@ export function dispatch(from: World, to: World, kind: string, qty: number, part
   return v;
 }
 
-export function foodRun() {
+export function foodRun(): void {
   worlds.forEach(function (w) {
     var total = popOf(w), grown = w.pop.farm * w.type.farm, deficit = total - grown;
     if (deficit <= 0.05) return;

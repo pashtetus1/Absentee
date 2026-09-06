@@ -8,8 +8,8 @@
 
 export const CW = 840, CH = 680;
 
-export let cv: any = null;
-export let cx: any = null;
+export let cv: HTMLCanvasElement = null;
+export let cx: CanvasRenderingContext2D = null;
 
 // Во сколько раз ужимать ЭКРАННЫЕ размеры, чтобы они не росли вместе с зумом
 // карты. Приближение должно раздвигать звёзды, а не раздувать подписи: при
@@ -23,8 +23,8 @@ export let uiz = 1;
 export let last = 0;
 export let glow = 0;
 
-export function setCanvas(el: any) { cv = el; cx = el.getContext("2d"); }
-export function setCx(ctx: any) { cx = ctx; }
-export function getCx() { return cx; }
-export function setUiz(v: number) { uiz = v; }
-export function advanceFrame(ts: number, dt: number) { last = ts; glow += dt; }
+export function setCanvas(el: HTMLCanvasElement): void { cv = el; cx = el.getContext("2d"); }
+export function setCx(ctx: CanvasRenderingContext2D): void { cx = ctx; }
+export function getCx(): CanvasRenderingContext2D { return cx; }
+export function setUiz(v: number): void { uiz = v; }
+export function advanceFrame(ts: number, dt: number): void { last = ts; glow += dt; }

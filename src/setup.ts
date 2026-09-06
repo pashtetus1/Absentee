@@ -6,7 +6,7 @@ import { DEVS, allTech, ensureDev } from "./tech";
 import { makeWorld, openBranch } from "./world";
 import type { Corp } from "./types";
 
-export function build(forcedMove?: string) {
+export function build(forcedMove?: string): void {
   // Способ и его марки выбираются ПЕРВЫМИ: от них зависит список технологий,
   // а значит и то, во что компаниям вообще можно вкладываться.
   S.move = forcedMove ? moveOf(forcedMove) : MOVES[Math.floor(Math.random() * MOVES.length)];

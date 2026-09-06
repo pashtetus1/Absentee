@@ -2,11 +2,11 @@
 
 import { BODYNAMES, MARKS, ROCKNAMES, SYSNAMES, ptypeOf, rollType } from "./data";
 import { CH, CW } from "./render/canvas";
-import { canBuild, corps, fill, links, systems } from "./state";
+import { canBuild, corps, fill, systems } from "./state";
 import { dist, rnd6 } from "./util";
 import type { Corp, Mark, Sys } from "./types";
 
-export function makeSystem(i: number, name: string, x: number, y: number, pool: string[]) {
+export function makeSystem(i: number, name: string, x: number, y: number, pool: string[]): Sys {
   // belt и gate дописываются ниже: belt тянет случайное число, и перенос его
   // в литерал сдвинул бы весь поток — партии перестали бы воспроизводиться
   var s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
@@ -56,7 +56,7 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
 export var RINGS = [{ r:0, n:1 }, { r:38, n:7 }, { r:86, n:10 }, { r:145, n:12 }, { r:216, n:12 }, { r:300, n:8 }];
 export var ROMAN = ["", "II", "III", "IV", "V"];
 
-export function sysName(i: number) {
+export function sysName(i: number): string {
   if (i < SYSNAMES.length) return SYSNAMES[i];
   return SYSNAMES[i % SYSNAMES.length] + " " + ROMAN[Math.floor(i / SYSNAMES.length)];
 }
@@ -65,7 +65,7 @@ export function sysName(i: number) {
 // читались как чертёж, а не как галактика. Держится только одно свойство —
 // чем дальше от Тиры, тем реже соседи: минимальный зазор растёт с радиусом.
 // Плюс мягкая спиральная закрутка и лёгкая сплюснутость, как в ES2.
-export function makeGalaxy() {
+export function makeGalaxy(): void {
   var pool = BODYNAMES.slice().sort(function () { return Math.random() - 0.5; });
   var names = SYSNAMES.slice(1).sort(function () { return Math.random() - 0.5; });
   names.unshift(SYSNAMES[0]);
@@ -88,24 +88,23 @@ export function makeGalaxy() {
     s.depth = Math.round(dist(p, pts[0]) / 62);      // "переход N" — теперь по удалённости
     return s;
   }));
-  links.length = 0;
 }
 
 // Соседство теперь не рисуется заранее, а считается дальностью портала:
 // "рядом" — значит, дотягивается техника, а не значит, что кто-то провёл
 // линию на карте. От марки к марке карта сама раскрывается кольцами.
-export function within(i: number, range: number) {
+export function within(i: number, range: number): number[] {
   var out = [];
   for (var j = 0; j < systems.length; j++)
     if (j !== i && dist(systems[i], systems[j]) <= range) out.push(j);
   return out;
 }
-export function rangeOf(c: Corp) {
+export function rangeOf(c: Corp): number {
   var best = 0;
   MARKS.forEach(function (m) { if (canBuild(c, m.key)) best = Math.max(best, m.range); });
   return best;
 }
-export function galaxyRange() {
+export function galaxyRange(): number {
   var best = 0;
   corps.forEach(function (c) { best = Math.max(best, rangeOf(c)); });
   return best;

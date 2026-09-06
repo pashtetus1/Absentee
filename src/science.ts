@@ -6,8 +6,8 @@ import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, systems,
 import { allTech, devOf, engOf, ensureDev, speedOf, techOf } from "./tech";
 import type { Corp } from "./types";
 
-export function sciOf(c: Corp){ return c.branches.reduce(function (a, b) { return a + b.emp.sci; }, 0); }
-export function prodOf(c: Corp){ return c.branches.reduce(function (a, b) { return a + b.emp.prod; }, 0); }
+export function sciOf(c: Corp): number{ return c.branches.reduce(function (a, b) { return a + b.emp.sci; }, 0); }
+export function prodOf(c: Corp): number{ return c.branches.reduce(function (a, b) { return a + b.emp.prod; }, 0); }
 
 export function pickTarget(c: Corp): string | null {
   var best = null, top = -1;
@@ -72,7 +72,7 @@ export function pickTarget(c: Corp): string | null {
   return best;
 }
 
-export function research() {
+export function research(): void {
   corps.forEach(function (c) {
     if (!c.target || knows(c, c.target)) c.target = pickTarget(c);
     if (!c.target) return;
@@ -104,7 +104,7 @@ export function research() {
   });
 }
 
-export function patentsExpire() {
+export function patentsExpire(): void {
   allTech().forEach(function (f) {
     var p = patents[f.key];
     if (p.owner < 0 || p.told || Y() - p.since < L.patTerm) return;

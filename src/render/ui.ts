@@ -13,7 +13,9 @@ import { icon } from "./models";
 import { Ctl, el, panels } from "./panels";
 import { frame } from "./scene";
 
-export function scene() {
+import type { Hit } from "../types";
+
+export function scene(): void {
   var map = U.view.mode === "map";
   el("tomap").style.display = map ? "none" : "inline-block";
   el("sname").textContent = map ? "Галактика" : systems[U.view.sys].name;
@@ -28,9 +30,9 @@ export function scene() {
   el("ventlab").textContent = map ? "Что происходит в системах" : "Предприятия · " + systems[U.view.sys].name;
   panels();
 }
-export function open(i: number) { U.view = { mode:"system", sys:i }; U.pick = null; scene(); }
+export function open(i: number): void { U.view = { mode:"system", sys:i }; U.pick = null; scene(); }
 
-export function taxhint() {
+export function taxhint(): void {
   var p = Math.round(L.tax * 100);
   el("taxhint").textContent =
     p < 10 ? "У компаний много денег: они держат много мест, зарплаты растут."
@@ -38,33 +40,33 @@ export function taxhint() {
   : p < 42 ? "Компании сжимают штат, зато есть чем субсидировать науку."
   : "Компаниям не на что содержать ни цеха, ни лаборатории.";
 }
-export function subhint() {
+export function subhint(): void {
   el("subhint").textContent = L.subYear === 0
     ? "Государство не вмешивается: кто во что верит, то и ищет."
     : "Казна доплачивает всем, кто ищет «" + (markOf(L.subKey) ? markName(markOf(L.subKey)) : techOf(L.subKey).name).toLowerCase() + "».";
 }
-export function pathint() {
+export function pathint(): void {
   el("pathint").textContent = L.patTerm <= 12
     ? "Короткий патент: монополия не успевает сложиться, цены низкие."
     : L.patTerm >= 50 ? "Долгий патент: держатель технологии колонизации решает, кто вообще расселяется."
     : "Держатель успевает нажиться, но конкуренты копят знание к сроку.";
 }
-export function feehint() {
+export function feehint(): void {
   var p = Math.round(L.tradeFee * 100);
   el("feehint").textContent = p === 0
     ? "Торговля свободна: комплекты собираются быстро, казна с этого не имеет ничего."
     : p < 15 ? "Умеренный сбор: казна зарабатывает, сборка почти не страдает."
     : "Высокий сбор: выгоднее делать всё самому. Заодно дорожают транспорты, и голодные миры голодают дольше.";
 }
-export function dolehint() {
+export function dolehint(): void {
   el("dolehint").textContent = L.dole === 0
     ? "Без пособия свободные хватаются за любую работу, и зарплаты внизу."
     : L.dole > 1.6 ? "Щедрое пособие: люди не спешат наниматься, зарплаты растут, казна пустеет."
     : "Пособие держит зарплаты чуть выше дна.";
 }
-export function run() { if (U.timer) clearInterval(U.timer); setTickMs(300 / L.speed); U.timer = setInterval(step, tickMs); }
+export function run(): void { if (U.timer) clearInterval(U.timer); setTickMs(300 / L.speed); U.timer = setInterval(step, tickMs); }
 
-export function syncControls() {
+export function syncControls(): void {
   el("tax").value = Math.round(L.tax * 100);
   el("taxval").textContent = Math.round(L.tax * 100) + "%";
   el("sub").value = L.subYear; el("subval").textContent = L.subYear;
@@ -77,14 +79,15 @@ export function syncControls() {
   el("subfield").value = L.subKey;
 }
 
-export function bindUI() {
-  setCanvas(el("view"));
+export function bindUI(): void {
+  // el() отдаёт общий тип элемента управления, а тут нужен именно холст
+  setCanvas(el("view") as unknown as HTMLCanvasElement);
   var dpr = window.devicePixelRatio || 1;
   cv.width = CW * dpr; cv.height = CH * dpr;
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   // экран -> координаты сцены (на карте ещё и через камеру)
-  function scenePos(e: { clientX: number; clientY: number }) {
+  function scenePos(e: { clientX: number; clientY: number }): { x: number; y: number; } {
     var rect = cv.getBoundingClientRect();
     var x = (e.clientX - rect.left) / rect.width * CW, y = (e.clientY - rect.top) / rect.height * CH;
     if (U.view.mode === "map") { x = (x - cam.x) / cam.k; y = (y - cam.y) / cam.k; }
@@ -124,7 +127,7 @@ export function bindUI() {
     zoomAt(scenePos(e), e.deltaY < 0 ? 1.15 : 0.87);
   }, { passive:false });
 
-  function zoomAt(p: { x: number; y: number }, mul: number) {
+  function zoomAt(p: { x: number; y: number }, mul: number): void {
     var k = clamp(cam.k * mul, 0.7, 4);
     // приближаем к точке под курсором, а не к углу канваса
     cam.x += p.x * (cam.k - k); cam.y += p.y * (cam.k - k);
@@ -139,7 +142,7 @@ export function bindUI() {
   cv.addEventListener("click", function (e: MouseEvent) {
     if (moved > 4) { moved = 0; return; }          // это было перетаскивание
     var p = scenePos(e);
-    var best: any = null, bd = 1e9;
+    var best: Hit = null, bd = 1e9;
     hits.forEach(function (h) {
       var d = Math.sqrt((p.x - h.x) * (p.x - h.x) + (p.y - h.y) * (p.y - h.y));
       if (d <= h.r && d < bd) { bd = d; best = h; }
@@ -174,7 +177,7 @@ export function bindUI() {
   el("dole").addEventListener("input", function (e: Event) {
     L.dole = +(e.target as Ctl).value / 5; el("doleval").textContent = L.dole.toFixed(1); dolehint(); saveLevers();
   });
-  function togglePause() {
+  function togglePause(): void {
     U.running = !U.running;
     var b = el("play");
     b.textContent = U.running ? "Пауза" : "Пуск";

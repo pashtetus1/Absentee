@@ -11,7 +11,9 @@ import { clamp } from "./util";
 import { addStock, popOf } from "./world";
 import type { Corp, Pop, World } from "./types";
 
-export function corpRelief() {
+import type { Rock } from "./types";
+
+export function corpRelief(): void {
   worlds.forEach(function (w) {
     if (w.founder < 0) return;
     var total = popOf(w);
@@ -51,14 +53,14 @@ export function corpRelief() {
 // логово — один из её миров. Пока межзвёздный переход не открыт, мятеж редок;
 // как только открыт, а пиратов нет, он почти неизбежен — к началу перелётов
 // хоть кто-то должен быть вне закона.
-export function turnPirate(c: Corp, lair: World, why: string) {
+export function turnPirate(c: Corp, lair: World, why: string): void {
   c.pirate = true; c.craft = "разбой"; c.nerve = 1.6; c.home = lair;
   c.name = "Вольница " + lair.body.name;
   c.color = PIRATES[S.pirateCount++ % PIRATES.length];
   say("<b>" + lair.body.name + "</b>: " + why + " — теперь это «" + c.name + "», и всё, что летит мимо " +
       systems[lair.sys].name + ", в опасности.");
 }
-export function events() {
+export function events(): void {
   worlds.forEach(function (w) {
     if (w.blight <= 0 && Math.random() < 0.06) {
       w.blight = 24 + Math.floor(Math.random() * 24);
@@ -85,7 +87,7 @@ export function events() {
 // что летит мимо — еду везёт домой, детали на склад, переселенцев забирает.
 // Это единственная сила в игре, которая ОТНИМАЕТ, а не покупает.
 // Прыжковые и открыватели не трогает: с них нечего взять.
-export function piracy() {
+export function piracy(): void {
   corps.forEach(function (p) {
     if (!p.home || p.pirate) return;
     // три года голода после первого жребия и монетка: не всякий голодный мир
@@ -126,7 +128,7 @@ export function piracy() {
         v.parts.forEach(function (pt) { addStock(p, ps.id, pt.k, 1); });
         if (v.cargo === "colony") { v.body.claimed = false; loot = "колониальный модуль"; }
         else {
-          if (v.dest && v.dest.ref) v.dest.ref.taken = false;
+          if (v.dest && v.dest.ref) (v.dest.ref as Rock).taken = false;
           var ds = systems[v.to];
           ds.ventures = ds.ventures.filter(function (x) { return x !== v.vent; });
           loot = "готовая платформа";

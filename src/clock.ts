@@ -6,9 +6,9 @@
 import { clamp } from "./util";
 
 export let tickAt = 0, tickMs = 300;
-export function markTick() { tickAt = Date.now(); }
-export function setTickMs(ms: number) { tickMs = ms; }
-export function vis(o: { t: number; tp?: number }) {
+export function markTick(): void { tickAt = Date.now(); }
+export function setTickMs(ms: number): void { tickMs = ms; }
+export function vis(o: { t: number; tp?: number }): number {
   var f = clamp((Date.now() - tickAt) / tickMs, 0, 1), tp = o.tp === undefined ? o.t : o.tp;
   return tp + (o.t - tp) * f;
 }

@@ -12,7 +12,9 @@ import { clamp } from "./util";
 import { addStock, firstStockSys, stockAt, totalStock } from "./world";
 import type { Corp, Part, World } from "./types";
 
-export function repriceMarket() {
+import type { FlyAcct } from "./types";
+
+export function repriceMarket(): void {
   COMPS.forEach(function (f) {
     var m = market[f.key], stock = 0, want = 0, sellers: Corp[] = [];
     corps.forEach(function (c) {
@@ -39,7 +41,7 @@ export function repriceMarket() {
 // Топливом торгуют БЕЗ отказов: это расходник, на нём не выигрывают гонку, а
 // запрет на него мгновенно запирает всю галактику и убивает партию. Берём
 // своё, если есть в этой системе, иначе покупаем у соседа по цеху.
-export function takeFuel(c: Corp, sys: number, k: string, direct?: boolean) {
+export function takeFuel(c: Corp, sys: number, k: string, direct?: boolean): boolean {
   if (stockAt(c, sys, k) > 0) { addStock(c, sys, k, -1); return true; }
   var seller: Corp = null;
   corps.forEach(function (s) {
@@ -71,12 +73,12 @@ export function takeFuel(c: Corp, sys: number, k: string, direct?: boolean) {
 }
 // есть ли в системе мира продавец топлива, и хватит ли казне — проверяется
 // ДО покупки корабля, чтобы не остаться с оплаченным корпусом без горючего
-export function govFuelAvail(payer: World, at: World, k: string) {
+export function govFuelAvail(payer: World, at: World, k: string): boolean {
   var price = market[k].price * (1 + L.tradeFee);
   return payer.gov.cash >= price + 10 && corps.some(function (s) { return stockAt(s, at.sys, k) > 0; });
 }
 // правительство мира жжёт своё топливо так же, только платит из своей казны
-export function govFuel(payer: World, at: World, k: string) {
+export function govFuel(payer: World, at: World, k: string): boolean {
   var seller: Corp = null;
   corps.forEach(function (s) {
     if (stockAt(s, at.sys, k) <= 0) return;
@@ -98,14 +100,14 @@ export function govFuel(payer: World, at: World, k: string) {
 // наполовину декорацией: цена одна на всех и торговаться не о чем.
 // После каждой попытки обе стороны подвигают свои притязания, поэтому цены
 // сходятся сами, а жадный продавец какое-то время сидит без сделок.
-export function askPrice(seller: Corp, k: string) {
+export function askPrice(seller: Corp, k: string): number {
   return market[k].price * clamp(seller.ask[k], 0.7, 2.2);
 }
-export function bidCap(buyer: Corp, k: string, urgency: number) {
+export function bidCap(buyer: Corp, k: string, urgency: number): number {
   // чем дольше ждёт заказ и чем богаче покупатель, тем выше он готов задрать
   return market[k].price * clamp(0.9 + urgency * 0.5 + (buyer.cash > 1200 ? 0.15 : 0), 0.8, 2.0);
 }
-export function haggle(seller: Corp, buyer: Corp, k: string, urgency: number) {
+export function haggle(seller: Corp, buyer: Corp, k: string, urgency: number): number {
   var ask = askPrice(seller, k), cap = bidCap(buyer, k, urgency);
   if (ask > cap) {                                   // не сошлись
     seller.ask[k] = clamp(seller.ask[k] - 0.02, 0.7, 2.2);
@@ -124,12 +126,12 @@ export function haggle(seller: Corp, buyer: Corp, k: string, urgency: number) {
 // его рывок. Поэтому продавец решает, а не автоматически меняет вещь на
 // деньги. Решение ЗАПОМИНАЕТСЯ на годы: если перекидывать монетку каждый
 // месяц, отказ ничего не значит — рано или поздно выпадет "да".
-export function embKey(buyerId: number, k: string){ return buyerId + "|" + k; }
+export function embKey(buyerId: number, k: string): string{ return buyerId + "|" + k; }
 
 // Касса меняется прямо во время торгов, поэтому кешируются только активы —
 // филиалы, основанные миры, предприятия, — а касса берётся живая. Иначе
 // решения об отказе внутри тика чуть сдвигались, и партии расходились.
-export function wealth(c: Corp) {
+export function wealth(c: Corp): number {
   var a = tickCache.wealth[c.id];
   if (a === undefined) {
     a = c.branches.length * 120;
@@ -139,13 +141,13 @@ export function wealth(c: Corp) {
   }
   return c.cash + a;
 }
-export function sameGoal(a: Corp, b: Corp) {
+export function sameGoal(a: Corp, b: Corp): boolean {
   if (a.order && b.order && a.order.type === b.order.type) return true;
   var pa = projects.some(function (p) { return p.lead === a.id; });
   var pb = projects.some(function (p) { return p.lead === b.id; });
   return pa && pb;
 }
-export function lastPrize() {
+export function lastPrize(): boolean {
   if (tickCache.prize !== null) return tickCache.prize;
   var rocks = 0;
   systems.forEach(function (s) { if (s.unlocked) rocks += freeRocks(s).length; });
@@ -153,7 +155,7 @@ export function lastPrize() {
   return tickCache.prize;
 }
 
-export function willSell(seller: Corp, buyer: Corp, k: string) {
+export function willSell(seller: Corp, buyer: Corp, k: string): boolean {
   var e = seller.embargo[embKey(buyer.id, k)];
   if (e && e > S.tick) return false;                    // отказ ещё в силе
   if (e && e <= S.tick) delete seller.embargo[embKey(buyer.id, k)];
@@ -183,7 +185,7 @@ export function willSell(seller: Corp, buyer: Corp, k: string) {
 // вечно: деньги собраны, а корпус никто не продаёт — и планета всё это время
 // помечена занятой, так что её не может взять никто другой. В прогоне из-за
 // этого первая колония уезжала со сорокового года на сто четвёртый.
-export function stalledProjects() {
+export function stalledProjects(): void {
   for (var i = projects.length - 1; i >= 0; i--) {
     var pr = projects[i];
     var got = COMPS.reduce(function (a, f) { return a + (pr.got[f.key] || 0); }, 0);
@@ -211,7 +213,7 @@ export function stalledProjects() {
   }
 }
 
-export function stalledOrders() {
+export function stalledOrders(): void {
   corps.forEach(function (c) {
     if (!c.order) return;
     var missing = COMPS.filter(function (f) {
@@ -242,7 +244,7 @@ export function stalledOrders() {
 // acct — заказ или подписка, за которую покупают: в acct.fly считаются детали,
 // уже оплаченные и летящие. Без этого счёта покупатель заказывал одно и то же
 // каждый месяц, пока груз годами шёл, и в воздухе висели десятки грузовиков.
-export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, pay: any, take: any, noRefuse: boolean, acct: any) {
+export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, pay: (sum: number) => boolean, take: (part: Part) => void, noRefuse: boolean, acct: FlyAcct): boolean {
   // Кандидаты: сначала те, у кого деталь лежит прямо здесь, потом дальние.
   // Перебираем ВСЕХ: раньше брали одного, и если он отказывал, покупка
   // срывалась на месяц — при том, что у соседа та же деталь лежала без дела.
@@ -292,7 +294,7 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
   return true;
 }
 
-export function trade() {
+export function trade(): void {
   repriceMarket();
   corps.forEach(function (c) {
     if (!c.order) return;

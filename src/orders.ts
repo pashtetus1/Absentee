@@ -6,17 +6,17 @@ import { S, anyMakes, canBuild, corps, dateStr, fill, market, projects, say, sys
 import { gated, reachable } from "./travel";
 import { clamp, dist } from "./util";
 import { hasBranch, openBranch, popOf } from "./world";
-import type { Corp, Order, Part, Planet, Sys, VType } from "./types";
+import type { Corp, Order, Part, Planet, Rock, Sys, VType } from "./types";
 
-export function freeRocks(s: Sys){ return s.rocks.filter(function (r) { return !r.taken; }); }
+export function freeRocks(s: Sys): Rock[]{ return s.rocks.filter(function (r) { return !r.taken; }); }
 // Заказ не начинают, пока нет горючего, на котором это полетит: иначе корабль
 // собирают, а потом он десятилетиями стоит у стапеля и ест деньги впустую.
-export function buildable(vt: VType) {
+export function buildable(vt: VType): boolean {
   var fuelKey = (vt.key === "mine" || vt.key === "colony") ? "fuel" : "sfuel";
   if (!anyMakes(fuelKey)) return false;
   return Object.keys(vt.need).every(function (k) { return anyMakes(k); });
 }
-export function anyRock(){ return systems.some(function (s) { return s.unlocked && reachable(s.id) && freeRocks(s).length; }); }
+export function anyRock(): boolean{ return systems.some(function (s) { return s.unlocked && reachable(s.id) && freeRocks(s).length; }); }
 // Ближайшая закрытая звезда, до которой ДОТЯГИВАЕТСЯ марка этой компании.
 // Отсюда и берётся ощущение края карты: дальние звёзды видны, но пока не
 // осилена следующая марка, до них не дострелить.
@@ -63,8 +63,8 @@ export function gateTarget(c: Corp): { sys: number; score: number } | null {
   });
   return best;
 }
-export function expandTarget(c: Corp){ return S.move.key === "gates" ? gateTarget(c) : jumpTarget(c); }
-export function orderCost(vt: VType) {
+export function expandTarget(c: Corp): { sys: number; score: number; } | { from: number; to: number; }{ return S.move.key === "gates" ? gateTarget(c) : jumpTarget(c); }
+export function orderCost(vt: VType): number {
   var sum = 0;
   Object.keys(vt.need).forEach(function (k) { sum += market[k].price * vt.need[k]; });
   return sum;
@@ -72,9 +72,9 @@ export function orderCost(vt: VType) {
 // Наружу выходят те, у кого есть филиал хоть в одной колонии — не только
 // основатель. Иначе из пяти компаний расширяться могли две-три, и если
 // держатель марки в их число не попадал, галактика стояла двести лет.
-export function hasColonyAnywhere(c: Corp){ return c.branches.length > 1; }
+export function hasColonyAnywhere(c: Corp): boolean{ return c.branches.length > 1; }
 
-export function reviewOrders() {
+export function reviewOrders(): void {
   corps.forEach(function (c) {
     if (c.order || c.cool > 0) return;
     var best: VType = null, top = -1;
@@ -135,7 +135,7 @@ export function reviewOrders() {
 // цели. Раньше собирали прямо в системе назначения — детали летели в пустую
 // систему, где у компании нет ни цеха, ни склада, ни человека: 85% рейсов с
 // деталями шли в никуда. Теперь туда летит готовый корабль, а не запчасти.
-export function baseSys(c: Corp, target: number) {
+export function baseSys(c: Corp, target: number): number {
   var best: number = null, bd = 1e9;
   c.branches.forEach(function (b) {
     var s = b.world.sys;
@@ -147,7 +147,7 @@ export function baseSys(c: Corp, target: number) {
 }
 
 // отменённый заказ отдаёт назад то, что успел занять
-export function releaseOrder(o: Order) {
+export function releaseOrder(o: Order): void {
   if (!o) return;
   if (o.rock) o.rock.taken = false;
   if (o.type === "gate" && systems[o.gateAt]) systems[o.gateAt].gate.building = false;
@@ -156,9 +156,9 @@ export function releaseOrder(o: Order) {
 // Колония — консорциум: держатель технологии кладёт своё, остальные доносят
 // за право на филиал. Деньги подписки тратятся на детали, поэтому в колонии
 // потом видно, чей корпус и чьё жизнеобеспечение.
-export function colonyCost(s: Sys){ return Math.round(260 * (1 + s.depth * 0.3)); }
+export function colonyCost(s: Sys): number{ return Math.round(260 * (1 + s.depth * 0.3)); }
 
-export function reviewProjects() {
+export function reviewProjects(): void {
   corps.forEach(function (c) {
     if (projects.some(function (p) { return p.lead === c.id; })) return;
     if (c.cash < 200 || !anyMakes("fuel")) return;      // модулю нечем взлететь
@@ -200,7 +200,7 @@ export function reviewProjects() {
 }
 
 // Опоздавшие покупают место у правительства колонии, если оно осталось.
-export function branchTrade() {
+export function branchTrade(): void {
   worlds.forEach(function (w) {
     if (w === S.home || w.branches.length >= w.slots) return;
     corps.forEach(function (c) {
@@ -211,11 +211,11 @@ export function branchTrade() {
   });
 }
 
-export function full(need: Record<string, number>, got: Record<string, number>) {
+export function full(need: Record<string, number>, got: Record<string, number>): boolean {
   return Object.keys(need).every(function (k) { return (got[k] || 0) >= need[k]; });
 }
 
-export function assemble() {
+export function assemble(): void {
   corps.forEach(function (c) {
     if (!c.order || !full(c.order.need, c.order.got)) return;
     var vt = vtype(c.order.type), o = c.order, s = systems[o.sys];
