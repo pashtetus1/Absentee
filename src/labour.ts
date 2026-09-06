@@ -1,12 +1,14 @@
 // ===================== рынок труда на каждом мире =====================
+
+import { L, corps } from "./state";
+import { devCap, devMult } from "./tech";
 import { clamp } from "./util";
 import { popOf } from "./world";
-import { devCap, devMult } from "./tech";
-import { L, corps } from "./state";
+import type { Pop, Wage, World } from "./types";
 
-export function squeeze(jobs, workers) { return clamp(1 + 0.5 * (jobs - workers) / Math.max(1.2, workers), 0.55, 2.2); }
+export function squeeze(jobs: number, workers: number) { return clamp(1 + 0.5 * (jobs - workers) / Math.max(1.2, workers), 0.55, 2.2); }
 
-export function labour(w) {
+export function labour(w: World) {
   var p = w.pop, total = popOf(w);
   if (total <= 0.02) return;
 
@@ -48,11 +50,11 @@ export function labour(w) {
     p.free -= toFarm; p.farm += toFarm;
   }
 
-  var best = w.type.farm > 0 ? "farm" : "prod";
+  var best: keyof Wage = w.type.farm > 0 ? "farm" : "prod";
   if (w.wage.prod > w.wage[best]) best = "prod";
   if (w.wage.sci > w.wage[best]) best = "sci";
   var mv = 0;
-  ["farm","prod","sci"].forEach(function (k) {
+  (["farm","prod","sci"] as (keyof Wage)[]).forEach(function (k) {
     if (k === best) return;
     if (w.wage[best] < w.wage[k] * 1.12) return;
     var open = best === "farm" ? 1e9 : (best === "prod" ? jp - p.prod : js - p.sci);
@@ -74,7 +76,7 @@ export function labour(w) {
   var g = hungry ? -0.004 : 0.0012 * (1 - fill);
   var add = total * g;
   if (add >= 0) p.free += add;
-  else ["farm","prod","sci","free"].forEach(function (k) { p[k] = Math.max(0, p[k] + add * p[k] / total); });
+  else (["farm","prod","sci","free"] as (keyof Pop)[]).forEach(function (k) { p[k] = Math.max(0, p[k] + add * p[k] / total); });
 
   // Желание уехать: теснота плюс безработица плюс голод. Это не приказ игрока
   // и не приказ компании — просто людям тут нечего ловить.

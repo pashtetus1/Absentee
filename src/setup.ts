@@ -1,10 +1,12 @@
-import { S, U, clear, corps, docks, feed, fill, flash, market, patents, projects, routes, say, systems, voyages, worlds } from "./state";
-import { COLTECH, COMPS, MOVES, TEMPLATE, makeMarks, moveOf } from "./data";
-import { DEVS, allTech, ensureDev } from "./tech";
-import { makeGalaxy } from "./galaxy";
-import { makeWorld, openBranch } from "./world";
 
-export function build(forcedMove) {
+import { COLTECH, COMPS, MOVES, TEMPLATE, makeMarks, moveOf } from "./data";
+import { makeGalaxy } from "./galaxy";
+import { S, U, clear, corps, docks, feed, fill, flash, market, patents, projects, routes, say, systems, voyages, worlds } from "./state";
+import { DEVS, allTech, ensureDev } from "./tech";
+import { makeWorld, openBranch } from "./world";
+import type { Corp } from "./types";
+
+export function build(forcedMove?: string) {
   // Способ и его марки выбираются ПЕРВЫМИ: от них зависит список технологий,
   // а значит и то, во что компаниям вообще можно вкладываться.
   S.move = forcedMove ? moveOf(forcedMove) : MOVES[Math.floor(Math.random() * MOVES.length)];
@@ -12,7 +14,7 @@ export function build(forcedMove) {
   fill(corps, TEMPLATE.map(function (t, i) {
     var c = { id:i, name:t.name, color:t.color, craft:t.craft, nerve:t.nerve, apt:t.apt,
               cash:900, known:{}, spent:{}, stock:{}, target:null, order:null,
-              branches:[], sold:0, bought:0, cool:0, embargo:{}, ask:{} };
+              branches:[], sold:0, bought:0, cool:0, embargo:{}, ask:{} } as Corp;
     allTech().forEach(function (f) { c.spent[f.key] = 0; });
     // ask — во сколько раз компания просит выше ходовой цены. Характер здесь
     // виден сразу: смелые запрашивают больше и чаще остаются без сделки.

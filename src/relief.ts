@@ -1,13 +1,15 @@
-import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
-import { addStock, popOf } from "./world";
-import { devMult } from "./tech";
-import { dispatch, surplusWorld } from "./food";
-import { canTravel, needWith, travelExtra } from "./travel";
-import { corpBuyShip, takeDock } from "./docks";
-import { compOf, vtype } from "./data";
-import { takeFuel } from "./market";
+
 import { PIRATES } from "./colony";
+import { compOf, vtype } from "./data";
+import { corpBuyShip, takeDock } from "./docks";
+import { dispatch, surplusWorld } from "./food";
+import { takeFuel } from "./market";
+import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
+import { devMult } from "./tech";
+import { canTravel, needWith, travelExtra } from "./travel";
 import { clamp } from "./util";
+import { addStock, popOf } from "./world";
+import type { Corp, Pop, World } from "./types";
 
 export function corpRelief() {
   worlds.forEach(function (w) {
@@ -17,7 +19,7 @@ export function corpRelief() {
     if (w.reliefAt && S.tick - w.reliefAt < 24) return;
     if (voyages.some(function (v) { return v.kind === "food" && v.to === w; })) return;
     // кто тут стоит и при деньгах: тот и платит
-    var payer = null;
+    var payer: Corp = null;
     w.branches.forEach(function (b) { var c = corps[b.corp]; if (c.cash > 260 && (!payer || c.cash > payer.cash)) payer = c; });
     if (!payer) return;
     var want = Math.ceil(Math.max(1, total - w.pop.farm * w.type.farm * devMult(w)) * 24);
@@ -49,7 +51,7 @@ export function corpRelief() {
 // логово — один из её миров. Пока межзвёздный переход не открыт, мятеж редок;
 // как только открыт, а пиратов нет, он почти неизбежен — к началу перелётов
 // хоть кто-то должен быть вне закона.
-export function turnPirate(c, lair, why) {
+export function turnPirate(c: Corp, lair: World, why: string) {
   c.pirate = true; c.craft = "разбой"; c.nerve = 1.6; c.home = lair;
   c.name = "Вольница " + lair.body.name;
   c.color = PIRATES[S.pirateCount++ % PIRATES.length];
@@ -63,7 +65,7 @@ export function events() {
       say("Неурожай на " + w.body.name + ": урожай упадёт вдвое на " + Math.ceil(w.blight / 12) + " года.");
     }
     if (Math.random() < 0.03 && popOf(w) > 1) {
-      ["farm","prod","sci","free"].forEach(function (k) { w.pop[k] *= 0.85; });
+      (["farm","prod","sci","free"] as (keyof Pop)[]).forEach(function (k) { w.pop[k] *= 0.85; });
       say("Эпидемия на " + w.body.name + ": потеряно 15% населения.");
     }
   });

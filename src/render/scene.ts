@@ -1,13 +1,15 @@
-import { CH, CW, advanceFrame, cx, glow, last, setUiz, uiz } from "./canvas";
+
+import { vis } from "../clock";
+import { MARKRANGE } from "../data";
+import { galaxyRange, within } from "../galaxy";
 import { S, U, cam, corps, docks, hits, routes, systems, voyages } from "../state";
-import { advance, caption, dockLines, flame, grow, posOf, rock, ship, tiny, windowLines } from "./models";
 import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
-import { vis } from "../clock";
-import { galaxyRange, within } from "../galaxy";
-import { MARKRANGE } from "../data";
+import { CH, CW, advanceFrame, cx, glow, last, setUiz, uiz } from "./canvas";
+import { advance, caption, dockLines, flame, grow, posOf, rock, ship, tiny, windowLines } from "./models";
+import type { Sys } from "../types";
 
-export function drawSystem(s) {
+export function drawSystem(s: Sys) {
   var mx = CW / 2, my = CH / 2;
   setUiz(1);                     // в системе зума нет, экранные размеры как есть
   hits.length = 0;
@@ -184,8 +186,8 @@ export function drawSystem(s) {
   });
 }
 
-export function nodeR(s) { return 5 + Math.min(5, (s.mines + s.bodies.filter(function (b) { return b.world; }).length) * 1.2); }
-export function seenSys(s) { return s.unlocked || within(s.id, Math.max(galaxyRange(), MARKRANGE[0])).some(function (n) { return systems[n].unlocked; }); }
+export function nodeR(s: Sys) { return 5 + Math.min(5, (s.mines + s.bodies.filter(function (b) { return b.world; }).length) * 1.2); }
+export function seenSys(s: Sys) { return s.unlocked || within(s.id, Math.max(galaxyRange(), MARKRANGE[0])).some(function (n) { return systems[n].unlocked; }); }
 
 export function drawMap() {
   hits.length = 0;
@@ -218,7 +220,7 @@ export function drawMap() {
   if (S.move.key === "gates") {                          // сеть ворот
     var g = systems.filter(function (s) { return s.gate.built; });
     g.forEach(function (s) {
-      var near = null, nd = 1e9;
+      var near: Sys = null, nd = 1e9;
       g.forEach(function (o) {
         if (o === s) return;
         var d = dist(s, o);
@@ -296,7 +298,7 @@ export function drawMap() {
     g.addColorStop(0, "#fff3d0"); g.addColorStop(0.45, "rgba(242,179,61,0.55)"); g.addColorStop(1, "rgba(242,179,61,0)");
     cx.beginPath(); cx.arc(s.x, s.y, r + 9 * uiz, 0, 6.2832); cx.fillStyle = g; cx.fill();
     cx.beginPath(); cx.arc(s.x, s.y, r * 0.5, 0, 6.2832); cx.fillStyle = "#fff6dd"; cx.fill();
-    var ws = s.bodies.filter(function (b) { return b.world; }), here = {};
+    var ws = s.bodies.filter(function (b) { return b.world; }), here: Record<number, number> = {};
     ws.forEach(function (b) { b.world.branches.forEach(function (br) { here[br.corp] = 1; }); });
     var ids = Object.keys(here);
     ids.forEach(function (id, i) {
@@ -322,7 +324,7 @@ export function drawMap() {
   if (cam.k !== 1 || cam.x || cam.y) cx.fillText("×" + cam.k.toFixed(1) + " · двойной клик вернёт вид", 16, 32);
 }
 
-export function frame(ts) {
+export function frame(ts: number) {
   var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
   advanceFrame(ts, dt);
   systems.forEach(function (s) { advance(s, dt); });

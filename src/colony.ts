@@ -6,30 +6,32 @@
 // основателя — не патенты, только знания, — и с этого дня живёт наукой об
 // освоении именно своего класса миров. Это старая идея из star-empire-sprawl
 // (колония отделяется и становится игроком), только теперь её рождает голод.
-import { S, corps, say, systems, worlds } from "./state";
+
 import { COMPS, TEMPLATE } from "./data";
+import { S, corps, say, systems, worlds } from "./state";
 import { allTech } from "./tech";
 import { openBranch, popOf } from "./world";
+import type { Corp, World } from "./types";
 
 export var EXTRA = ["#c9a0ff","#8ef0d0","#ffd27a","#ff9ecf","#9ad4ff","#d4ff7a","#ffb4a0","#a0ffe0"];
 export const PIRATES = ["#ff5c5c","#ff8c42","#e04f8f","#ff3b6b"];
 // Имя зависит от того, какой жребий выпал миру (см. despair), поэтому
 // приходит снаружи, а не собирается здесь: "Свободный" годится только для
 // того исхода, где мир и правда ушёл из государства.
-export function freeName(w) {
+export function freeName(w: World) {
   return "Свободн" + (/[аяь]$/.test(w.body.name.replace(/ [IVX]+$/, "")) ? "ая " : "ый ") + w.body.name;
 }
 // origin — какой жребий выпал миру, bornAt — где это случилось. По имени
 // происхождение НЕ определить: piracy() переименовывает контору в "Вольницу",
 // и артель с независимостью становятся неотличимы. А home не годится как
 // запись о родине: turnPirate при мятеже переносит логово на другой мир.
-export function spawnCorp(w, name, origin) {
+export function spawnCorp(w: World, name: string, origin: string) {
   var founder = corps[w.founder >= 0 ? w.founder : 0];
   var c = { id:corps.length, name:name || freeName(w),
             color:EXTRA[(corps.length - TEMPLATE.length) % EXTRA.length], craft:"выживание",
             nerve:1.3, apt:{}, cash:Math.max(60, w.gov.cash * 0.8), known:{}, spent:{}, stock:{},
             target:null, order:null, branches:[], sold:0, bought:0, cool:0, embargo:{}, ask:{},
-            native:w.type.tech, home:w, origin:origin || "государство", bornAt:w };
+            native:w.type.tech, home:w, origin:origin || "государство", bornAt:w } as Corp;
   Object.keys(founder.apt).forEach(function (k) { c.apt[k] = founder.apt[k] * 0.8; });
   c.apt[w.type.tech] = 1.6;                        // свой мир они понимают лучше всех
   allTech().forEach(function (f) { c.spent[f.key] = 0; });

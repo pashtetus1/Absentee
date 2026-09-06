@@ -14,11 +14,17 @@
 //     эти поля не читает и не пишет.
 
 import { MONTHS } from "./data";
+import type { Corp, Dock, MarketRow, Patent, Project, Sys, Voyage, World } from "./types";
 
-export const corps: any[] = [], systems: any[] = [], links: any[] = [], voyages: any[] = [];
-export const feed: any[] = [], worlds: any[] = [], projects: any[] = [], docks: any[] = [];
+export const corps: Corp[] = [], systems: Sys[] = [], voyages: Voyage[] = [];
+export const worlds: World[] = [], projects: Project[] = [], docks: Dock[] = [];
+export const links: any[] = [];
+export const feed: { d: string; t: string }[] = [];
 export const hits: any[] = [];                   // куда можно ткнуть на текущем кадре
-export const market: any = {}, patents: any = {}, routes: any = {}, flash: any = {};
+export const market: Record<string, MarketRow> = {};
+export const patents: Record<string, Patent> = {};
+export const routes: Record<string, boolean> = {};
+export const flash: Record<string, number> = {};
 export const cam = { x: 0, y: 0, k: 1 };         // камера карты: перетаскивание и зум
 
 export const S = {
@@ -31,7 +37,7 @@ export const S = {
   trades: 0, turnover: 0, shipped: 0, movedPops: 0, refusals: 0, dropped: 0,
   hauled: 0, burned: 0, raids: 0,                // деталей отправлено; топлива сожжено; перехватов
   pirateCount: 0, capSeq: 0,
-  home: null as any, move: null as any
+  home: null as World, move: null as any
 };
 
 export const L = { tax: 0.18, subKey: "drive", subYear: 90, tradeFee: 0.06, dole: 0.6, patTerm: 25, speed: 1 };
@@ -63,13 +69,13 @@ export function resetCam() { cam.x = 0; cam.y = 0; cam.k = 1; }
 export function Y() { return S.yearNow; }
 export function dateStr() { return "год " + Y() + " · " + MONTHS[S.tick % 12]; }
 export function say(t: string) { feed.unshift({ d: dateStr(), t: t }); if (feed.length > 90) feed.pop(); }
-export function planets(s: any) { return s.bodies; }
+export function planets(s: Sys) { return s.bodies; }
 
 // Патент — монополия НА ПРОИЗВОДСТВО (или на колонизацию класса миров), а не
 // право продать лицензию. Догнавший обязан ждать истечения.
 export function patLive(k: string) { var p = patents[k]; return !!(p && p.owner >= 0 && Y() - p.since < L.patTerm); }
-export function knows(c: any, k: string) { return !!c.known[k]; }
-export function canBuild(c: any, k: string) { return knows(c, k) && (!patLive(k) || patents[k].owner === c.id); }
+export function knows(c: Corp, k: string) { return !!c.known[k]; }
+export function canBuild(c: Corp, k: string) { return knows(c, k) && (!patLive(k) || patents[k].owner === c.id); }
 export function makersOf(k: string) { return corps.filter(function (c) { return canBuild(c, k); }); }
 export function anyKnows(k: string) { return corps.some(function (c) { return c.known[k]; }); }
 export function anyMakes(k: string) { return makersOf(k).length > 0; }

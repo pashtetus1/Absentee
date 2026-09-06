@@ -2,19 +2,21 @@
 // остальное — держатель Mk3 какое-то время летает вдвое быстрее соседей.
 // Базовые рейсы нарочно медленные: ускорение должно ощущаться как награда,
 // а не как возврат к норме.
-import { canBuild, corps, patents, tickCache } from "./state";
-import { COLTECH, COMPS, MARKS, colOf, compOf, markOf } from "./data";
 
-export var ENGINES = [
+import { COLTECH, COMPS, MARKS, colOf, compOf, markOf } from "./data";
+import { canBuild, corps, patents, tickCache } from "./state";
+import type { Corp, Dev, Engine, Tech, World } from "./types";
+
+export var ENGINES: Engine[] = [
   { key:"eng1", name:"Ходовые двигатели Mk1", short:"ход Mk1", diff:700,  mult:1.3 },
   { key:"eng2", name:"Ходовые двигатели Mk2", short:"ход Mk2", diff:1500, mult:1.6 },
   { key:"eng3", name:"Ходовые двигатели Mk3", short:"ход Mk3", diff:2600, mult:2.0 },
   { key:"eng4", name:"Ходовые двигатели Mk4", short:"ход Mk4", diff:4000, mult:2.5 },
   { key:"eng5", name:"Ходовые двигатели Mk5", short:"ход Mk5", diff:5600, mult:3.1 }
 ];
-export function engOf(k){ for (var i=0;i<ENGINES.length;i++) if (ENGINES[i].key===k) return ENGINES[i]; }
+export function engOf(k: string){ for (var i=0;i<ENGINES.length;i++) if (ENGINES[i].key===k) return ENGINES[i]; }
 // во сколько раз корабли этой компании быстрее базы (по лучшей доступной марке)
-export function speedOf(corpId) {
+export function speedOf(corpId: number) {
   var c = corps[corpId], best = 1;
   if (!c) return 1;
   ENGINES.forEach(function (e) { if (canBuild(c, e.key)) best = Math.max(best, e.mult); });
@@ -26,10 +28,10 @@ export function speedOf(corpId) {
 // появляется, когда кто-нибудь доводит предыдущую. Отделившиеся колонии
 // вкладываются сюда в первую очередь — это единственное, что им по-настоящему
 // нужно.
-export const DEVS: any[] = [];
-export function devOf(k){ for (var i=0;i<DEVS.length;i++) if (DEVS[i].key===k) return DEVS[i]; }
-export function devKey(cls, n){ return "dev_" + cls + "_" + n; }
-export function ensureDev(cls, n) {
+export const DEVS: Dev[] = [];
+export function devOf(k: string){ for (var i=0;i<DEVS.length;i++) if (DEVS[i].key===k) return DEVS[i]; }
+export function devKey(cls: string, n: number){ return "dev_" + cls + "_" + n; }
+export function ensureDev(cls: string, n: number) {
   if (devOf(devKey(cls, n))) return;
   var col = colOf(cls);
   var d = { key:devKey(cls, n), cls:cls, mark:n, short:col.short + " Mk" + n,
@@ -42,7 +44,7 @@ export function ensureDev(cls, n) {
 // лучшая марка освоения, действующая на этом мире: среди компаний с филиалом
 // лучшая марка класса у компании считается раз за тик на компанию, а не на
 // каждую пару филиал x мир: марок освоения к концу партии под сотню
-export function corpDevBest(c, cls) {
+export function corpDevBest(c: Corp, cls: string) {
   var byCorp = tickCache.devBest || (tickCache.devBest = {});
   var mine = byCorp[c.id] || (byCorp[c.id] = {});
   if (mine[cls] !== undefined) return mine[cls];
@@ -51,14 +53,16 @@ export function corpDevBest(c, cls) {
   mine[cls] = best;
   return best;
 }
-export function devLevel(w) {
+export function devLevel(w: World) {
   if (tickCache.dev.has(w)) return tickCache.dev.get(w);
   var best = 0;
   w.branches.forEach(function (b) { best = Math.max(best, corpDevBest(corps[b.corp], w.type.tech)); });
   tickCache.dev.set(w, best);
   return best;
 }
-export function devMult(w){ return 1 + 0.12 * devLevel(w); }
-export function devCap(w){ return devLevel(w); }
-export function allTech(){ return COMPS.concat(COLTECH).concat(MARKS).concat(ENGINES).concat(DEVS); }
-export function techOf(k){ return compOf(k) || colOf(k) || markOf(k) || engOf(k) || devOf(k); }
+export function devMult(w: World){ return 1 + 0.12 * devLevel(w); }
+export function devCap(w: World){ return devLevel(w); }
+// Пять таблиц в одном списке: всё, во что можно вкладываться. Порядок тот же,
+// что и раньше — от него зависит, что компания выберет при равных прочих.
+export function allTech(): Tech[] { return ([] as Tech[]).concat(COMPS, COLTECH, MARKS, ENGINES, DEVS); }
+export function techOf(k: string){ return compOf(k) || colOf(k) || markOf(k) || engOf(k) || devOf(k); }

@@ -4,17 +4,19 @@
 // возьмёт его вместо того, чтобы покупать корпус и трюм заново; чужой
 // корабль покупают у хозяина за 60% от цены его деталей. Владелец — либо
 // компания (частная помощь), либо правительство мира-получателя.
+
+import { askPrice } from "./market";
 import { L, S, corps, docks, market, systems } from "./state";
 import { rnd6 } from "./util";
 import { addStock, stockAt } from "./world";
-import { askPrice } from "./market";
+import type { Corp, Dock, Part, Voyage, World } from "./types";
 
-export function dockShip(v) {
+export function dockShip(v: Voyage) {
   if (v.kind !== "food" && v.kind !== "pops") return;
   var s = systems[v.to.sys];
   var d = { kind: v.kind === "pops" ? "liner" : "cargo", parts:v.parts || [], captain:v.captain,
             sys:s.id, world:v.to, ang:rnd6(), since:S.tick,
-            corp: v.relief !== undefined ? v.relief : -1, gov: v.relief !== undefined ? null : v.to };
+            corp: v.relief !== undefined ? v.relief : -1, gov: v.relief !== undefined ? null : v.to } as Dock;
   // Дорожка запоминается у корабля, а не считается от места в общем массиве:
   // иначе списание одного заставляло всех остальных прыгнуть на другую орбиту.
   d.lane = docks.filter(function (x) { return x.world === v.to; }).length % 3;
@@ -23,19 +25,19 @@ export function dockShip(v) {
   var here = docks.filter(function (x) { return x.world === v.to; });
   if (here.length > 6) docks.splice(docks.indexOf(here[0]), 1);
 }
-export function dockValue(d) {
+export function dockValue(d: Dock) {
   return d.parts.reduce(function (a, p) { return a + market[p.k].price; }, 0) * 0.6;
 }
 // payer — компания (corp) или мир (gov); берёт корабль нужного типа в системе
 // need — что обязан нести корабль для ЭТОГО рейса: под движками между звёздами
 // без двигателя не уйти, и корабль, пришедший внутрисистемным рейсом, не годится
-export function fits(parts, need) {
-  var have = {};
+export function fits(parts: Part[], need: Record<string, number>) {
+  var have: Record<string, number> = {};
   parts.forEach(function (p) { have[p.k] = (have[p.k] || 0) + 1; });
   return Object.keys(need).every(function (k) { return (have[k] || 0) >= need[k]; });
 }
-export function takeDock(payerCorp, payerWorld, sys, kind, need) {
-  var own = null, other = null;
+export function takeDock(payerCorp: Corp | null, payerWorld: World | null, sys: number, kind: string, need: Record<string, number>) {
+  var own: Dock = null, other: Dock = null;
   docks.forEach(function (d) {
     if (d.sys !== sys || d.kind !== kind) return;
     if (need && !fits(d.parts, need)) return;
@@ -60,13 +62,13 @@ export function takeDock(payerCorp, payerWorld, sys, kind, need) {
 // покупает еду и хлебовоз и шлёт их — из корысти, не из милосердия. Семь лет
 // голода — и мир отделяется, забирая филиал; дешевле накормить. Помощь идёт
 // не чаще раза в два года на мир, и только пока у компании есть деньги.
-export function corpBuyShip(c, at, need) {
-  var taken = [], ok = true;
+export function corpBuyShip(c: Corp, at: World, need: Record<string, number>) {
+  var taken: Part[] = [], ok = true;
   Object.keys(need).forEach(function (k) {
     for (var i = 0; i < need[k]; i++) {
       if (!ok) return;
       if (stockAt(c, at.sys, k) > 0) { addStock(c, at.sys, k, -1); taken.push({ k:k, from:c.id, price:0 }); continue; }
-      var seller = null;
+      var seller: Corp = null;
       corps.forEach(function (s) {
         if (s.id === c.id || stockAt(s, at.sys, k) <= 0) return;
         if (!seller || stockAt(s, at.sys, k) > stockAt(seller, at.sys, k)) seller = s;

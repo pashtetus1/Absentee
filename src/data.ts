@@ -1,9 +1,11 @@
 // ===================== данные =====================
+
 import { S, fill } from "./state";
+import type { ColTech, Comp, Mark, Move, PType, Tech, VType } from "./types";
 
 export var MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
 
-export var COMPS = [
+export var COMPS: Comp[] = [
   { key:"goods", name:"Товары для колоний",  short:"товары",    diff:560,  work:2, base:14,  glyph:"cir" },
   { key:"hold",  name:"Грузовой трюм",       short:"трюм",      diff:640,  work:2, base:16,  glyph:"sqr" },
   { key:"drill", name:"Буровая установка",   short:"бур",       diff:880,  work:3, base:24,  glyph:"dia" },
@@ -17,22 +19,22 @@ export var COMPS = [
   { key:"fuel",  name:"Местное топливо",     short:"топливо",   diff:380,  work:1, base:9,   glyph:"cir" },
   { key:"sfuel", name:"Межзвёздное топливо", short:"м-топливо", diff:1400, work:4, base:48,  glyph:"cir" }
 ];
-export function compOf(k){ for (var i=0;i<COMPS.length;i++) if (COMPS[i].key===k) return COMPS[i]; }
+export function compOf(k: string){ for (var i=0;i<COMPS.length;i++) if (COMPS[i].key===k) return COMPS[i]; }
 
 // Классы миров и технологии на них. Умеренные дешевле всех, газовый гигант
 // дороже двигателя: жить в облаках сложнее, чем летать между звёздами.
-export var COLTECH = [
+export var COLTECH: ColTech[] = [
   { key:"temperate", name:"Умеренные миры",  short:"умеренные", diff:1500 },
   { key:"cold",      name:"Холодные миры",   short:"холодные",  diff:2300 },
   { key:"dry",       name:"Сухие миры",      short:"сухие",     diff:2500 },
   { key:"hot",       name:"Мёртвые миры",    short:"мёртвые",   diff:3400 },
   { key:"gas",       name:"Газовые гиганты", short:"гиганты",   diff:4600 }
 ];
-export function colOf(k){ for (var i=0;i<COLTECH.length;i++) if (COLTECH[i].key===k) return COLTECH[i]; }
+export function colOf(k: string){ for (var i=0;i<COLTECH.length;i++) if (COLTECH[i].key===k) return COLTECH[i]; }
 
 // cap — предел населения, farm — урожай с фермера. Гигант не кормит вообще:
 // всё, что там живёт, живёт на привозном.
-export var PTYPES = [
+export var PTYPES: PType[] = [
   { key:"terran", name:"терран",         cap:11, farm:2.4,  tech:"temperate", col:"#5b8f6a", w:10 },
   { key:"ocean",  name:"океан",          cap:9,  farm:2.2,  tech:"temperate", col:"#3f6f96", w:9 },
   { key:"jungle", name:"джунгли",        cap:10, farm:2.6,  tech:"temperate", col:"#4f7a3f", w:8 },
@@ -54,14 +56,14 @@ export var PTYPES = [
   { key:"radio",  name:"радиоактивная",  cap:3,  farm:0.05, tech:"hot",       col:"#7fa04a", w:6 },
   { key:"icegiant",name:"ледяной гигант",cap:5,  farm:0,    tech:"gas",       col:"#6f8fb8", w:7 }
 ];
-export function ptypeOf(k){ for (var i=0;i<PTYPES.length;i++) if (PTYPES[i].key===k) return PTYPES[i]; }
+export function ptypeOf(k: string){ for (var i=0;i<PTYPES.length;i++) if (PTYPES[i].key===k) return PTYPES[i]; }
 export function rollType() {
   var tot = PTYPES.reduce(function (a, p) { return a + p.w; }, 0), r = Math.random() * tot;
   for (var i = 0; i < PTYPES.length; i++) { r -= PTYPES[i].w; if (r <= 0) return PTYPES[i]; }
   return PTYPES[0];
 }
 
-export var VTYPES = [
+export var VTYPES: VType[] = [
   { key:"mine",   name:"разработка астероидов", need:{ drill:2, hold:1, hull:1 }, build:14, yield:3.1, term:1800, glyph:"mine" },
   { key:"colony", name:"колония",               need:{ hull:2, life:1, goods:1 }, build:22, glyph:"colony" },
   { key:"jump",   name:"межзвёздный прыжок",    need:{ drive:2, hull:1, life:1 }, build:30, glyph:"jump" },
@@ -70,7 +72,7 @@ export var VTYPES = [
   { key:"cargo",  name:"грузовик",              need:{ hull:1, hold:1 },          build:8,  glyph:"cargo" },
   { key:"liner",  name:"переселенческий",       need:{ hull:1, life:1 },          build:10, glyph:"cargo" }
 ];
-export function vtype(k){ for (var i=0;i<VTYPES.length;i++) if (VTYPES[i].key===k) return VTYPES[i]; }
+export function vtype(k: string){ for (var i=0;i<VTYPES.length;i++) if (VTYPES[i].key===k) return VTYPES[i]; }
 
 // Способ межзвёздного перемещения выпадает партии ОДИН и случайно. Это не
 // ветка развития, а условие задачи: три способа дают три разные логистики,
@@ -82,7 +84,7 @@ export function vtype(k){ for (var i=0;i<VTYPES.length;i++) if (VTYPES[i].key===
 //            систем. Дорого за маршрут, дальше по нему летают даром.
 //   gates  — ворота строятся В СИСТЕМЕ. Дорого за систему, зато система с
 //            воротами сама дотягивается до соседей и до любых других ворот.
-export var MOVES = [
+export var MOVES: Move[] = [
   { key:"drives", name:"портальные движки", vt:"jump",
     hint:"Двигатель на каждом корабле: экспансия по одному кораблю, перевозки между звёздами дороги навсегда." },
   { key:"opener", name:"порталооткрыватели", vt:"opener",
@@ -90,7 +92,7 @@ export var MOVES = [
   { key:"gates",  name:"звёздные ворота", vt:"gate",
     hint:"Ворота строятся в системе: дорого за систему, зато она дотягивается до соседей и до других ворот." }
 ];
-export function moveOf(k){ for (var i=0;i<MOVES.length;i++) if (MOVES[i].key===k) return MOVES[i]; }
+export function moveOf(k: string){ for (var i=0;i<MOVES.length;i++) if (MOVES[i].key===k) return MOVES[i]; }
 
 // Марки. Портал любой природы бьёт на ограниченное расстояние, и это главный
 // ограничитель карты: Mk1 дотягивается только до первого кольца, дальние
@@ -99,16 +101,16 @@ export function moveOf(k){ for (var i=0;i<MOVES.length;i++) if (MOVES[i].key===k
 // второго, 90 — до третьего, 130 — до четвёртого и пятого.
 export var MARKRANGE = [46, 66, 90, 130];
 export var MARKDIFF  = [1300, 2500, 4000, 5800];
-export const MARKS: any[] = [];
+export const MARKS: Mark[] = [];
 export function makeMarks() {
   fill(MARKS, MARKRANGE.map(function (r, i) {
     return { key: S.move.key + (i + 1), short: "Mk" + (i + 1), range: r, mark: i + 1,
              name: S.move.name + " Mk" + (i + 1), diff: MARKDIFF[i] };
   }));
 }
-export function markOf(k){ for (var i=0;i<MARKS.length;i++) if (MARKS[i].key===k) return MARKS[i]; }
+export function markOf(k: string){ for (var i=0;i<MARKS.length;i++) if (MARKS[i].key===k) return MARKS[i]; }
 // пока способ не выяснен, марки называются обезличенно
-export function markName(m){ return S.moveKnown ? m.name : "Межзвёздный переход " + m.short; }
+export function markName(m: Tech){ return S.moveKnown ? m.name : "Межзвёздный переход " + m.short; }
 export function moveName(){ return S.moveKnown ? S.move.name : "способ пока неизвестен"; }
 
 export var TEMPLATE = [

@@ -1,13 +1,15 @@
 // ===================== наука =====================
-import { allTech, devOf, engOf, ensureDev, speedOf, techOf } from "./tech";
-import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, systems, voyages } from "./state";
+
 import { compOf, markOf } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
+import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, systems, voyages } from "./state";
+import { allTech, devOf, engOf, ensureDev, speedOf, techOf } from "./tech";
+import type { Corp } from "./types";
 
-export function sciOf(c){ return c.branches.reduce(function (a, b) { return a + b.emp.sci; }, 0); }
-export function prodOf(c){ return c.branches.reduce(function (a, b) { return a + b.emp.prod; }, 0); }
+export function sciOf(c: Corp){ return c.branches.reduce(function (a, b) { return a + b.emp.sci; }, 0); }
+export function prodOf(c: Corp){ return c.branches.reduce(function (a, b) { return a + b.emp.prod; }, 0); }
 
-export function pickTarget(c) {
+export function pickTarget(c: Corp): string | null {
   var best = null, top = -1;
   allTech().forEach(function (f) {
     if (knows(c, f.key)) return;

@@ -1,12 +1,16 @@
 // ===================== галактика =====================
-import { dist, rnd6 } from "./util";
+
 import { BODYNAMES, MARKS, ROCKNAMES, SYSNAMES, ptypeOf, rollType } from "./data";
 import { CH, CW } from "./render/canvas";
 import { canBuild, corps, fill, links, systems } from "./state";
+import { dist, rnd6 } from "./util";
+import type { Corp, Mark, Sys } from "./types";
 
-export function makeSystem(i, name, x, y, pool) {
+export function makeSystem(i: number, name: string, x: number, y: number, pool: string[]) {
+  // belt и gate дописываются ниже: belt тянет случайное число, и перенос его
+  // в литерал сдвинул бы весь поток — партии перестали бы воспроизводиться
   var s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
-            bodies:[], rocks:[], ventures:[], ships:[], yards:[], stations:[], mines:0 };
+            bodies:[], rocks:[], ventures:[], ships:[], yards:[], stations:[], mines:0 } as unknown as Sys;
   var np = i === 0 ? 4 : 2 + Math.floor(Math.random() * 4);      // до пяти планет
   var base = rnd6();
   for (var k = 0; k < np; k++) {
@@ -52,7 +56,7 @@ export function makeSystem(i, name, x, y, pool) {
 export var RINGS = [{ r:0, n:1 }, { r:38, n:7 }, { r:86, n:10 }, { r:145, n:12 }, { r:216, n:12 }, { r:300, n:8 }];
 export var ROMAN = ["", "II", "III", "IV", "V"];
 
-export function sysName(i) {
+export function sysName(i: number) {
   if (i < SYSNAMES.length) return SYSNAMES[i];
   return SYSNAMES[i % SYSNAMES.length] + " " + ROMAN[Math.floor(i / SYSNAMES.length)];
 }
@@ -90,13 +94,13 @@ export function makeGalaxy() {
 // Соседство теперь не рисуется заранее, а считается дальностью портала:
 // "рядом" — значит, дотягивается техника, а не значит, что кто-то провёл
 // линию на карте. От марки к марке карта сама раскрывается кольцами.
-export function within(i, range) {
+export function within(i: number, range: number) {
   var out = [];
   for (var j = 0; j < systems.length; j++)
     if (j !== i && dist(systems[i], systems[j]) <= range) out.push(j);
   return out;
 }
-export function rangeOf(c) {
+export function rangeOf(c: Corp) {
   var best = 0;
   MARKS.forEach(function (m) { if (canBuild(c, m.key)) best = Math.max(best, m.range); });
   return best;
@@ -106,7 +110,7 @@ export function galaxyRange() {
   corps.forEach(function (c) { best = Math.max(best, rangeOf(c)); });
   return best;
 }
-export function bestMark() {
+export function bestMark(): Mark | null {
   var out = null;
   MARKS.forEach(function (m) { if (corps.some(function (c) { return canBuild(c, m.key); })) out = m; });
   return out;

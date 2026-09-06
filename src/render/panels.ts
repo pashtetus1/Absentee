@@ -1,19 +1,29 @@
 // ===================== панели =====================
+
+
+// Панели написаны на innerHTML, и один и тот же el() достаёт то ползунок
+// (value), то блок текста (textContent). Уточнять тип приведением на каждой
+// строке — шум ради шума, поэтому здесь один расширенный тип на весь модуль.
+// value нарочно any: в разметку кладут и числа, браузер сам приводит их к
+// строке, и String() вокруг каждого присваивания ничего бы не поймал.
+
 import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype } from "../data";
-import { L, S, U, UPKEEP, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, systems, voyages, worlds } from "../state";
-import { popOf } from "../world";
-import { fmt } from "../util";
 import { dockValue } from "../docks";
 import { galaxyRange, within } from "../galaxy";
-import { DEVS, ENGINES, techOf } from "../tech";
-import { seenSys } from "./scene";
 import { prodOf, sciOf } from "../science";
+import { L, S, U, UPKEEP, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, systems, voyages, worlds } from "../state";
+import { DEVS, ENGINES, techOf } from "../tech";
+import { fmt } from "../util";
+import { popOf } from "../world";
+import { seenSys } from "./scene";
+import type { Part, World } from "../types";
 
-export function el(id){ return document.getElementById(id); }
+export type Ctl = HTMLElement & { value: any; textContent: any; disabled: boolean; checked: boolean };
+export function el(id: string): Ctl { return document.getElementById(id) as Ctl; }
 
-export function partsList(parts, ownerId) {
+export function partsList(parts: Part[], ownerId: number) {
   if (!parts || !parts.length) return '<div class="empty">Состав неизвестен.</div>';
-  var by = {};
+  var by: Record<string, number> = {};
   parts.forEach(function (p) { var k = p.k + "|" + p.from; by[k] = (by[k] || 0) + 1; });
   return Object.keys(by).map(function (k) {
     var bits = k.split("|"), f = compOf(bits[0]), from = corps[+bits[1]];
@@ -23,7 +33,7 @@ export function partsList(parts, ownerId) {
   }).join("");
 }
 
-export function worldCard(w) {
+export function worldCard(w: World) {
   var p = w.pop, total = popOf(w);
   return '<div class="card"><h3>' + w.body.name + ' · ' + w.type.name + '</h3>' +
     '<div class="sub">' + fmt(total) + ' из ' + w.cap + ' человечков · ' +
@@ -125,7 +135,7 @@ export function panels() {
     var p = patents[f.key];
     var pat = patLive(f.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm)
             : p.owner >= 0 ? "патент истёк" : "";
-    var seg = "", chasers = [];
+    var seg = "", chasers: string[] = [];
     corps.forEach(function (c) {
       if (canBuild(c, f.key) || c.spent[f.key] < 1) return;
       seg += '<i style="width:' + Math.min(100, c.spent[f.key] / f.diff * 100) + '%;background:' + c.color + '99"></i>';
@@ -241,7 +251,7 @@ export function panels() {
              '</div></div>';
     }).join("");
   } else {
-    var s = systems[U.view.sys], rows = [];
+    var s = systems[U.view.sys], rows: string[] = [];
     s.yards.forEach(function (yd) {
       rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + yd.color + '"></i>' +
         '<span class="rname">' + corps[yd.lead].name + ' · ' + yd.vt.name + '</span>' +
@@ -286,7 +296,7 @@ export function panels() {
       (can.length ? '<div class="rmeta" style="color:var(--gold)">делает: ' + can.join(", ") + '</div>' : '') +
       (col.length ? '<div class="rmeta" style="color:var(--ok)">колонизует: ' + col.join(", ") + '</div>' : '') +
       (function () {
-        var by = {};
+        var by: Record<string, string[]> = {};
         Object.keys(c.embargo).forEach(function (k) {
           if (c.embargo[k] <= S.tick) return;
           var bits = k.split("|");

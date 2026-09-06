@@ -2,8 +2,9 @@
 // Цех стоит на конкретной планете и складывает сделанное там же. Поэтому у
 // филиала на окраине появляется смысл: он снабжает окраину, не гоняя корпуса
 // через полгалактики.
-import { canBuild, corps, market } from "./state";
+
 import { COMPS } from "./data";
+import { canBuild, corps, market } from "./state";
 import { addStock, stockAt, totalStock } from "./world";
 
 export function produce() {

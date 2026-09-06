@@ -1,17 +1,18 @@
-import { L, S, U, headless, resetTickCache, tickCache, worlds } from "./state";
+
 import { markTick } from "./clock";
-import { labour } from "./labour";
-import { economy, ventureIncome } from "./economy";
-import { patentsExpire, research } from "./science";
-import { produce } from "./factory";
-import { stalledOrders, stalledProjects, trade } from "./market";
-import { foodRun } from "./food";
-import { corpRelief, events, piracy } from "./relief";
-import { migrationRun } from "./migration";
 import { despair } from "./colony";
-import { assemble, branchTrade, reviewOrders, reviewProjects } from "./orders";
+import { economy, ventureIncome } from "./economy";
+import { produce } from "./factory";
+import { foodRun } from "./food";
+import { labour } from "./labour";
+import { stalledOrders, stalledProjects, trade } from "./market";
+import { migrationRun } from "./migration";
 import { moveShips } from "./motion";
+import { assemble, branchTrade, reviewOrders, reviewProjects } from "./orders";
+import { corpRelief, events, piracy } from "./relief";
 import { panels } from "./render/panels";
+import { patentsExpire, research } from "./science";
+import { L, S, U, headless, resetTickCache, tickCache, worlds } from "./state";
 
 export function step() {
   S.tick++; markTick(); S.yearNow = Math.floor(S.tick / 12);

@@ -2,17 +2,19 @@
 // Ходовая цена — не закон, а память рынка: скользящее среднее по СОСТОЯВШИМСЯ
 // сделкам плюс поправка на дефицит. От неё продавец и покупатель пляшут в
 // торге, но сама по себе она никого ни к чему не обязывает.
+
 import { COMPS, compOf, pickCaptain } from "./data";
-import { L, S, corps, dateStr, market, patLive, patents, projects, say, systems, tickCache, voyages, worlds } from "./state";
-import { addStock, firstStockSys, stockAt, totalStock } from "./world";
-import { clamp } from "./util";
 import { freeRocks, releaseOrder } from "./orders";
-import { canTravel } from "./travel";
+import { L, S, corps, dateStr, market, patLive, patents, projects, say, systems, tickCache, voyages, worlds } from "./state";
 import { speedOf } from "./tech";
+import { canTravel } from "./travel";
+import { clamp } from "./util";
+import { addStock, firstStockSys, stockAt, totalStock } from "./world";
+import type { Corp, Part, World } from "./types";
 
 export function repriceMarket() {
   COMPS.forEach(function (f) {
-    var m = market[f.key], stock = 0, want = 0, sellers = [];
+    var m = market[f.key], stock = 0, want = 0, sellers: Corp[] = [];
     corps.forEach(function (c) {
       var have = totalStock(c, f.key);
       stock += have;
@@ -37,9 +39,9 @@ export function repriceMarket() {
 // Топливом торгуют БЕЗ отказов: это расходник, на нём не выигрывают гонку, а
 // запрет на него мгновенно запирает всю галактику и убивает партию. Берём
 // своё, если есть в этой системе, иначе покупаем у соседа по цеху.
-export function takeFuel(c, sys, k, direct) {
+export function takeFuel(c: Corp, sys: number, k: string, direct?: boolean) {
   if (stockAt(c, sys, k) > 0) { addStock(c, sys, k, -1); return true; }
-  var seller = null;
+  var seller: Corp = null;
   corps.forEach(function (s) {
     if (s.id === c.id || stockAt(s, sys, k) <= 0) return;
     if (!seller || stockAt(s, sys, k) > stockAt(seller, sys, k)) seller = s;
@@ -55,8 +57,8 @@ export function takeFuel(c, sys, k, direct) {
     var acct = c.fuelAcct[sys] || (c.fuelAcct[sys] = { fly:{} });
     if ((acct.fly[k] || 0) > 0) return false;
     buyPart(c, k, sys, 0.6,
-            function (sum) { if (c.cash < sum + 10) return false; c.cash -= sum; return true; },
-            function (part) { addStock(c, sys, part.k, 1); }, true, acct);
+            function (sum: number) { if (c.cash < sum + 10) return false; c.cash -= sum; return true; },
+            function (part: Part) { addStock(c, sys, part.k, 1); }, true, acct);
     return false;
   }
   var price = market[k].price * (1 + L.tradeFee);
@@ -69,13 +71,13 @@ export function takeFuel(c, sys, k, direct) {
 }
 // есть ли в системе мира продавец топлива, и хватит ли казне — проверяется
 // ДО покупки корабля, чтобы не остаться с оплаченным корпусом без горючего
-export function govFuelAvail(payer, at, k) {
+export function govFuelAvail(payer: World, at: World, k: string) {
   var price = market[k].price * (1 + L.tradeFee);
   return payer.gov.cash >= price + 10 && corps.some(function (s) { return stockAt(s, at.sys, k) > 0; });
 }
 // правительство мира жжёт своё топливо так же, только платит из своей казны
-export function govFuel(payer, at, k) {
-  var seller = null;
+export function govFuel(payer: World, at: World, k: string) {
+  var seller: Corp = null;
   corps.forEach(function (s) {
     if (stockAt(s, at.sys, k) <= 0) return;
     if (!seller || stockAt(s, at.sys, k) > stockAt(seller, at.sys, k)) seller = s;
@@ -96,14 +98,14 @@ export function govFuel(payer, at, k) {
 // наполовину декорацией: цена одна на всех и торговаться не о чем.
 // После каждой попытки обе стороны подвигают свои притязания, поэтому цены
 // сходятся сами, а жадный продавец какое-то время сидит без сделок.
-export function askPrice(seller, k) {
+export function askPrice(seller: Corp, k: string) {
   return market[k].price * clamp(seller.ask[k], 0.7, 2.2);
 }
-export function bidCap(buyer, k, urgency) {
+export function bidCap(buyer: Corp, k: string, urgency: number) {
   // чем дольше ждёт заказ и чем богаче покупатель, тем выше он готов задрать
   return market[k].price * clamp(0.9 + urgency * 0.5 + (buyer.cash > 1200 ? 0.15 : 0), 0.8, 2.0);
 }
-export function haggle(seller, buyer, k, urgency) {
+export function haggle(seller: Corp, buyer: Corp, k: string, urgency: number) {
   var ask = askPrice(seller, k), cap = bidCap(buyer, k, urgency);
   if (ask > cap) {                                   // не сошлись
     seller.ask[k] = clamp(seller.ask[k] - 0.02, 0.7, 2.2);
@@ -122,12 +124,12 @@ export function haggle(seller, buyer, k, urgency) {
 // его рывок. Поэтому продавец решает, а не автоматически меняет вещь на
 // деньги. Решение ЗАПОМИНАЕТСЯ на годы: если перекидывать монетку каждый
 // месяц, отказ ничего не значит — рано или поздно выпадет "да".
-export function embKey(buyerId, k){ return buyerId + "|" + k; }
+export function embKey(buyerId: number, k: string){ return buyerId + "|" + k; }
 
 // Касса меняется прямо во время торгов, поэтому кешируются только активы —
 // филиалы, основанные миры, предприятия, — а касса берётся живая. Иначе
 // решения об отказе внутри тика чуть сдвигались, и партии расходились.
-export function wealth(c) {
+export function wealth(c: Corp) {
   var a = tickCache.wealth[c.id];
   if (a === undefined) {
     a = c.branches.length * 120;
@@ -137,7 +139,7 @@ export function wealth(c) {
   }
   return c.cash + a;
 }
-export function sameGoal(a, b) {
+export function sameGoal(a: Corp, b: Corp) {
   if (a.order && b.order && a.order.type === b.order.type) return true;
   var pa = projects.some(function (p) { return p.lead === a.id; });
   var pb = projects.some(function (p) { return p.lead === b.id; });
@@ -151,7 +153,7 @@ export function lastPrize() {
   return tickCache.prize;
 }
 
-export function willSell(seller, buyer, k) {
+export function willSell(seller: Corp, buyer: Corp, k: string) {
   var e = seller.embargo[embKey(buyer.id, k)];
   if (e && e > S.tick) return false;                    // отказ ещё в силе
   if (e && e <= S.tick) delete seller.embargo[embKey(buyer.id, k)];
@@ -190,7 +192,7 @@ export function stalledProjects() {
     }
     pr.wait = (pr.wait || 0) + 1;
     if (pr.wait < 84) continue;                    // семь лет без движения
-    var blockers = {};
+    var blockers: Record<string, number> = {};
     COMPS.forEach(function (f) {
       if ((pr.need[f.key] || 0) - (pr.got[f.key] || 0) <= 0) return;
       corps.forEach(function (o) { if (o.embargo[embKey(pr.lead, f.key)] > S.tick) blockers[o.name] = 1; });
@@ -218,7 +220,7 @@ export function stalledOrders() {
     if (!missing.length) { c.order.wait = 0; return; }
     c.order.wait = (c.order.wait || 0) + 1;
     if (c.order.wait < 72) return;
-    var blockers = {};
+    var blockers: Record<string, number> = {};
     missing.forEach(function (f) {
       corps.forEach(function (o) {
         if (o.embargo[embKey(c.id, f.key)] > S.tick) blockers[o.name] = 1;
@@ -240,21 +242,22 @@ export function stalledOrders() {
 // acct — заказ или подписка, за которую покупают: в acct.fly считаются детали,
 // уже оплаченные и летящие. Без этого счёта покупатель заказывал одно и то же
 // каждый месяц, пока груз годами шёл, и в воздухе висели десятки грузовиков.
-export function buyPart(buyer, k, dest, urgency, pay, take, noRefuse, acct) {
+export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, pay: any, take: any, noRefuse: boolean, acct: any) {
   // Кандидаты: сначала те, у кого деталь лежит прямо здесь, потом дальние.
   // Перебираем ВСЕХ: раньше брали одного, и если он отказывал, покупка
   // срывалась на месяц — при том, что у соседа та же деталь лежала без дела.
   // перебираем не все компании, а только тех, у кого деталь есть — индекс
   // построен в repriceMarket этим же тиком; до него каждая покупка сканировала
   // всех, и на шестидесяти компаниях это было главной статьёй расхода
-  var cands = [], pool = (tickCache.sellers && tickCache.sellers[k]) || corps;
+  var cands: { s: Corp; from: number; n: number }[] = [];
+  var pool: Corp[] = (tickCache.sellers && tickCache.sellers[k]) || corps;
   pool.forEach(function (s) {
     if (s.id === buyer.id) return;
     if (stockAt(s, dest, k) > 0) cands.push({ s:s, from:dest, n:stockAt(s, dest, k) });
     else if (totalStock(s, k) > 0) cands.push({ s:s, from:firstStockSys(s, k), n:0 });
   });
   cands.sort(function (a, b) { return b.n - a.n; });
-  var seller = null, sysFrom = -1, price = 0;
+  var seller: Corp = null, sysFrom = -1, price = 0;
   for (var i = 0; i < cands.length; i++) {
     var cnd = cands[i];
     if (!noRefuse && !willSell(cnd.s, buyer, k)) continue;
@@ -280,7 +283,7 @@ export function buyPart(buyer, k, dest, urgency, pay, take, noRefuse, acct) {
   if (acct) { if (!acct.fly) acct.fly = {}; acct.fly[k] = (acct.fly[k] || 0) + 1; }
   voyages.push({ kind:"parts", sysFrom:sysFrom, to:dest, k:k, qty:1, corp:seller.id,
                  color:corps[seller.id].color, forCorp:buyer.id, acct:acct,
-                 take:function (part) {
+                 take:function (part: Part) {
                    if (acct && acct.fly) acct.fly[part.k] = Math.max(0, (acct.fly[part.k] || 0) - 1);
                    take(part);
                  },
@@ -308,8 +311,8 @@ export function trade() {
         return;
       }
       buyPart(c, f.key, o.sys, urgency,
-              function (sum) { if (c.cash < sum + 25) return false; c.cash -= sum; return true; },
-              function (part) {
+              function (sum: number) { if (c.cash < sum + 25) return false; c.cash -= sum; return true; },
+              function (part: Part) {
                 // грузовик мог прилететь к уже свёрнутому заказу — тогда на склад
                 if (c.order !== o) { addStock(c, o.sys, part.k, 1); return; }
                 o.got[part.k] = (o.got[part.k] || 0) + 1; o.parts.push(part);
@@ -330,8 +333,8 @@ export function trade() {
         return;
       }
       buyPart(lead, f.key, pr.sys, urgency,
-              function (sum) { if (pr.purse < sum) return false; pr.purse -= sum; return true; },
-              function (part) {
+              function (sum: number) { if (pr.purse < sum) return false; pr.purse -= sum; return true; },
+              function (part: Part) {
                 if (projects.indexOf(pr) < 0) { addStock(lead, pr.sys, part.k, 1); return; }
                 pr.got[part.k] = (pr.got[part.k] || 0) + 1; pr.parts.push(part);
               }, false, pr);

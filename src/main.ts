@@ -5,15 +5,14 @@
 // Стенд запускает ядро без браузера: см. test/. Отдаём только чтение состояния
 // и шаг — отрисовка в тестах не участвует принципиально.
 
-import { S, L, U, corps, worlds, systems, links, routes, market, patents, voyages, projects, docks, feed, headless } from "./state";
-import { COMPS, COLTECH, PTYPES, VTYPES, MOVES, MARKS } from "./data";
-import { ENGINES, speedOf } from "./tech";
-import { popOf } from "./world";
-import { build } from "./setup";
-import { step } from "./tick";
+import { COLTECH, COMPS, MARKS, MOVES, PTYPES, VTYPES } from "./data";
 import { icon } from "./render/models";
-
 import { bindUI } from "./render/ui";
+import { build } from "./setup";
+import { L, S, U, corps, docks, feed, headless, links, market, patents, projects, routes, systems, voyages, worlds } from "./state";
+import { ENGINES, speedOf } from "./tech";
+import { step } from "./tick";
+import { popOf } from "./world";
 
 export { step, build, speedOf, popOf, icon };
 

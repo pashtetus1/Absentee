@@ -51,7 +51,7 @@ function load(file, { withDom = false, seed = null } = {}) {
 
   const sandbox = { module: { exports: {} }, Math: Object.create(Math), console };
   if (seed !== null) {
-    // свой генератор с сеймом: одна и та же партия воспроизводится
+    // свой генератор с сидом: одна и та же партия воспроизводится
     let s = seed >>> 0;
     sandbox.Math.random = function () {
       s = (s * 1664525 + 1013904223) >>> 0;

@@ -1,15 +1,17 @@
 // ===================== заказы, консорциумы, филиалы =====================
+
+import { vtype } from "./data";
+import { galaxyRange, rangeOf, within } from "./galaxy";
 import { S, anyMakes, canBuild, corps, dateStr, fill, market, projects, say, systems, voyages, worlds } from "./state";
 import { gated, reachable } from "./travel";
-import { galaxyRange, rangeOf, within } from "./galaxy";
 import { clamp, dist } from "./util";
 import { hasBranch, openBranch, popOf } from "./world";
-import { vtype } from "./data";
+import type { Corp, Order, Part, Planet, Sys, VType } from "./types";
 
-export function freeRocks(s){ return s.rocks.filter(function (r) { return !r.taken; }); }
+export function freeRocks(s: Sys){ return s.rocks.filter(function (r) { return !r.taken; }); }
 // Заказ не начинают, пока нет горючего, на котором это полетит: иначе корабль
 // собирают, а потом он десятилетиями стоит у стапеля и ест деньги впустую.
-export function buildable(vt) {
+export function buildable(vt: VType) {
   var fuelKey = (vt.key === "mine" || vt.key === "colony") ? "fuel" : "sfuel";
   if (!anyMakes(fuelKey)) return false;
   return Object.keys(vt.need).every(function (k) { return anyMakes(k); });
@@ -18,10 +20,10 @@ export function anyRock(){ return systems.some(function (s) { return s.unlocked 
 // Ближайшая закрытая звезда, до которой ДОТЯГИВАЕТСЯ марка этой компании.
 // Отсюда и берётся ощущение края карты: дальние звёзды видны, но пока не
 // осилена следующая марка, до них не дострелить.
-export function jumpTarget(c) {
+export function jumpTarget(c: Corp): { from: number; to: number } | null {
   var range = c ? rangeOf(c) : galaxyRange();
   if (range <= 0) return null;
-  var out = null, bd = 1e9;
+  var out: { from: number; to: number } = null, bd = 1e9;
   systems.forEach(function (s) {
     if (!s.unlocked) return;
     within(s.id, range).forEach(function (n) {
@@ -41,11 +43,11 @@ export function jumpTarget(c) {
 // Ворота ставят в системе, до которой дотягивается марка от УЖЕ построенных
 // ворот. Первые ворота ставят дома. Дальше сеть растёт кольцами, и каждая
 // новая система стоит отдельных ворот — зато внутри сети возят даром.
-export function gateTarget(c) {
+export function gateTarget(c: Corp): { sys: number; score: number } | null {
   var range = c ? rangeOf(c) : galaxyRange();
   if (!systems[0].gate.built && !systems[0].gate.building) return { sys:0, score:99 };
   if (range <= 0) return null;
-  var best = null;
+  var best: { sys: number; score: number } = null;
   systems.forEach(function (s) {
     if (s.gate.built || s.gate.building) return;
     if (!within(s.id, range).some(gated)) return;
@@ -61,8 +63,8 @@ export function gateTarget(c) {
   });
   return best;
 }
-export function expandTarget(c){ return S.move.key === "gates" ? gateTarget(c) : jumpTarget(c); }
-export function orderCost(vt) {
+export function expandTarget(c: Corp){ return S.move.key === "gates" ? gateTarget(c) : jumpTarget(c); }
+export function orderCost(vt: VType) {
   var sum = 0;
   Object.keys(vt.need).forEach(function (k) { sum += market[k].price * vt.need[k]; });
   return sum;
@@ -70,12 +72,12 @@ export function orderCost(vt) {
 // Наружу выходят те, у кого есть филиал хоть в одной колонии — не только
 // основатель. Иначе из пяти компаний расширяться могли две-три, и если
 // держатель марки в их число не попадал, галактика стояла двести лет.
-export function hasColonyAnywhere(c){ return c.branches.length > 1; }
+export function hasColonyAnywhere(c: Corp){ return c.branches.length > 1; }
 
 export function reviewOrders() {
   corps.forEach(function (c) {
     if (c.order || c.cool > 0) return;
-    var best = null, top = -1;
+    var best: VType = null, top = -1;
     [vtype("mine"), vtype(S.move.vt)].forEach(function (vt) {
       if (!buildable(vt)) return;
       if (vt.key === "mine" && !anyRock()) return;
@@ -89,9 +91,9 @@ export function reviewOrders() {
     if (!best || Math.random() > clamp(0.55 / c.nerve, 0.2, 0.9)) return;
     // Место назначения выбирается СЕЙЧАС, а не когда комплект собран: детали
     // надо свозить в конкретную систему, и заранее должно быть ясно, в какую.
-    var o = { type:best.key, need:JSON.parse(JSON.stringify(best.need)), got:{}, parts:[], born:dateStr() };
+    var o = { type:best.key, need:JSON.parse(JSON.stringify(best.need)), got:{}, parts:[] as Part[], born:dateStr() } as Order;
     if (best.key === "mine") {
-      var pickS = null, top2 = -1;
+      var pickS: Sys = null, top2 = -1;
       systems.forEach(function (s) {
         if (!s.unlocked || !reachable(s.id) || !freeRocks(s).length) return;
         var score = 1 / (1 + s.depth * 0.25);
@@ -133,8 +135,8 @@ export function reviewOrders() {
 // цели. Раньше собирали прямо в системе назначения — детали летели в пустую
 // систему, где у компании нет ни цеха, ни склада, ни человека: 85% рейсов с
 // деталями шли в никуда. Теперь туда летит готовый корабль, а не запчасти.
-export function baseSys(c, target) {
-  var best = null, bd = 1e9;
+export function baseSys(c: Corp, target: number) {
+  var best: number = null, bd = 1e9;
   c.branches.forEach(function (b) {
     var s = b.world.sys;
     if (!reachable(s)) return;
@@ -145,7 +147,7 @@ export function baseSys(c, target) {
 }
 
 // отменённый заказ отдаёт назад то, что успел занять
-export function releaseOrder(o) {
+export function releaseOrder(o: Order) {
   if (!o) return;
   if (o.rock) o.rock.taken = false;
   if (o.type === "gate" && systems[o.gateAt]) systems[o.gateAt].gate.building = false;
@@ -154,13 +156,13 @@ export function releaseOrder(o) {
 // Колония — консорциум: держатель технологии кладёт своё, остальные доносят
 // за право на филиал. Деньги подписки тратятся на детали, поэтому в колонии
 // потом видно, чей корпус и чьё жизнеобеспечение.
-export function colonyCost(s){ return Math.round(260 * (1 + s.depth * 0.3)); }
+export function colonyCost(s: Sys){ return Math.round(260 * (1 + s.depth * 0.3)); }
 
 export function reviewProjects() {
   corps.forEach(function (c) {
     if (projects.some(function (p) { return p.lead === c.id; })) return;
     if (c.cash < 200 || !anyMakes("fuel")) return;      // модулю нечем взлететь
-    var target = null, top = -1;
+    var target: { b: Planet; s: Sys } = null, top = -1;
     systems.forEach(function (s) {
       if (!s.unlocked || !reachable(s.id)) return;
       s.bodies.forEach(function (b) {
@@ -209,7 +211,7 @@ export function branchTrade() {
   });
 }
 
-export function full(need, got) {
+export function full(need: Record<string, number>, got: Record<string, number>) {
   return Object.keys(need).every(function (k) { return (got[k] || 0) >= need[k]; });
 }
 
@@ -236,7 +238,7 @@ export function assemble() {
       s.yards.push({ vt:vt, vent:v, lead:c.id, color:c.color, glyph:vt.glyph, dest:v.dest,
                      dst:o.dst, parts:v.parts, left:vt.build, total:vt.build });
     }
-    var from = {};
+    var from: Record<number, number> = {};
     c.order.parts.forEach(function (p) { from[p.from] = 1; });
     var names = Object.keys(from).filter(function (id) { return +id !== c.id; })
                       .map(function (id) { return corps[+id].name; });

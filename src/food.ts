@@ -6,16 +6,18 @@
 // мера: запас родины ходит от 12 до 40 месяцев, но в плохие годы падает к
 // нулю, и тогда экспорт замирает сам собой. Голод должен случаться не от
 // безденежья, а от того, что еды физически нет.
-import { L, S, corps, dateStr, say, voyages, worlds } from "./state";
-import { addStock, popOf, stockAt } from "./world";
-import { askPrice, govFuel, govFuelAvail } from "./market";
-import { speedOf } from "./tech";
-import { pickCaptain, vtype } from "./data";
-import { canTravel, needWith, travelExtra } from "./travel";
-import { takeDock } from "./docks";
 
-export function surplusWorld(need, from) {
-  var best = null, bs = 0;
+import { pickCaptain, vtype } from "./data";
+import { takeDock } from "./docks";
+import { askPrice, govFuel, govFuelAvail } from "./market";
+import { L, S, corps, dateStr, say, voyages, worlds } from "./state";
+import { speedOf } from "./tech";
+import { canTravel, needWith, travelExtra } from "./travel";
+import { addStock, popOf, stockAt } from "./world";
+import type { Corp, Part, Voyage, World } from "./types";
+
+export function surplusWorld(need: number, from: World) {
+  var best: World = null, bs = 0;
   worlds.forEach(function (w) {
     if (w === from) return;
     var extra = w.food.stock - popOf(w) * 6;
@@ -36,13 +38,13 @@ export function surplusWorld(need, from) {
 // payer платит, at — чья система даёт детали и топливо. Хлебовоз для голодной
 // колонии строится у ПОСТАВЩИКА еды: у колонии цехов нет, а без этого правила
 // она умирала с полным складом провизии, не дождавшись первого рейса.
-export function govBuyShip(payer, at, need) {
+export function govBuyShip(payer: World, at: World, need: Record<string, number>) {
   var w = payer;
-  var taken = [], cost = 0, ok = true;
+  var taken: Part[] = [], cost = 0, ok = true;
   Object.keys(need).forEach(function (k) {
     for (var i = 0; i < need[k]; i++) {
       if (!ok) return;
-      var seller = null;
+      var seller: Corp = null;
       corps.forEach(function (c) {
         if (stockAt(c, at.sys, k) > 0 && (!seller || stockAt(c, at.sys, k) > stockAt(seller, at.sys, k))) seller = c;
       });
@@ -64,12 +66,12 @@ export function govBuyShip(payer, at, need) {
   return taken.map(function (t) { return { k:t.k, from:t.from }; });
 }
 
-export function dispatch(from, to, kind, qty, parts) {
+export function dispatch(from: World, to: World, kind: string, qty: number, parts: Part[]) {
   var v = { kind:kind, from:from, to:to, qty:qty, parts:parts,
             color: parts.length ? corps[parts[0].from].color : "#8894ae",
             // корабль летит на двигателях того, кто его построил
             t:0, dur: (from.sys === to.sys ? 54 + Math.random() * 18 : 150 + Math.random() * 60) / speedOf(parts.length ? parts[0].from : -1),
-            born:dateStr(), captain:pickCaptain() };
+            born:dateStr(), captain:pickCaptain() } as Voyage;
   voyages.push(v);
   return v;
 }

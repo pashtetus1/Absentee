@@ -1,15 +1,17 @@
+
+import { vtype } from "./data";
+import { takeDock } from "./docks";
+import { dispatch, govBuyShip } from "./food";
+import { govFuel, govFuelAvail } from "./market";
 import { S, say, voyages, worlds } from "./state";
 import { canTravel, needWith, travelExtra } from "./travel";
-import { govFuel, govFuelAvail } from "./market";
-import { takeDock } from "./docks";
-import { vtype } from "./data";
-import { dispatch, govBuyShip } from "./food";
+import type { World } from "./types";
 
 export function migrationRun() {
   worlds.forEach(function (w) {
     if (w.wantIn < 0.6 || w.gov.cash < 90) return;
     if (voyages.some(function (v) { return v.kind === "pops" && v.to === w; })) return;
-    var src = null, bs = 0;
+    var src: World = null, bs = 0;
     worlds.forEach(function (o) {
       if (o === w || o.wantOut < 0.12) return;      // хватит и голодной горстки
       if (!canTravel(o.sys, w.sys)) return;

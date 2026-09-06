@@ -1,15 +1,16 @@
 // ===================== вид и управление =====================
-import { L, U, Y, cam, hits, patents, resetCam, systems, worlds } from "../state";
-import { el, panels } from "./panels";
-import { markName, markOf, moveName } from "../data";
-import { allTech, techOf } from "../tech";
+
 import { setTickMs, tickMs } from "../clock";
-import { step } from "../tick";
-import { CH, CW, cv, cx, setCanvas } from "./canvas";
-import { icon } from "./models";
-import { clamp } from "../util";
+import { markName, markOf, moveName } from "../data";
 import { loadLevers, saveLevers } from "../levers";
 import { build } from "../setup";
+import { L, U, Y, cam, hits, patents, resetCam, systems, worlds } from "../state";
+import { allTech, techOf } from "../tech";
+import { step } from "../tick";
+import { clamp } from "../util";
+import { CH, CW, cv, cx, setCanvas } from "./canvas";
+import { icon } from "./models";
+import { Ctl, el, panels } from "./panels";
 import { frame } from "./scene";
 
 export function scene() {
@@ -27,7 +28,7 @@ export function scene() {
   el("ventlab").textContent = map ? "Что происходит в системах" : "Предприятия · " + systems[U.view.sys].name;
   panels();
 }
-export function open(i) { U.view = { mode:"system", sys:i }; U.pick = null; scene(); }
+export function open(i: number) { U.view = { mode:"system", sys:i }; U.pick = null; scene(); }
 
 export function taxhint() {
   var p = Math.round(L.tax * 100);
@@ -83,19 +84,19 @@ export function bindUI() {
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   // экран -> координаты сцены (на карте ещё и через камеру)
-  function scenePos(e) {
+  function scenePos(e: { clientX: number; clientY: number }) {
     var rect = cv.getBoundingClientRect();
     var x = (e.clientX - rect.left) / rect.width * CW, y = (e.clientY - rect.top) / rect.height * CH;
     if (U.view.mode === "map") { x = (x - cam.x) / cam.k; y = (y - cam.y) / cam.k; }
     return { x:x, y:y };
   }
 
-  var drag = null, moved = 0;
-  cv.addEventListener("mousedown", function (e) {
+  var drag: { x: number; y: number; cx: number; cy: number } = null, moved = 0;
+  cv.addEventListener("mousedown", function (e: MouseEvent) {
     if (U.view.mode !== "map") return;
     drag = { x:e.clientX, y:e.clientY, cx:cam.x, cy:cam.y }; moved = 0;
   });
-  window.addEventListener("mousemove", function (e) {
+  window.addEventListener("mousemove", function (e: MouseEvent) {
     if (!drag) {
       // наведение на рейс на карте показывает его окошко
       if (U.view.mode !== "map") return;
@@ -117,13 +118,13 @@ export function bindUI() {
   // Зум ТОЛЬКО с зажатым Ctrl. Простое колесо обязано прокручивать страницу:
   // канвас занимает пол-экрана, и перехват колеса читается как зависание —
   // страница не едет, а карта визуально не меняется.
-  cv.addEventListener("wheel", function (e) {
+  cv.addEventListener("wheel", function (e: WheelEvent) {
     if (U.view.mode !== "map" || !(e.ctrlKey || e.metaKey)) return;
     e.preventDefault();
     zoomAt(scenePos(e), e.deltaY < 0 ? 1.15 : 0.87);
   }, { passive:false });
 
-  function zoomAt(p, mul) {
+  function zoomAt(p: { x: number; y: number }, mul: number) {
     var k = clamp(cam.k * mul, 0.7, 4);
     // приближаем к точке под курсором, а не к углу канваса
     cam.x += p.x * (cam.k - k); cam.y += p.y * (cam.k - k);
@@ -135,10 +136,10 @@ export function bindUI() {
 
   cv.addEventListener("dblclick", function () { resetCam(); });
 
-  cv.addEventListener("click", function (e) {
+  cv.addEventListener("click", function (e: MouseEvent) {
     if (moved > 4) { moved = 0; return; }          // это было перетаскивание
     var p = scenePos(e);
-    var best = null, bd = 1e9;
+    var best: any = null, bd = 1e9;
     hits.forEach(function (h) {
       var d = Math.sqrt((p.x - h.x) * (p.x - h.x) + (p.y - h.y) * (p.y - h.y));
       if (d <= h.r && d < bd) { bd = d; best = h; }
@@ -152,26 +153,26 @@ export function bindUI() {
   sel.innerHTML = allTech().map(function (f) {
     return '<option value="' + f.key + '">' + (markOf(f.key) ? markName(f) : f.name) + '</option>';
   }).join("");
-  sel.addEventListener("change", function (e) { L.subKey = e.target.value; subhint(); saveLevers(); });
+  sel.addEventListener("change", function (e: Event) { L.subKey = (e.target as Ctl).value; subhint(); saveLevers(); });
 
-  el("tax").addEventListener("input", function (e) {
-    L.tax = +e.target.value / 100;
+  el("tax").addEventListener("input", function (e: Event) {
+    L.tax = +(e.target as Ctl).value / 100;
     el("taxval").textContent = Math.round(L.tax * 100) + "%"; taxhint(); saveLevers();
   });
-  el("sub").addEventListener("input", function (e) {
-    L.subYear = +e.target.value; el("subval").textContent = L.subYear; subhint(); saveLevers();
+  el("sub").addEventListener("input", function (e: Event) {
+    L.subYear = +(e.target as Ctl).value; el("subval").textContent = L.subYear; subhint(); saveLevers();
   });
-  el("pat").addEventListener("input", function (e) {
-    L.patTerm = +e.target.value; el("patval").textContent = L.patTerm + " лет";
+  el("pat").addEventListener("input", function (e: Event) {
+    L.patTerm = +(e.target as Ctl).value; el("patval").textContent = L.patTerm + " лет";
     allTech().forEach(function (f) { var p = patents[f.key]; if (p.owner >= 0 && Y() - p.since < L.patTerm) p.told = false; });
     pathint(); saveLevers();
   });
-  el("fee").addEventListener("input", function (e) {
-    L.tradeFee = +e.target.value / 100;
+  el("fee").addEventListener("input", function (e: Event) {
+    L.tradeFee = +(e.target as Ctl).value / 100;
     el("feeval").textContent = Math.round(L.tradeFee * 100) + "%"; feehint(); saveLevers();
   });
-  el("dole").addEventListener("input", function (e) {
-    L.dole = +e.target.value / 5; el("doleval").textContent = L.dole.toFixed(1); dolehint(); saveLevers();
+  el("dole").addEventListener("input", function (e: Event) {
+    L.dole = +(e.target as Ctl).value / 5; el("doleval").textContent = L.dole.toFixed(1); dolehint(); saveLevers();
   });
   function togglePause() {
     U.running = !U.running;
@@ -213,7 +214,7 @@ export function bindUI() {
   // там пробел свой
   window.addEventListener("keydown", function (e) {
     if (e.code !== "Space" || e.repeat) return;
-    var tag = (e.target && e.target.tagName) || "";
+    var tag = (e.target && (e.target as HTMLElement).tagName) || "";
     if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || tag === "BUTTON") return;
     e.preventDefault();
     togglePause();
@@ -227,11 +228,11 @@ export function bindUI() {
   el("tomap").addEventListener("click", function () { U.view.mode = "map"; scene(); });
   el("reset").addEventListener("click", function () { build(); scene(); if (U.running) run(); });
   el("ventures").addEventListener("click", function (e) {
-    var row = e.target.closest(".clickrow");
+    var row = (e.target as HTMLElement).closest(".clickrow");
     if (row) open(+row.getAttribute("data-sys"));
   });
   el("worlds").addEventListener("click", function (e) {
-    var row = e.target.closest(".clickrow");
+    var row = (e.target as HTMLElement).closest(".clickrow");
     if (!row) return;
     var w = worlds[+row.getAttribute("data-world")];
     U.view = { mode:"system", sys:w.sys };
