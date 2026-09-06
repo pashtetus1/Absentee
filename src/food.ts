@@ -25,7 +25,7 @@ import { rnd } from "./rng";
 import { onOrder, orderTransport } from "./shipyard";
 import { L, S, corps, dateStr, say, voyages, worlds } from "./state";
 import { speedOf } from "./tech";
-import { canTravel, needWith, travelExtra } from "./travel";
+import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
 import { addStock, popOf, stockAt } from "./world";
 import type { Corp, Part, Voyage, World } from "./types";
 
@@ -129,7 +129,8 @@ export function foodRun(): void {
     const price = qty * src.food.price;
     if (w.gov.cash < price + 10) return;
     const fk = src.sys === w.sys ? "fuel" : "sfuel";
-    if (!govFuelAvail(w, src, fk)) return;                 // без горючего хлебовоз не полетит
+    const tanks = fuelCost(src.sys, w.sys);                // под воротами — по баку на створ
+    if (!govFuelAvail(w, src, fk, tanks)) return;          // без горючего хлебовоз не полетит
     // сперва корабль со стоянки у поставщика, и только потом покупка нового
     const dk = takeDock(null, w, src.sys, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
     if (!dk) {
@@ -143,7 +144,7 @@ export function foodRun(): void {
       return;
     }
     const parts = dk.parts;
-    govFuel(w, src, fk);
+    govFuel(w, src, fk, tanks);
     w.gov.cash -= price; src.gov.cash += price; src.food.stock -= qty;
     // вывоз дорожит еду у поставщика: фермеру платят больше, в поле идут
     // люди, излишек растёт — так экспорт сам себя кормит

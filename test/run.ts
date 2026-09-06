@@ -283,10 +283,10 @@ test("еда не берётся из ниоткуда", () => {
   });
 });
 
-// ── три способа межзвёздного перехода ───────────────────────────────────────
+// ── два способа межзвёздного перехода ───────────────────────────────────────
 // Способ выпадает партии один и случайно. Каждый обязан доводить партию до
-// расселения — иначе на трети сидов игра просто стоит.
-["drives", "opener", "gates"].forEach((mode) => {
+// расселения — иначе на половине сидов игра просто стоит.
+["drives", "gates"].forEach((mode) => {
   test("способ «" + mode + "»: системы открываются", () => {
     const sim = load("dist/index.html", { seed: 83 });
     sim.build(mode);
@@ -297,45 +297,58 @@ test("еда не берётся из ниоткуда", () => {
   });
 });
 
-test("под воротами хлебовоз летает только между воротами", () => {
-  const sim = load("dist/index.html", { seed: 89 });
-  sim.build("gates");
-  runYears(sim, 200, (st) => {
-    st.voyages.forEach((v) => {
-      if (v.kind === "food" || v.kind === "pops") {
-        if (v.from.sys === v.to.sys) return;
-        assert(st.systems[v.from.sys].gate.built && st.systems[v.to.sys].gate.built,
-               "рейс между системами без ворот");
-      }
+// Ворота стоят на МАРШРУТЕ, и сеть из них складывается рёбрами: рейс идёт не
+// «из системы с воротами в систему с воротами», а по цепочке проложенных
+// маршрутов. Прежние ворота-на-систему дотягивались сразу до всех остальных,
+// и никакой сети за ними не стояло.
+function netOk(st: Snapshot, a: number, b: number): boolean {
+  const seen = new Set([a]), q = [a];
+  while (q.length) {
+    const i = q.shift();
+    if (i === b) return true;
+    Object.keys(st.gates).forEach((k) => {
+      const g = st.gates[k];
+      if (!g.built) return;
+      const n = g.a === i ? g.b : g.b === i ? g.a : null;
+      if (n === null || seen.has(n)) return;
+      seen.add(n); q.push(n);
     });
-  });
+  }
+  return false;
+}
+
+test("под воротами рейсы идут только по цепочке проложенных маршрутов", () => {
+  for (const seed of [89, 97]) {
+    const sim = load("dist/index.html", { seed });
+    sim.build("gates");
+    runYears(sim, 200, (st) => {
+      st.voyages.forEach((v) => {
+        if (v.kind !== "food" && v.kind !== "pops") return;
+        if (v.from.sys === v.to.sys) return;
+        assert(netOk(st, v.from.sys, v.to.sys), "рейс туда, куда нет цепочки ворот");
+      });
+    });
+  }
 });
 
-test("под порталооткрывателями рейсы идут только по прожжённым проходам", () => {
-  const sim = load("dist/index.html", { seed: 97 });
-  sim.build("opener");
-  runYears(sim, 200, (st) => {
-    st.voyages.forEach((v) => {
-      if (v.kind !== "food" && v.kind !== "pops") return;
-      if (v.from.sys === v.to.sys) return;
-      // проходы складываются в сеть, поэтому маршрут может идти в несколько
-      // прыжков — проверяем связность по прожжённым, а не прямой отрезок
-      // линий на карте больше нет: сеть складывается из прожжённых проходов,
-      // поэтому связность ищем прямо по ним
-      const seen = new Set([v.from.sys]), q = [v.from.sys];
-      let ok = false;
-      while (q.length && !ok) {
-        const i = q.shift();
-        if (i === v.to.sys) { ok = true; break; }
-        Object.keys(st.routes).forEach((k) => {
-          const p = k.split("-").map(Number);
-          const n = p[0] === i ? p[1] : p[1] === i ? p[0] : null;
-          if (n === null || seen.has(n)) return;
-          seen.add(n); q.push(n);
-        });
-      }
-      assert(ok, "рейс туда, куда нет цепочки прожжённых проходов");
-    });
+// Врат столько, сколько маршрутов: у каждых ворот два конца, и в системе их
+// ровно столько, сколько от неё расходится дорог.
+test("ворота стоят на маршрутах, а не в системах", () => {
+  const sim = load("dist/index.html", { seed: 89 });
+  sim.build("gates");
+  const st = runYears(sim, 300);
+  const keys = Object.keys(st.gates);
+  assert(keys.length > 0, "за триста лет не поставили ни одних ворот");
+  keys.forEach((k) => {
+    const g = st.gates[k];
+    assert(g.a !== g.b, "ворота из системы в саму себя");
+    assert(k === Math.min(g.a, g.b) + "-" + Math.max(g.a, g.b), "ключ маршрута не совпадает с концами: " + k);
+  });
+  // у системы, куда пришёл портальный корабль, есть хотя бы один створ
+  st.systems.forEach((s) => {
+    if (!s.unlocked || s.id === 0) return;
+    assert(keys.some((k) => { const g = st.gates[k]; return g.built && (g.a === s.id || g.b === s.id); }),
+           s.name + ": система открыта, а ворот на неё нет");
   });
 });
 
@@ -889,10 +902,10 @@ test("предложение ждёт ответа, а компании пере
 // ── отрисовка тоже не должна падать ─────────────────────────────────────────
 // Кадр здесь дёргается руками после каждого шага и по очереди рисует карту и
 // систему: иначе отрисовка вовсе не исполняется, и в ней годами живут
-// падения — так уже прятался рейс открывателя без поля from.
+// падения — так уже прятался межзвёздный рейс без поля from.
 test("код отрисовки не падает на заглушках DOM", () => {
   const sim = load("dist/index.html", { withDom: true, seed: 59 });
-  sim.build("opener");
+  sim.build("gates");
   for (let i = 0; i < 250 * 12; i++) {
     sim.step();
     sim.setView(i % 2 ? "map" : "system", 0);

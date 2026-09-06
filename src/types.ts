@@ -47,9 +47,14 @@ export interface Move { key: string; name: string; vt: string; hint: string; }
 export interface Rock { name: string; r: number; ang: number; s: number; seed: number; taken: boolean; }
 
 /** Место под звёздные ворота. Пока не построены, built ложно. */
+/** Ворота стоят НА МАРШРУТЕ, а не в системе: одни на пару звёзд, и в системе
+ *  их столько, сколько от неё расходится проложенных маршрутов. Прежние
+ *  «ворота в системе» дотягивались сразу до всех других ворот — сеть без
+ *  рёбер, где нечего прокладывать и не на что смотреть. */
 export interface Gate {
-  name: string; r: number; ang: number;
-  built?: boolean; building?: boolean; owner?: number;
+  a: number; b: number;                 // какие системы соединяет
+  built: boolean; building: boolean;
+  owner: number; born?: string;
 }
 
 /** Планета. Пока не колонизирована, world пуст — миром она не является.
@@ -74,7 +79,6 @@ export interface Sys {
   ships: Ship[]; stations: Station[];
   mines: number;
   belt: boolean;                  // есть ли пояс астероидов
-  gate: Gate;
 }
 
 // ---- мир --------------------------------------------------------------
@@ -155,7 +159,6 @@ export interface Order {
   to?: number;                    // цель прыжка
   from?: number;                  // точка старта прыжка: система с заселённой планетой
   rock?: Rock;                    // какой астероид разрабатывать
-  gateAt?: number;                // в какой системе ставят ворота
 }
 
 /** Счёт того, что уже везут: чтобы не заказать одно и то же дважды.
@@ -201,7 +204,7 @@ export interface Yard {
   vt: VType; lead: number; color: string; glyph: string;
   parts: Part[]; left: number; total: number;
   vent?: Venture; dest?: Dest; dst?: number;
-  to?: number; gateHere?: number; fuelWait?: number;
+  to?: number; fuelWait?: number;
   forWorld?: World;               // транспорт: чьей планете он достанется
   forCorp?: number;               // транспорт: чьей компании (иначе государственный)
   from?: number;                  // прыжок: откуда стартовать; не система верфи, если её нет в дальности
@@ -347,7 +350,7 @@ export interface Hit extends Chosen { x: number; y: number; r: number; }
 export interface Snapshot {
   tick: number; treasury: number;
   corps: Corp[]; worlds: World[]; systems: Sys[];
-  move: Move; routes: Record<string, boolean>;
+  move: Move; gates: Record<string, Gate>;
   market: Record<string, MarketRow>; patents: Record<string, Patent>;
   voyages: Voyage[]; projects: Project[]; docks: Dock[];
   shipyards: Shipyard[]; proposals: Proposal[]; staged: Staged[];

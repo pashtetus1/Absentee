@@ -8,12 +8,12 @@ import { dockShip } from "./docks";
 import { takeFuel } from "./market";
 import { rnd } from "./rng";
 import { yardAt } from "./shipyard";
-import { S, U, corps, dateStr, docks, routes, say, shipyards, staged, systems, voyages } from "./state";
+import { S, U, corps, dateStr, docks, gates, say, shipyards, staged, systems, voyages } from "./state";
 import { speedOf } from "./tech";
-import { routeKey } from "./travel";
+import { fuelCost, routeKey } from "./travel";
 import { rnd6 } from "./util";
 import { makeWorld, openBranch } from "./world";
-import type { Ship, Sys, Voyage, Yard } from "./types";
+import type { Gate, Ship, Sys, Voyage, Yard } from "./types";
 
 export function ferry(yd: Yard, s: Sys, kind: string): void {
   const lead = corps[yd.lead];
@@ -28,8 +28,8 @@ export function moveShips(): void {
   // Нет топлива — стоят и ждут, как готовый корабль у стапеля.
   for (let i = staged.length - 1; i >= 0; i--) {
     const st = staged[i], c = corps[st.corp];
-    const what = st.kind === "opener" ? "порталооткрыватель" : "прыжковый";
-    if (!takeFuel(c, st.at, "sfuel")) {
+    const what = st.kind === "gate" ? "портальный корабль" : "прыжковый";
+    if (!takeFuel(c, st.at, "sfuel", false, fuelCost(st.at, st.to))) {
       st.fuelWait++;
       if (st.fuelWait === 1 || st.fuelWait % 36 === 0)
         say("<b>" + c.name + "</b>: " + what + " стоит в " + systems[st.at].name + " без межзвёздного топлива.");
@@ -76,27 +76,19 @@ export function moveShips(): void {
         continue;
       }
       const far = yd.dst !== undefined && yd.dst !== s.id;
-      const fuelKind = yd.vt.key === "gate" ? (yd.gateHere !== s.id ? "sfuel" : null)
-                   : (yd.vt.key === "jump" || yd.vt.key === "opener" || far) ? "sfuel" : "fuel";
-      if (fuelKind && !takeFuel(lead, s.id, fuelKind)) {
+      const jumper = yd.vt.key === "jump" || yd.vt.key === "gate";
+      const fuelKind = (jumper || far) ? "sfuel" : "fuel";
+      const tanks = far ? fuelCost(s.id, yd.dst) : 1;
+      if (!takeFuel(lead, s.id, fuelKind, false, tanks)) {
         yd.left = 0; yd.fuelWait = (yd.fuelWait || 0) + 1;   // готов, ждёт топлива
         if (yd.fuelWait === 1 || yd.fuelWait % 36 === 0)
           say("<b>" + lead.name + "</b>: " + yd.vt.name + " в " + s.name + " готов, но " +
-              (fuelKind === "sfuel" ? "межзвёздного" : "местного") + " топлива в системе нет.");
+              (fuelKind === "sfuel" ? "межзвёздного" : "местного") + " топлива в системе нет" +
+              (tanks > 1 ? " (нужно " + tanks + ")" : "") + ".");
         continue;
       }
       yard.queue.splice(q, 1);
-      if (yd.vt.key === "gate") {
-        // Ворота никуда не летят: они простреливают коридор до соседей прямо
-        // отсюда. Поэтому под воротами экспансия идёт кольцами, а не ниточкой.
-        const g = systems[yd.gateHere];
-        g.gate.built = true; g.gate.building = false; g.gate.owner = yd.lead; g.pulse = 1;
-        const first = !g.unlocked;
-        g.unlocked = true;
-        say("<b>" + lead.name + "</b> открыла звёздные ворота в " + g.name +
-            (first ? ": система вошла в сеть." : ". Теперь до неё возят даром."));
-        if (!S.jumped && first) { S.jumped = true; say("Первый межзвёздный переход совершён."); }
-      } else if (yd.vt.key === "jump" || yd.vt.key === "opener") {
+      if (jumper) {
         // Старт не здесь — корабль идёт к точке старта своим ходом и заправится
         // там сам: паромом его не возят, он сам корабль.
         if (yd.from !== undefined && yd.from !== s.id) {
@@ -109,8 +101,7 @@ export function moveShips(): void {
         }
         voyages.push({ kind:yd.vt.key, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color,
                        parts:yd.parts, t:0, dur:(220 + rnd()*80) / speedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
-        say("<b>" + lead.name + "</b> вывела " + (yd.vt.key === "opener" ? "порталооткрыватель" : "прыжковый корабль") +
-            " с верфи " + s.name + ".");
+        say("<b>" + lead.name + "</b> вывела " + yd.vt.name + " с верфи " + s.name + ".");
       } else if (yd.vt.key === "colony") {
         if (far) { ferry(yd, s, "colony"); continue; }
         s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
@@ -164,15 +155,24 @@ export function arriveShip(sh: Ship, s: Sys): void {
 
 export function arriveVoyage(v: Voyage): void {
   if (U.pick && U.pick.data === v) U.pick = null;      // иначе в панели висит "в пути 102%"
-  if (v.kind === "jump" || v.kind === "opener") {
+  if (v.kind === "jump" || v.kind === "gate") {
     const t = systems[v.to];
     t.pulse = 1;
-    if (v.kind === "opener") routes[routeKey(v.sysFrom, v.to)] = true;   // проход остаётся навсегда
+    if (v.kind === "gate") {
+      // Ворота встают НА МАРШРУТ, по которому корабль только что прошёл: с
+      // этого дня по нему летает кто угодно без двигателя. Раньше ворота
+      // возникали в системе сами, никуда не летя, и маршрута за ними не
+      // стояло вовсе — сеть без рёбер.
+      const key = routeKey(v.sysFrom, v.to);
+      const g: Gate = gates[key] || (gates[key] = { a:v.sysFrom, b:v.to, built:false, building:false, owner:v.corp });
+      g.built = true; g.building = false; g.owner = v.corp; g.born = dateStr();
+      systems[v.sysFrom].pulse = 1;
+    }
     if (!t.unlocked) {
       t.unlocked = true;
       say("<b>" + corps[v.corp].name + "</b> открыла систему " + t.name + ": " +
           t.bodies.map((b) => { return b.type.name; }).join(", ") + "." +
-          (v.kind === "opener" ? " Проход прожжён и остаётся открытым." : ""));
+          (v.kind === "gate" ? " Ворота на маршруте " + systems[v.sysFrom].name + " — " + t.name + " открыты." : ""));
       if (!S.jumped) { S.jumped = true; say("Первый межзвёздный переход совершён."); }
     }
     return;
@@ -180,7 +180,7 @@ export function arriveVoyage(v: Voyage): void {
   if (v.kind === "reloc") {                       // дошёл до точки старта: заправка и прыжок оттуда
     staged.push({ kind:v.cargo, corp:v.corp, color:v.color, parts:v.parts, at:v.to, to:v.jumpTo,
                   fuelWait:0, captain:v.captain, born:dateStr() });
-    say("<b>" + corps[v.corp].name + "</b>: " + (v.cargo === "opener" ? "порталооткрыватель" : "прыжковый") +
+    say("<b>" + corps[v.corp].name + "</b>: " + (v.cargo === "gate" ? "портальный корабль" : "прыжковый") +
         " дошёл до " + systems[v.to].name + " и заправляется.");
     return;
   }

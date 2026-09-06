@@ -1,14 +1,22 @@
 
 import { vis } from "../clock";
 import { MARKRANGE } from "../data";
-import { galaxyRange, within } from "../galaxy";
+import { GATE_R, galaxyRange, within } from "../galaxy";
 import { yardAt } from "../shipyard";
-import { S, U, cam, corps, docks, hits, routes, shipyards, systems, voyages } from "../state";
+import { S, U, cam, corps, docks, gates, hits, shipyards, systems, voyages } from "../state";
+import { gatesAt, inNet, otherEnd, spread } from "../travel";
 import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
 import { CH, CW, advanceFrame, cx, glow, last, setSysK, setUiz, uiz } from "./canvas";
 import { advance, caption, dockLines, flame, grow, posOf, rock, ship, tiny, windowLines, yardLines, yardPos } from "./models";
 import type { Rock, Sys } from "../types";
+
+// Куда смотрит створ: на ту звезду, к которой ведёт. Поэтому два маршрута из
+// одной системы — это два разных места на краю, и по одному взгляду видно,
+// сколько дорог отсюда расходится и куда.
+function gateAng(from: number, to: number): number {
+  return Math.atan2(systems[to].y - systems[from].y, systems[to].x - systems[from].x);
+}
 
 export function drawSystem(s: Sys): void {
   const mx = CW / 2, my = CH / 2;
@@ -23,7 +31,7 @@ export function drawSystem(s: Sys): void {
   let far = 0;
   s.bodies.forEach((o) => { far = Math.max(far, o.r + o.rad); });
   s.rocks.forEach((o) => { far = Math.max(far, o.r + o.s); });
-  if (S.move.key === "gates") far = Math.max(far, s.gate.r + 18);
+  if (gatesAt(s.id).length) far = Math.max(far, GATE_R + 18);
   const k = Math.min(1, (Math.min(CW, CH) / 2 - 28) / Math.max(1, far));
   setSysK(k); setUiz(1 / k);
   cx.save(); cx.translate(mx, my); cx.scale(k, k); cx.translate(-mx, -my);
@@ -70,12 +78,13 @@ export function drawSystem(s: Sys): void {
     cx.fillText(b.type.name + (w ? " · " + fmt(popOf(w)) : ""), p.x, p.y + b.rad + 21);
   });
 
-  // Ворота рисуются только там, где они есть на самом деле. Раньше в каждой
-  // системе висел кружок "выход" — он ничего не означал ни при движках, ни
-  // при открывателях и только сбивал.
-  if (S.move.key === "gates" && (s.gate.built || s.gate.building)) {
-    const jp = posOf(s.gate, mx, my), jr = 11 + Math.sin(glow * 1.6) * 1.8;
-    const col = s.gate.built ? "#9aa8ff" : "#3a4460";
+  // Створов у системы столько, сколько от неё расходится маршрутов, и каждый
+  // смотрит на свою звезду. Прежние «одни ворота на систему» висели в случайном
+  // месте края и не отвечали на главный вопрос — КУДА отсюда можно.
+  gatesAt(s.id).forEach((g) => {
+    const to = otherEnd(g, s.id);
+    const jp = posOf({ r:GATE_R, ang:gateAng(s.id, to) }, mx, my), jr = 11 + Math.sin(glow * 1.6) * 1.8;
+    const col = g.built ? "#9aa8ff" : "#3a4460";
     // Кольцо с четырьмя засечками, развёрнутое от звезды: это створ, в который
     // уходят, а не ещё одна планета на орбите.
     const face = Math.atan2(jp.y - my, jp.x - mx);
@@ -94,15 +103,16 @@ export function drawSystem(s: Sys): void {
       cx.strokeStyle = "#9aa8ff"; cx.globalAlpha = s.pulse * 0.7; cx.lineWidth = 2;
       cx.stroke(); cx.globalAlpha = 1;
     }
-    if (s.gate.built) {
-      const g = cx.createRadialGradient(jp.x, jp.y, 0, jp.x, jp.y, jr);
-      g.addColorStop(0, "rgba(154,168,255,0.55)"); g.addColorStop(1, "rgba(154,168,255,0)");
-      cx.beginPath(); cx.arc(jp.x, jp.y, jr, 0, 6.2832); cx.fillStyle = g; cx.fill();
+    if (g.built) {
+      const gr = cx.createRadialGradient(jp.x, jp.y, 0, jp.x, jp.y, jr);
+      gr.addColorStop(0, "rgba(154,168,255,0.55)"); gr.addColorStop(1, "rgba(154,168,255,0)");
+      cx.beginPath(); cx.arc(jp.x, jp.y, jr, 0, 6.2832); cx.fillStyle = gr; cx.fill();
     }
-    cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = s.gate.built ? "#8f9bc4" : "#4e5872";
+    cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = g.built ? "#8f9bc4" : "#4e5872";
     cx.textAlign = "center"; cx.textBaseline = "top";
-    cx.fillText(s.gate.built ? "ворота" : "ворота строятся", jp.x, jp.y + jr + 5);
-  }
+    cx.fillText((g.built ? "" : "строятся ") + systems[to].name, jp.x, jp.y + jr + 5);
+    hits.push({ x:jp.x, y:jp.y, r:jr + 4, kind:"gate", data:g });
+  });
 
   // Вставшая платформа перестаёт быть корабликом. Она села, а не зависла над
   // камнем, и отмечается тем же значком, что филиал на планете: квадратик
@@ -196,9 +206,17 @@ export function drawSystem(s: Sys): void {
   });
 
   // Межзвёздные рейсы, пока они ещё ВНУТРИ этой системы. Первые 15% пути —
-  // уход от планеты к краю в сторону целевой звезды, последние 15% — приход
-  // с края к цели. Раньше такой корабль жил только на карте, и из системы
-  // было не видно ни вылета, ни прилёта.
+  // уход от планеты к своему створу, последние 15% — выход из створа к цели.
+  // Раньше корабль правил в пустой край в сторону нужной звезды: ворота стояли
+  // отдельно, корабль летел мимо них, и переход выглядел так, будто портал
+  // здесь ни при чём. Теперь курс ведёт РОВНО в те ворота, что открывают
+  // дорогу к цели, — а под движками, где ворот нет, всё как было.
+  const net = spread(s.id);
+  const edge = (to: number): { x: number; y: number } => {
+    const via = net.via[to];
+    const a = gateAng(s.id, via === undefined ? to : via);
+    return { x:mx + Math.cos(a) * GATE_R, y:my + Math.sin(a) * GATE_R };
+  };
   const LEG = 0.15;
   voyages.forEach((v) => {
     const fromSys = v.sysFrom !== undefined ? v.sysFrom : v.from.sys;
@@ -207,21 +225,19 @@ export function drawSystem(s: Sys): void {
     let t = clamp(vis(v), 0, 1), leg = null, a, b;
     if (s.id === fromSys && t < LEG) {
       const origin = v.sysFrom !== undefined ? s.bodies[0] : v.from.body;
-      const ang = Math.atan2(systems[toSys].y - s.y, systems[toSys].x - s.x);
       a = posOf(origin, mx, my);
-      b = { x:mx + Math.cos(ang) * 330, y:my + Math.sin(ang) * 330 };
+      b = edge(toSys);
       leg = t / LEG;
     } else if (s.id === toSys && t > 1 - LEG) {
       const target = v.sysFrom !== undefined ? s.bodies[0] : v.to.body;
-      const ang2 = Math.atan2(systems[fromSys].y - s.y, systems[fromSys].x - s.x);
-      a = { x:mx + Math.cos(ang2) * 330, y:my + Math.sin(ang2) * 330 };
+      a = edge(fromSys);
       b = posOf(target, mx, my);
       leg = (t - (1 - LEG)) / LEG;
     }
     if (leg === null) return;
     const x = a.x + (b.x - a.x) * leg, y = a.y + (b.y - a.y) * leg;
     const rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
-    const isJump = v.kind === "jump" || v.kind === "opener" || v.kind === "reloc";
+    const isJump = v.kind === "jump" || v.kind === "gate" || v.kind === "reloc";
     // вылет — растёт из точки у планеты, прилёт — сжимается в точку у цели;
     // со стороны края системы корабль не анимируется: он там просто уходит
     const sz = 6.5 * (s.id === fromSys ? grow(leg, 0.45, 0) : grow(leg, 0, 0.45));
@@ -261,26 +277,18 @@ export function drawMap(): void {
       });
     });
   }
-  Object.keys(routes).forEach((k) => {          // прожжённые проходы
-    const bits = k.split("-"), a = systems[+bits[0]], b = systems[+bits[1]];
+  // Маршруты с воротами: сеть видна ребром, а не догадкой. Строящийся —
+  // пунктиром: портальный корабль ещё в пути.
+  Object.keys(gates).forEach((k) => {
+    const g = gates[k], a = systems[g.a], b = systems[g.b];
     if (!a || !b) return;
     cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y);
-    cx.strokeStyle = "#5b6bb0"; cx.lineWidth = 2 * uiz; cx.stroke();
+    if (g.built) { cx.strokeStyle = "#5b6bb0"; cx.lineWidth = 2 * uiz; cx.stroke(); }
+    else {
+      cx.strokeStyle = "#3f4a78"; cx.lineWidth = 1.4 * uiz;
+      cx.setLineDash([3 * uiz, 5 * uiz]); cx.stroke(); cx.setLineDash([]);
+    }
   });
-  if (S.move.key === "gates") {                          // сеть ворот
-    const g = systems.filter((s) => { return s.gate.built; });
-    g.forEach((s) => {
-      let near: Sys = null, nd = 1e9;
-      g.forEach((o) => {
-        if (o === s) return;
-        const d = dist(s, o);
-        if (d < nd) { nd = d; near = o; }
-      });
-      if (!near) return;
-      cx.beginPath(); cx.moveTo(s.x, s.y); cx.lineTo(near.x, near.y);
-      cx.strokeStyle = "#40508c"; cx.lineWidth = 1.6 * uiz; cx.stroke();
-    });
-  }
   voyages.forEach((v) => {
     let a, b;
     // прыжковые, открыватели и грузовики с деталями летят между СИСТЕМАМИ и
@@ -288,7 +296,7 @@ export function drawMap(): void {
     if (v.sysFrom !== undefined) { a = systems[v.sysFrom]; b = systems[v.to]; }
     else { a = systems[v.from.sys]; b = systems[v.to.sys]; if (a === b) return; }
     const k = clamp(vis(v), 0, 1);
-    const isJump = v.kind === "jump" || v.kind === "opener" || v.kind === "reloc";
+    const isJump = v.kind === "jump" || v.kind === "gate" || v.kind === "reloc";
     // Прыжок идёт ДУГОЙ, а не по линейке: прямая между звёздами читается как
     // чертёж, дуга — как полёт. Изгиб тем сильнее, чем длиннее перегон, а
     // сторона постоянна для пары звёзд, чтобы встречные не сливались в нить.
@@ -361,10 +369,11 @@ export function drawMap(): void {
       cx.strokeStyle = "#ff5c5c"; cx.globalAlpha = 0.35; cx.setLineDash([4 * uiz, 6 * uiz]); cx.lineWidth = 1.2 * uiz;
       cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
     }
-    if (s.gate.built) {            // ворота: система в сети, до неё долетит хлебовоз
+    const gs = gatesAt(s.id);
+    if (gs.some((g) => { return g.built; })) {   // в сети: до неё долетит хлебовоз
       cx.beginPath(); cx.arc(s.x, s.y, r + 6 * uiz, 0, 6.2832);
       cx.strokeStyle = "#9aa8ff"; cx.lineWidth = 1.6 * uiz; cx.stroke();
-    } else if (s.gate.building) {
+    } else if (gs.length) {
       cx.beginPath(); cx.arc(s.x, s.y, r + 6 * uiz, 0, 6.2832);
       cx.strokeStyle = "#3f4a78"; cx.setLineDash([2 * uiz, 4 * uiz]); cx.lineWidth = 1.4 * uiz; cx.stroke(); cx.setLineDash([]);
     }

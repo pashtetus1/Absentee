@@ -37,7 +37,7 @@ function digest(st: Snapshot): Entry[] {
   put("projects", st.projects.length);
   put("docks", st.docks.length);
   put("corps", st.corps.length);
-  put("routes", Object.keys(st.routes).length);
+  put("gates", Object.keys(st.gates).length);
 
   Object.keys(st.market).sort().forEach((k) => {
     put("market." + k + ".price", st.market[k].price);

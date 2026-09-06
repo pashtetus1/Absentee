@@ -4,8 +4,8 @@ import { vtype } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
 import { rnd } from "./rng";
 import { YARD_WORK, nearestYard, yardAt } from "./shipyard";
-import { S, anyMakes, canBuild, corps, dateStr, fill, market, projects, say, systems, voyages, worlds } from "./state";
-import { gated, reachable } from "./travel";
+import { S, anyMakes, canBuild, corps, dateStr, fill, gates, market, projects, say, systems, voyages, worlds } from "./state";
+import { gateOf, reachable, routeKey } from "./travel";
 import { clamp, dist } from "./util";
 import { addStock, hasBranch, openBranch, popOf } from "./world";
 import type { Corp, Order, Part, Planet, Rock, Sys, VType } from "./types";
@@ -34,8 +34,10 @@ export function jumpTarget(c: Corp): { from: number; to: number } | null {
     if (!nearestYard(s.id, c)) return;
     within(s.id, range).forEach((n) => {
       if (systems[n].unlocked) return;
-      if (voyages.some((v) => { return v.to === n && (v.kind === "jump" || v.kind === "opener"); })) return;
+      if (voyages.some((v) => { return v.to === n && (v.kind === "jump" || v.kind === "gate"); })) return;
       if (corps.some((o) => { return o.order && o.order.to === n; })) return;   // туда уже собираются
+      const g = gateOf(s.id, n);
+      if (g && (g.built || g.building)) return;             // на этот маршрут уже поставили
       const d = dist(s, systems[n]);
       if (d < bd) { bd = d; out = { from:s.id, to:n }; }
     });
@@ -43,33 +45,10 @@ export function jumpTarget(c: Corp): { from: number; to: number } | null {
   return out;
 }
 
-// Ворота ставят там, где от них больше толку: где за системой лежат закрытые
-// соседи и где колония сидит на привозной еде — без ворот хлебовоз до неё
-// просто не долетит.
-// Ворота ставят в системе, до которой дотягивается марка от УЖЕ построенных
-// ворот. Первые ворота ставят дома. Дальше сеть растёт кольцами, и каждая
-// новая система стоит отдельных ворот — зато внутри сети возят даром.
-export function gateTarget(c: Corp): { sys: number; score: number } | null {
-  const range = c ? rangeOf(c) : galaxyRange();
-  if (!systems[0].gate.built && !systems[0].gate.building) return { sys:0, score:99 };
-  if (range <= 0) return null;
-  let best: { sys: number; score: number } = null;
-  systems.forEach((s) => {
-    if (s.gate.built || s.gate.building) return;
-    if (!within(s.id, range).some(gated)) return;
-    const hungry = s.bodies.some((b) => {
-      return b.world && b.world.pop.farm * b.world.type.farm < popOf(b.world);
-    });
-    // ценнее ворота там, где за ними ещё не открытые звёзды, и там, где
-    // колония сидит на привозной еде: без ворот хлебовоз не долетит
-    const beyond = within(s.id, range).filter((n) => { return !systems[n].unlocked; }).length;
-    const score = (s.unlocked ? 0 : 3) + beyond * 1.5 + (hungry ? 4 : 0);
-    if (score <= 0) return;
-    if (!best || score > best.score) best = { sys:s.id, score:score };
-  });
-  return best;
-}
-export function expandTarget(c: Corp): { sys: number; score: number; } | { from: number; to: number; }{ return S.move.key === "gates" ? gateTarget(c) : jumpTarget(c); }
+// Цель у экспансии одна на оба способа: ближайшая закрытая звезда, до которой
+// дотягивается марка. Разница только в том, ЧТО туда летит — прыжковый корабль
+// или портальный, который на этом маршруте останется воротами.
+export function expandTarget(c: Corp): { from: number; to: number } | null{ return jumpTarget(c); }
 export function orderCost(vt: VType): number {
   let sum = 0;
   Object.keys(vt.need).forEach((k) => { sum += market[k].price * vt.need[k]; });
@@ -112,30 +91,15 @@ export function reviewOrders(): void {
       const ym = nearestYard(baseSys(c, pickS.id), c);
       if (!ym) { o.rock.taken = false; c.needYard = true; return; }
       o.dst = pickS.id; o.sys = ym.world.sys; o.yard = ym;   // собирают на верфи, везут к астероиду
-    } else if (best.key === "gate") {
-      // Ворота для ЗАКРЫТОЙ системы собираются у ближайших готовых ворот и
-      // уходят туда одним рейсом: свозить детали в систему, до которой ещё
-      // нет дороги, невозможно — на этом экспансия под воротами и встала.
-      const gt = gateTarget(c);
-      if (!gt) return;
-      o.gateAt = gt.sys; systems[gt.sys].gate.building = true;
-      let base = gt.sys;
-      if (gt.sys !== 0 && !gated(gt.sys)) {
-        base = null;
-        within(gt.sys, rangeOf(c)).forEach((n) => {
-          if (!gated(n)) return;
-          if (base === null || dist(systems[n], systems[gt.sys]) < dist(systems[base], systems[gt.sys])) base = n;
-        });
-        if (base === null) base = 0;
-      }
-      const yg = nearestYard(base, c);
-      if (!yg) { systems[gt.sys].gate.building = false; c.needYard = true; return; }
-      o.sys = yg.world.sys; o.yard = yg;
     } else {
       const jt = jumpTarget(c);
       if (!jt) return;
       const yj = nearestYard(jt.from, c);        // jumpTarget уже отсеял старты без верфи
       o.sys = yj.world.sys; o.yard = yj; o.from = jt.from; o.to = jt.to;
+      // Маршрут занимается сразу, а не по прилёте: пока портальный корабль
+      // собирают и ведут к старту, никто другой на этот же створ не тратится.
+      if (best.key === "gate")
+        gates[routeKey(jt.from, jt.to)] = { a:jt.from, b:jt.to, built:false, building:true, owner:c.id };
     }
     c.order = o; c.needYard = false;
     say("<b>" + c.name + "</b> взялась собирать " + best.name + " в " + systems[o.sys].name + ".");
@@ -161,7 +125,10 @@ export function baseSys(c: Corp, target: number): number {
 export function releaseOrder(o: Order): void {
   if (!o) return;
   if (o.rock) o.rock.taken = false;
-  if (o.type === "gate" && systems[o.gateAt]) systems[o.gateAt].gate.building = false;
+  if (o.type === "gate" && o.from !== undefined) {
+    const g = gateOf(o.from, o.to);
+    if (g && !g.built) delete gates[routeKey(o.from, o.to)];
+  }
 }
 
 // Колония — консорциум: держатель технологии кладёт своё, остальные доносят
@@ -240,14 +207,16 @@ export function assemble(): void {
       if (yard) { o.parts.forEach((p) => { addStock(c, o.sys, p.k, 1); }); releaseOrder(o); c.order = null; }
       return;
     }
-    if (vt.key === "gate") {
-      yard.queue.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, gateHere:o.gateAt,
-                     parts:o.parts.slice(), left:vt.build * YARD_WORK, total:vt.build * YARD_WORK });
-    } else if (vt.key === "jump" || vt.key === "opener") {
+    if (vt.key === "jump" || vt.key === "gate") {
       // цель могла открыться, пока свозили детали — тогда летим к другой
-      let to = o.to;
-      if (systems[to].unlocked) { const jt = jumpTarget(c); if (!jt) { releaseOrder(o); c.order = null; return; } to = jt.to; }
-      yard.queue.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:to, from:o.from,
+      let to = o.to, from = o.from;
+      if (systems[to].unlocked) {
+        const jt = jumpTarget(c);
+        if (!jt) { releaseOrder(o); c.order = null; return; }
+        releaseOrder(o); to = jt.to; from = jt.from;
+        if (vt.key === "gate") gates[routeKey(from, to)] = { a:from, b:to, built:false, building:true, owner:c.id };
+      }
+      yard.queue.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:to, from:from,
                      parts:o.parts.slice(), left:vt.build * YARD_WORK, total:vt.build * YARD_WORK });
     } else {
       // предприятие числится в системе АСТЕРОИДА, а не сборки

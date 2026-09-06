@@ -83,8 +83,8 @@ export function shipLines(sh: Ship): string[] {              // корабль �
   return ["Платформа · " + who, "→ " + sh.dest.label + " · " + eta(sh.t, sh.dur)];
 }
 export function voyageLines(v: Voyage): string[] {             // рейс между звёздами или между мирами
-  if (v.kind === "jump" || v.kind === "opener")
-    return [(v.kind === "opener" ? "Открыватель · " : "Прыжковый · ") + corps[v.corp].name,
+  if (v.kind === "jump" || v.kind === "gate")
+    return [(v.kind === "gate" ? "Портальный · " : "Прыжковый · ") + corps[v.corp].name,
             "→ " + systems[v.to].name + " · " + eta(v.t, v.dur)];
   if (v.kind === "parts")
     return ["Грузовик · " + compOf(v.k).name.toLowerCase() + " для " + corps[v.forCorp].name,

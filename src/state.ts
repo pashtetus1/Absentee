@@ -14,7 +14,7 @@
 //     эти поля не читает и не пишет.
 
 import { MONTHS } from "./data";
-import type { Chosen, Corp, Dock, Hit, MarketRow, Move, Patent, Planet, Project, Sys, TickCache, Voyage, World } from "./types";
+import type { Chosen, Corp, Dock, Gate, Hit, MarketRow, Move, Patent, Planet, Project, Sys, TickCache, Voyage, World } from "./types";
 
 import type { ApproveMode, Proposal, Shipyard } from "./types";
 
@@ -28,7 +28,7 @@ export const feed: { d: string; t: string }[] = [];
 export const hits: Hit[] = [];                   // куда можно ткнуть на текущем кадре
 export const market: Record<string, MarketRow> = {};
 export const patents: Record<string, Patent> = {};
-export const routes: Record<string, boolean> = {};
+export const gates: Record<string, Gate> = {};   // ворота по маршрутам, ключ — routeKey
 export const flash: Record<string, number> = {};
 export const cam = { x: 0, y: 0, k: 1 };         // камера карты: перетаскивание и зум
 

@@ -15,6 +15,7 @@ import { prodOf, sciOf } from "../science";
 import { yardAt } from "../shipyard";
 import { L, S, U, UPKEEP, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, voyages, worlds } from "../state";
 import { DEVS, ENGINES, techOf } from "../tech";
+import { fuelCost } from "../travel";
 import { fmt } from "../util";
 import { popOf } from "../world";
 import { seenSys } from "./scene";
@@ -90,7 +91,8 @@ export function inspector(): void {
       systems[d.to].name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
       '<div class="part"><i class="dot" style="background:' + sellerC.color + '"></i><span class="pn">продал</span><span class="pw">' + sellerC.name + '</span></div>' +
       '<div class="part"><i class="dot" style="background:' + buyer.color + '"></i><span class="pn">купил и везёт</span><span class="pw">' + buyer.name + '</span></div>' +
-      '<div class="sub" style="margin:6px 0 0">Рейс сжёг единицу межзвёздного топлива.</div></div>';
+      '<div class="sub" style="margin:6px 0 0">Рейс сжёг межзвёздного топлива: ' +
+      fuelCost(d.sysFrom, d.to) + '.</div></div>';
     return;
   }
   if (U.pick.kind === "cargo") {
@@ -102,9 +104,22 @@ export function inspector(): void {
     return;
   }
   if (U.pick.kind === "jumpship") {
-    box.innerHTML = '<div class="card"><h3>Прыжковый корабль</h3>' +
+    box.innerHTML = '<div class="card"><h3>' + (d.kind === "gate" ? "Портальный корабль" : "Прыжковый корабль") + '</h3>' +
       '<div class="sub">' + corps[d.corp].name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
+      (d.kind === "gate" ? '<div class="sub" style="margin:0 0 4px">Дойдёт до ' + systems[d.to].name +
+        ' — и станет воротами на этом маршруте.</div>' : '') +
       partsList(d.parts, d.corp) + '</div>';
+    return;
+  }
+  if (U.pick.kind === "gate") {
+    const who = d.owner >= 0 ? corps[d.owner].name : "государство";
+    box.innerHTML = '<div class="card"><h3>' + (d.built ? "Звёздные ворота" : "Ворота строятся") + '</h3>' +
+      '<div class="sub">маршрут ' + systems[d.a].name + ' — ' + systems[d.b].name +
+      (d.born ? ' · с ' + d.born : '') + '</div>' +
+      '<div class="part"><span class="pn">поставила</span><span class="pw">' + who + '</span></div>' +
+      '<div class="sub" style="margin:6px 0 0">' + (d.built
+        ? 'По этому маршруту летают без двигателя. Проход через створ жжёт бак межзвёздного топлива.'
+        : 'Портальный корабль ещё в пути.') + '</div></div>';
     return;
   }
   if (U.pick.kind === "ship") {

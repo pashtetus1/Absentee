@@ -7,7 +7,7 @@ import { COMPS, compOf, pickCaptain } from "./data";
 import { freeRocks, releaseOrder } from "./orders";
 import { L, S, corps, dateStr, market, patLive, patents, projects, proposals, say, shipyards, systems, tickCache, voyages, worlds } from "./state";
 import { speedOf } from "./tech";
-import { canTravel } from "./travel";
+import { canTravel, fuelCost } from "./travel";
 import { clamp } from "./util";
 import { addStock, firstStockSys, stockAt, totalStock } from "./world";
 import type { Corp, Part, World } from "./types";
@@ -43,8 +43,11 @@ export function repriceMarket(): void {
 // Топливом торгуют БЕЗ отказов: это расходник, на нём не выигрывают гонку, а
 // запрет на него мгновенно запирает всю галактику и убивает партию. Берём
 // своё, если есть в этой системе, иначе покупаем у соседа по цеху.
-export function takeFuel(c: Corp, sys: number, k: string, direct?: boolean): boolean {
-  if (stockAt(c, sys, k) > 0) { addStock(c, sys, k, -1); return true; }
+// n — сколько баков нужно на рейс: под воротами топливо жжётся на КАЖДОМ
+// створе, и дальний конец сети обходится дороже ближнего.
+export function takeFuel(c: Corp, sys: number, k: string, direct?: boolean, n?: number): boolean {
+  const want = n || 1;
+  if (stockAt(c, sys, k) >= want) { addStock(c, sys, k, -want); return true; }
   let seller: Corp = null;
   corps.forEach((s) => {
     if (s.id === c.id || stockAt(s, sys, k) <= 0) return;
@@ -75,24 +78,25 @@ export function takeFuel(c: Corp, sys: number, k: string, direct?: boolean): boo
 }
 // есть ли в системе мира продавец топлива, и хватит ли казне — проверяется
 // ДО покупки корабля, чтобы не остаться с оплаченным корпусом без горючего
-export function govFuelAvail(payer: World, at: World, k: string): boolean {
-  const price = market[k].price * (1 + L.tradeFee);
-  return payer.gov.cash >= price + 10 && corps.some((s) => { return stockAt(s, at.sys, k) > 0; });
+export function govFuelAvail(payer: World, at: World, k: string, n?: number): boolean {
+  const want = n || 1, price = market[k].price * (1 + L.tradeFee) * want;
+  return payer.gov.cash >= price + 10 && corps.some((s) => { return stockAt(s, at.sys, k) >= want; });
 }
 // правительство мира жжёт своё топливо так же, только платит из своей казны
-export function govFuel(payer: World, at: World, k: string): boolean {
+export function govFuel(payer: World, at: World, k: string, n?: number): boolean {
+  const want = n || 1;
   let seller: Corp = null;
   corps.forEach((s) => {
-    if (stockAt(s, at.sys, k) <= 0) return;
+    if (stockAt(s, at.sys, k) < want) return;
     if (!seller || stockAt(s, at.sys, k) > stockAt(seller, at.sys, k)) seller = s;
   });
   if (!seller) return false;
-  const price = market[k].price * (1 + L.tradeFee);
+  const price = market[k].price * (1 + L.tradeFee) * want;
   if (payer.gov.cash < price + 10) return false;
-  payer.gov.cash -= price; seller.cash += market[k].price; seller.sold++;
-  S.treasury += price - market[k].price;
-  addStock(seller, at.sys, k, -1);
-  S.trades++; S.turnover += price; S.burned++;
+  payer.gov.cash -= price; seller.cash += market[k].price * want; seller.sold++;
+  S.treasury += price - market[k].price * want;
+  addStock(seller, at.sys, k, -want);
+  S.trades++; S.turnover += price; S.burned += want;
   return true;
 }
 
@@ -284,7 +288,7 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
   S.treasury += full - price; S.trades++; S.turnover += full; buyer.bought++;
   if (sysFrom === dest) { take({ k:k, from:seller.id }); return true; }
   // грузовик заправляется там, где грузится: топливо покупается у отправителя
-  if (!takeFuel(buyer, sysFrom, "sfuel", true)) {                       // нечем везти
+  if (!takeFuel(buyer, sysFrom, "sfuel", true, fuelCost(sysFrom, dest))) {   // нечем везти
     addStock(seller, sysFrom, k, 1); seller.cash -= price; S.treasury -= full - price;
     S.trades--; S.turnover -= full;
     return false;

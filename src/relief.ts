@@ -8,7 +8,7 @@ import { rnd } from "./rng";
 import { onOrder, orderTransport } from "./shipyard";
 import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
 import { devMult } from "./tech";
-import { canTravel, needWith, travelExtra } from "./travel";
+import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
 import { clamp } from "./util";
 import { addStock, popOf } from "./world";
 import type { Corp, Pop, Rock, World } from "./types";
@@ -40,7 +40,7 @@ export function corpRelief(): void {
       return;
     }
     const parts = dk.parts;
-    if (!takeFuel(payer, src.sys, fk, true)) {           // нет горючего у отправителя — вернуть детали
+    if (!takeFuel(payer, src.sys, fk, true, fuelCost(src.sys, w.sys))) {   // нет горючего — вернуть детали
       if (dk) docks.push(dk); else parts.forEach((p) => { addStock(corps[p.from], src.sys, p.k, 1); });
       return;
     }
@@ -139,7 +139,7 @@ export function piracy(): void {
     for (let i = voyages.length - 1; i >= 0; i--) {
       const v = voyages[i];
       // прыжковый не перехватить — ни в прыжке, ни на перегоне к точке старта
-      if (v.kind === "jump" || v.kind === "opener" || v.kind === "reloc") continue;
+      if (v.kind === "jump" || v.kind === "gate" || v.kind === "reloc") continue;
       const owner = v.kind === "parts" ? v.forCorp
                 : v.kind === "ferry" ? v.corp
                 : (v.relief !== undefined ? v.relief : -1);
