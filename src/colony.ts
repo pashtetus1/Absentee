@@ -8,12 +8,12 @@
 // (колония отделяется и становится игроком), только теперь её рождает голод.
 
 import { COMPS, TEMPLATE } from "./data";
+import { rnd } from "./rng";
+import { seizeYard } from "./shipyard";
 import { S, corps, say, systems, worlds } from "./state";
 import { allTech } from "./tech";
 import { openBranch, popOf } from "./world";
 import type { Corp, World } from "./types";
-
-import { rnd } from "./rng";
 
 export const EXTRA = ["#c9a0ff","#8ef0d0","#ffd27a","#ff9ecf","#9ad4ff","#d4ff7a","#ffb4a0","#a0ffe0"];
 export const PIRATES = ["#ff5c5c","#ff8c42","#e04f8f","#ff3b6b"];
@@ -71,6 +71,7 @@ export function despair(): void {
       openBranch(c, w, true);
       c.pirate = true; c.craft = "разбой"; c.nerve = 1.6;
       c.color = PIRATES[S.pirateCount++ % PIRATES.length];
+      seizeYard(w, c.id);      // верфь под вольницей: строить она не станет, но и никто другой
       say("<b>" + w.body.name + "</b> четыре года голодает — и берётся за оружие, не дожидаясь никого: " +
           "теперь это «" + c.name + "», и всё, что летит мимо " + systems[w.sys].name + ", в опасности. " +
           "Мир при этом из государства не вышел.");
@@ -85,6 +86,7 @@ export function despair(): void {
       w.branches = [];
       openBranch(c, w, true);
       w.founder = c.id; w.free = true;
+      seizeYard(w, c.id);        // верфь уходит вместе с планетой
       say("<b>" + w.body.name + "</b> объявил независимость после четырёх лет голода: " +
           "теперь это компания «" + c.name + "». Филиалы " + (lost.length ? lost.join(", ") : "никого") + " отобраны.");
     }

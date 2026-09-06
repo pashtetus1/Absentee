@@ -20,6 +20,7 @@ import { rnd } from "./rng";
 import { L, S, corps, proposals, say, shipyards, systems } from "./state";
 import { canTravel } from "./travel";
 import { dist } from "./util";
+import { addStock } from "./world";
 import type { Corp, Part, Proposal, Shipyard, World } from "./types";
 
 export const PROPOSAL_LIFE = 24;            // месяцев висит, ожидая игрока
@@ -153,6 +154,31 @@ export function reviewProposals(): void {
       say("<b>" + c.name + "</b> вошла в складчину на верфь у " + p.world.body.name + " на " + Math.round(sum) + ".");
     });
   });
+}
+
+/** Планета вышла из государства — верфь уходит с ней.
+ *
+ *  Казна вкладывалась в неё как в общую, и теперь эти деньги потеряны: это и
+ *  есть цена того, что колонию не удержали. Чужие заказы из очереди выбрасывают,
+ *  детали возвращают хозяевам на склад в этой системе — как при сворачивании
+ *  сборки. Государственные заказы просто пропадают: платило государство.
+ */
+export function seizeYard(w: World, newOwner: number): void {
+  const y = w.yard;
+  if (!y) return;
+  const wasState = y.owner < 0;
+  let lost = 0;
+  for (let i = y.queue.length - 1; i >= 0; i--) {
+    const b = y.queue[i];
+    if (b.lead === newOwner) continue;             // своё остаётся
+    b.parts.forEach((p) => { addStock(corps[p.from], w.sys, p.k, 1); });
+    y.queue.splice(i, 1); lost++;
+  }
+  y.owner = newOwner;
+  const spent = y.backers.reduce((a, b) => a + b.sum, 0);
+  say("Верфь у " + w.body.name + " отошла к «" + corps[newOwner].name + "»" +
+      (wasState ? ": казна вложила в неё " + Math.round(spent) + " и потеряла их" : "") +
+      (lost ? ", из очереди выброшено чужих сборок: " + lost : "") + ".");
 }
 
 // ---- решение ------------------------------------------------------------

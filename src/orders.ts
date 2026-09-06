@@ -7,7 +7,7 @@ import { YARD_WORK, nearestYard, yardAt } from "./shipyard";
 import { S, anyMakes, canBuild, corps, dateStr, fill, market, projects, say, systems, voyages, worlds } from "./state";
 import { gated, reachable } from "./travel";
 import { clamp, dist } from "./util";
-import { hasBranch, openBranch, popOf } from "./world";
+import { addStock, hasBranch, openBranch, popOf } from "./world";
 import type { Corp, Order, Part, Planet, Rock, Sys, VType } from "./types";
 
 export function freeRocks(s: Sys): Rock[]{ return s.rocks.filter((r) => { return !r.taken; }); }
@@ -233,7 +233,13 @@ export function assemble(): void {
     if (!c.order || !full(c.order.need, c.order.got)) return;
     const vt = vtype(c.order.type), o = c.order;
     const yard = o.yard;
-    if (!yard || yard.owner >= 0 && yard.owner !== c.id) return;   // верфь ушла из-под заказа (отделение); ждём
+    // Верфь ушла из-под заказа (планета отделилась). Держать заказ незачем:
+    // детали возвращаются на склад, а в следующий раз компания встанет в
+    // другую очередь. Иначе заказ висел бы вечно у чужого стапеля.
+    if (!yard || (yard.owner >= 0 && yard.owner !== c.id)) {
+      if (yard) { o.parts.forEach((p) => { addStock(c, o.sys, p.k, 1); }); releaseOrder(o); c.order = null; }
+      return;
+    }
     if (vt.key === "gate") {
       yard.queue.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, gateHere:o.gateAt,
                      parts:o.parts.slice(), left:vt.build * YARD_WORK, total:vt.build * YARD_WORK });
