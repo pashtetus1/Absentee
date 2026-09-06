@@ -10,7 +10,7 @@ import { speedOf } from "./tech";
 import { canTravel, fuelCost } from "./travel";
 import { clamp } from "./util";
 import { addStock, firstStockSys, stockAt, totalStock } from "./world";
-import type { Corp, Part, World } from "./types";
+import type { Corp, Part, Voyage, World } from "./types";
 
 import type { FlyAcct } from "./types";
 
@@ -303,6 +303,20 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
                  t:0, dur:(140 + rnd() * 50) / speedOf(seller.id), born:dateStr(), captain:pickCaptain() });
   S.hauled++;
   return true;
+}
+
+// Счёт летящего закрывает посадка (take выше) — и другого конца у рейса не
+// было: единственным способом исчезнуть была цель. Теперь конца два, и второй
+// — перехват. Если груз просто выкинуть из voyages, счёт останется навсегда:
+// покупателю нехватки не видно (деталь «летит»), stalledOrders каждый месяц
+// обнуляет ожидание, и сборка висит вечно — ничего не докупает и не
+// сворачивается, а контора с таким заказом больше не строит ничего. С
+// топливом тише и хуже: танкер заказывают по одному на систему, и потерянный
+// не заменяется никогда. Поэтому рейс, который не долетел, обязан пройти
+// ЧЕРЕЗ эту дверь, а не через voyages.splice напрямую.
+export function unfly(v: Voyage): void {
+  if (!v.acct || !v.acct.fly || !v.k) return;
+  v.acct.fly[v.k] = Math.max(0, (v.acct.fly[v.k] || 0) - 1);   // ровно то, что прибавили при покупке
 }
 
 export function trade(): void {

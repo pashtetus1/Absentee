@@ -7,7 +7,7 @@
 
 import { load } from "./harness.ts";
 
-import type { Corp, Pop, Snapshot, Voyage } from "../src/types.ts";
+import type { Corp, FlyAcct, Pop, Snapshot, Voyage } from "../src/types.ts";
 
 // Тесты метят уже посчитанные рейсы, чтобы один и тот же не попал в счёт
 // дважды. Пометка нужна только здесь, поэтому и живёт здесь, а не в типах
@@ -745,6 +745,41 @@ test("покупатель не заказывает то, что уже лет�
     assert(st.voyages.filter((v) => v.kind === "parts").length <= 40,
            "в воздухе " + st.voyages.filter((v) => v.kind === "parts").length + " грузовиков с деталями");
   });
+});
+
+// Перехват — единственный конец рейса, который НЕ доводит груз до покупателя.
+// Счёт летящего при этом оставался нетронутым, и заказ ждал деталь вечно:
+// нехватки нет (она «летит»), значит stalledOrders не сворачивает сборку и не
+// докупает, а контора с таким заказом больше никогда ничего не строит. На
+// восьми сидах по 300 лет так висело 27 живых заказов из 74. То же и с
+// топливом: танкер заказывают по одному на систему, и потерянный не заменялся.
+test("перехваченная деталь не вешает счёт летящего", () => {
+  for (const seed of [3, 8, 6]) {
+    const sim = load("dist/index.html", { seed });
+    const st = runYears(sim, 300);
+    // сколько на самом деле в воздухе по каждому счёту
+    const air = new Map<FlyAcct, Record<string, number>>();
+    st.voyages.forEach((v) => {
+      if (v.kind !== "parts" || !v.acct) return;
+      const r = air.get(v.acct) || {};
+      r[v.k] = (r[v.k] || 0) + 1;
+      air.set(v.acct, r);
+    });
+    const check = (acct: FlyAcct, who: string): void => {
+      if (!acct.fly) return;
+      const r = air.get(acct) || {};
+      Object.keys(acct.fly).forEach((k) => {
+        assert(acct.fly[k] <= (r[k] || 0), who + ": по счёту летит " + acct.fly[k] +
+               " «" + k + "», а в воздухе " + (r[k] || 0) + " (сид " + seed + ")");
+      });
+    };
+    st.corps.forEach((c) => {
+      if (c.order) check(c.order, c.name + ", сборка");
+      Object.keys(c.fuelAcct || {}).forEach((sys) => check(c.fuelAcct[+sys], c.name + ", топливо в " + sys));
+    });
+    st.projects.forEach((pr) => check(pr, "подписка на " + pr.body.name));
+    st.proposals.forEach((pr) => check(pr, "верфь на " + pr.world.body.name));
+  }
 });
 
 // ── детали свозят туда, где есть цех ────────────────────────────────────────

@@ -3,7 +3,7 @@ import { PIRATES, pirateName } from "./colony";
 import { compOf, vtype } from "./data";
 import { corpBuyShip, takeDock } from "./docks";
 import { dispatch, surplusWorld } from "./food";
-import { takeFuel } from "./market";
+import { takeFuel, unfly } from "./market";
 import { rnd } from "./rng";
 import { onOrder, orderTransport } from "./shipyard";
 import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
@@ -172,6 +172,9 @@ export function piracy(): void {
       S.raids++;
       if (U.pick && U.pick.data === v) U.pick = null;
       say("<b>" + p.name + "</b> перехватила рейс командира " + v.captain + " у " + ps.name + ": взято " + loot + ".");
+      // Груз больше не в пути, и покупатель обязан это узнать: иначе он ждёт
+      // свою деталь вечно и не заказывает новую (см. unfly в market.ts).
+      unfly(v);
       voyages.splice(i, 1);
     }
   });
