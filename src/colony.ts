@@ -13,6 +13,8 @@ import { allTech } from "./tech";
 import { openBranch, popOf } from "./world";
 import type { Corp, World } from "./types";
 
+import { rnd } from "./rng";
+
 export const EXTRA = ["#c9a0ff","#8ef0d0","#ffd27a","#ff9ecf","#9ad4ff","#d4ff7a","#ffb4a0","#a0ffe0"];
 export const PIRATES = ["#ff5c5c","#ff8c42","#e04f8f","#ff3b6b"];
 // Имя зависит от того, какой жребий выпал миру (см. despair), поэтому
@@ -58,7 +60,7 @@ export function despair(): void {
   worlds.forEach((w) => {
     if (w.founder < 0 || w.edge || w.food.short < 48 || popOf(w) < 0.5) return;   // четыре года голода
     w.edge = true;
-    let roll = Math.random(), c;
+    let roll = rnd(), c;
     if (roll < 0.3333) {
       c = spawnCorp(w, "Артель " + w.body.name, "артель");
       openBranch(c, w, true);

@@ -1,7 +1,6 @@
 
 import { L, S, UPKEEP, corps, say, systems, worlds } from "./state";
 import { popOf } from "./world";
-
 import type { Rock } from "./types";
 
 export function ventureIncome(): void {

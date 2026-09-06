@@ -14,13 +14,7 @@
 //     эти поля не читает и не пишет.
 
 import { MONTHS } from "./data";
-import type { Corp, Dock, MarketRow, Patent, Project, Sys, Voyage, World } from "./types";
-
-import type { Move, Planet, TickCache } from "./types";
-
-import type { Hit } from "./types";
-
-import type { Chosen } from "./types";
+import type { Chosen, Corp, Dock, Hit, MarketRow, Move, Patent, Planet, Project, Sys, TickCache, Voyage, World } from "./types";
 
 export const corps: Corp[] = [], systems: Sys[] = [], voyages: Voyage[] = [];
 export const worlds: World[] = [], projects: Project[] = [], docks: Dock[] = [];

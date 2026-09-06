@@ -6,6 +6,8 @@ import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, systems,
 import { allTech, devOf, engOf, ensureDev, speedOf, techOf } from "./tech";
 import type { Corp } from "./types";
 
+import { rnd } from "./rng";
+
 export function sciOf(c: Corp): number{ return c.branches.reduce((a, b) => { return a + b.emp.sci; }, 0); }
 export function prodOf(c: Corp): number{ return c.branches.reduce((a, b) => { return a + b.emp.prod; }, 0); }
 
@@ -83,7 +85,7 @@ export function research(): void {
     }
     if (c.spent[c.target] < f.diff * 0.55) return;
     const over = (c.spent[c.target] - f.diff * 0.55) / f.diff;
-    if (Math.random() < Math.min(0.06, over * (c.apt[c.target] || 0.5) * 0.05)) {
+    if (rnd() < Math.min(0.06, over * (c.apt[c.target] || 0.5) * 0.05)) {
       c.known[c.target] = true; flash[c.target] = 1;
       // освоение бесконечно: за взятой маркой сразу появляется следующая
       if (devOf(c.target)) ensureDev(devOf(c.target).cls, devOf(c.target).mark + 1);

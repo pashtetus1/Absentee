@@ -16,6 +16,8 @@ import { canTravel, needWith, travelExtra } from "./travel";
 import { addStock, popOf, stockAt } from "./world";
 import type { Corp, Part, Voyage, World } from "./types";
 
+import { rnd } from "./rng";
+
 export function surplusWorld(need: number, from: World): { w: World; extra: number; } {
   let best: World = null, bs = 0;
   worlds.forEach((w) => {
@@ -70,7 +72,7 @@ export function dispatch(from: World, to: World, kind: string, qty: number, part
   const v = { kind:kind, from:from, to:to, qty:qty, parts:parts,
             color: parts.length ? corps[parts[0].from].color : "#8894ae",
             // корабль летит на двигателях того, кто его построил
-            t:0, dur: (from.sys === to.sys ? 54 + Math.random() * 18 : 150 + Math.random() * 60) / speedOf(parts.length ? parts[0].from : -1),
+            t:0, dur: (from.sys === to.sys ? 54 + rnd() * 18 : 150 + rnd() * 60) / speedOf(parts.length ? parts[0].from : -1),
             born:dateStr(), captain:pickCaptain() } as Voyage;
   voyages.push(v);
   return v;

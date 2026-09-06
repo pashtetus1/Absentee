@@ -308,7 +308,9 @@ export interface Snapshot {
  */
 export interface Core {
   step(): void;
-  build(forcedMove?: string): void;
+  build(forcedMove?: string, seed?: number): void;
+  /** Сид текущей партии: по нему она разворачивается заново. */
+  seedOf(): number;
   state(): Snapshot;
   setLever(k: string, v: number | string): void;
   icon(ctx: CanvasRenderingContext2D, kind: string, x: number, y: number, s: number, col: string): void;

@@ -18,6 +18,8 @@ import { popOf } from "../world";
 import { seenSys } from "./scene";
 import type { Part, World } from "../types";
 
+import { seedOf } from "../rng";
+
 export type Ctl = HTMLElement & { value: any; textContent: any; disabled: boolean; checked: boolean };
 export function el(id: string): Ctl { return document.getElementById(id) as Ctl; }
 
@@ -279,7 +281,8 @@ export function panels(): void {
   el("date").textContent = dateStr();
   el("stats").textContent = "Миров " + worlds.length + " · людей " + fmt(totPop) + " · сделок " + S.trades +
     " · еды перевезено " + Math.round(S.shipped) + " · деталей грузовиком " + S.hauled +
-    " · топлива сожжено " + S.burned + " · отказов " + S.refusals + ", свёрнуто сборок " + S.dropped;
+    " · топлива сожжено " + S.burned + " · отказов " + S.refusals + ", свёрнуто сборок " + S.dropped +
+    " · сид " + seedOf();
 
   el("corps").innerHTML = corps.slice().sort((a, b) => { return b.cash - a.cash; }).map((c) => {
     const can = COMPS.filter((f) => { return canBuild(c, f.key); }).map((f) => { return f.short; });

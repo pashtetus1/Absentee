@@ -6,10 +6,17 @@ import { DEVS, allTech, ensureDev } from "./tech";
 import { makeWorld, openBranch } from "./world";
 import type { Corp } from "./types";
 
-export function build(forcedMove?: string): void {
+import { rnd } from "./rng";
+
+import { freshSeed, setSeed } from "./rng";
+
+export function build(forcedMove?: string, seed?: number): void {
+  // Сид ставится ПЕРВЫМ делом: всё, что ниже, тянет случайность, и партия
+  // обязана разворачиваться одинаково от одного и того же числа.
+  setSeed(seed === undefined ? freshSeed() : seed);
   // Способ и его марки выбираются ПЕРВЫМИ: от них зависит список технологий,
   // а значит и то, во что компаниям вообще можно вкладываться.
-  S.move = forcedMove ? moveOf(forcedMove) : MOVES[Math.floor(Math.random() * MOVES.length)];
+  S.move = forcedMove ? moveOf(forcedMove) : MOVES[Math.floor(rnd() * MOVES.length)];
   makeMarks();
   fill(corps, TEMPLATE.map((t, i) => {
     const c = { id:i, name:t.name, color:t.color, craft:t.craft, nerve:t.nerve, apt:t.apt,
@@ -18,7 +25,7 @@ export function build(forcedMove?: string): void {
     allTech().forEach((f) => { c.spent[f.key] = 0; });
     // ask — во сколько раз компания просит выше ходовой цены. Характер здесь
     // виден сразу: смелые запрашивают больше и чаще остаются без сделки.
-    COMPS.forEach((f) => { c.ask[f.key] = 0.95 + (t.nerve - 0.9) * 0.25 + Math.random() * 0.1; });
+    COMPS.forEach((f) => { c.ask[f.key] = 0.95 + (t.nerve - 0.9) * 0.25 + rnd() * 0.1; });
     return c;
   }));
   clear(market); clear(patents);

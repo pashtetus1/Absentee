@@ -12,11 +12,13 @@ import { routeKey } from "./travel";
 import { makeWorld, openBranch } from "./world";
 import type { Ship, Sys, Voyage, Yard } from "./types";
 
+import { rnd } from "./rng";
+
 export function ferry(yd: Yard, s: Sys, kind: string): void {
   const lead = corps[yd.lead];
   voyages.push({ kind:"ferry", cargo:kind, sysFrom:s.id, to:yd.dst, corp:yd.lead, color:yd.color,
                  parts:yd.parts, body:yd.body, backers:yd.backers, dest:yd.dest, vent:yd.vent,
-                 t:0, dur:(200 + Math.random()*70) / speedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
+                 t:0, dur:(200 + rnd()*70) / speedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
   say("<b>" + lead.name + "</b> отправила " + yd.vt.name + " из " + s.name + " в " + systems[yd.dst].name + ".");
 }
 
@@ -53,20 +55,20 @@ export function moveShips(): void {
         if (!S.jumped && first) { S.jumped = true; say("Первый межзвёздный переход совершён."); }
       } else if (yd.vt.key === "jump" || yd.vt.key === "opener") {
         voyages.push({ kind:yd.vt.key, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color,
-                       parts:yd.parts, t:0, dur:(220 + Math.random()*80) / speedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
+                       parts:yd.parts, t:0, dur:(220 + rnd()*80) / speedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
         say("<b>" + lead.name + "</b> вывела " + (yd.vt.key === "opener" ? "порталооткрыватель" : "прыжковый корабль") +
             " с верфи " + s.name + ".");
       } else if (yd.vt.key === "colony") {
         if (far) { ferry(yd, s, "colony"); continue; }
         s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
-                       dur:(120 + Math.random()*60) / speedOf(yd.lead), body:yd.body, backers:yd.backers, parts:yd.parts,
+                       dur:(120 + rnd()*60) / speedOf(yd.lead), body:yd.body, backers:yd.backers, parts:yd.parts,
                        trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain() });
         say("<b>" + lead.name + "</b> спустила колониальный модуль: курс на " + yd.body.name + ".");
       } else {
         if (far) { ferry(yd, s, "mine"); continue; }
         yd.vent.building = false;
         s.ships.push({ kind:"mine", corp:yd.lead, color:yd.color, glyph:yd.glyph, size:8, t:0,
-                       dur:(120 + Math.random()*60) / speedOf(yd.lead), dest:yd.dest, vent:yd.vent, parts:yd.parts,
+                       dur:(120 + rnd()*60) / speedOf(yd.lead), dest:yd.dest, vent:yd.vent, parts:yd.parts,
                        trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain() });
         say("<b>" + lead.name + "</b> спустила платформу: курс на " + yd.dest.label + ".");
       }
@@ -125,13 +127,13 @@ export function arriveVoyage(v: Voyage): void {
     const t = systems[v.to];
     if (v.cargo === "colony") {
       t.ships.push({ kind:"colony", corp:v.corp, color:v.color, glyph:"cir", size:8, t:0,
-                     dur:(120 + Math.random()*60) / speedOf(v.corp), body:v.body, backers:v.backers,
+                     dur:(120 + rnd()*60) / speedOf(v.corp), body:v.body, backers:v.backers,
                      parts:v.parts, trail:[], x:0, y:0, ang:0, born:dateStr(), captain:v.captain });
       say("<b>" + corps[v.corp].name + "</b>: колониальный модуль дошёл до " + t.name +
           ", курс на " + v.body.name + ".");
     } else {
       t.ships.push({ kind:"mine", corp:v.corp, color:v.color, glyph:"mine", size:8, t:0,
-                     dur:(120 + Math.random()*60) / speedOf(v.corp), dest:v.dest, vent:v.vent,
+                     dur:(120 + rnd()*60) / speedOf(v.corp), dest:v.dest, vent:v.vent,
                      parts:v.parts, trail:[], x:0, y:0, ang:0, born:dateStr(), captain:v.captain });
       say("<b>" + corps[v.corp].name + "</b>: платформа дошла до " + t.name + ", курс на " + v.dest.label + ".");
     }

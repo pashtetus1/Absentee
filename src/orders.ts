@@ -8,6 +8,8 @@ import { clamp, dist } from "./util";
 import { hasBranch, openBranch, popOf } from "./world";
 import type { Corp, Order, Part, Planet, Rock, Sys, VType } from "./types";
 
+import { rnd } from "./rng";
+
 export function freeRocks(s: Sys): Rock[]{ return s.rocks.filter((r) => { return !r.taken; }); }
 // Заказ не начинают, пока нет горючего, на котором это полетит: иначе корабль
 // собирают, а потом он десятилетиями стоит у стапеля и ест деньги впустую.
@@ -88,7 +90,7 @@ export function reviewOrders(): void {
       score *= 1 + own / all * 0.6;
       if (score > top) { top = score; best = vt; }
     });
-    if (!best || Math.random() > clamp(0.55 / c.nerve, 0.2, 0.9)) return;
+    if (!best || rnd() > clamp(0.55 / c.nerve, 0.2, 0.9)) return;
     // Место назначения выбирается СЕЙЧАС, а не когда комплект собран: детали
     // надо свозить в конкретную систему, и заранее должно быть ясно, в какую.
     const o = { type:best.key, need:JSON.parse(JSON.stringify(best.need)), got:{}, parts:[] as Part[], born:dateStr() } as Order;
@@ -101,7 +103,7 @@ export function reviewOrders(): void {
       });
       if (!pickS) return;
       const free = freeRocks(pickS);
-      o.rock = free[Math.floor(Math.random() * free.length)];
+      o.rock = free[Math.floor(rnd() * free.length)];
       o.rock.taken = true;
       o.dst = pickS.id; o.sys = baseSys(c, pickS.id);   // собираем у себя, везём туда
     } else if (best.key === "gate") {
@@ -188,7 +190,7 @@ export function reviewProjects(): void {
     if (pr.purse >= pr.cost) return;
     corps.forEach((c) => {
       if (pr.backers.some((b) => { return b.corp === c.id; })) return;
-      if (c.cash < 260 || Math.random() > 0.35) return;
+      if (c.cash < 260 || rnd() > 0.35) return;
       const share = Math.min(Math.max(70, c.cash * 0.2), pr.cost - pr.purse);
       if (share < 70) return;
       c.cash -= share; pr.purse += share;
@@ -204,7 +206,7 @@ export function branchTrade(): void {
   worlds.forEach((w) => {
     if (w === S.home || w.branches.length >= w.slots) return;
     corps.forEach((c) => {
-      if (hasBranch(c, w) || c.cash < 420 || Math.random() > 0.04) return;
+      if (hasBranch(c, w) || c.cash < 420 || rnd() > 0.04) return;
       c.cash -= 140; w.gov.cash += 140;
       openBranch(c, w, false);
     });
@@ -244,7 +246,7 @@ export function assemble(): void {
                       .map((id) => { return corps[+id].name; });
     say("<b>" + c.name + "</b> собрала комплект и заложила " + vt.name + "." +
         (names.length ? " Детали от: " + names.join(", ") + "." : " Всё своё."));
-    c.order = null; c.cool = 24 + Math.floor(Math.random() * 24);
+    c.order = null; c.cool = 24 + Math.floor(rnd() * 24);
   });
 
   projects.forEach((pr) => {

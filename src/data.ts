@@ -3,6 +3,8 @@
 import { S, fill } from "./state";
 import type { ColTech, Comp, Mark, Move, PType, Tech, VType } from "./types";
 
+import { rnd } from "./rng";
+
 export const MONTHS = ["янв","фев","мар","апр","май","июн","июл","авг","сен","окт","ноя","дек"];
 
 export const COMPS: Comp[] = [
@@ -58,7 +60,7 @@ export const PTYPES: PType[] = [
 ];
 export function ptypeOf(k: string): PType{ for (let i=0;i<PTYPES.length;i++) if (PTYPES[i].key===k) return PTYPES[i]; }
 export function rollType(): PType {
-  let tot = PTYPES.reduce((a, p) => { return a + p.w; }, 0), r = Math.random() * tot;
+  let tot = PTYPES.reduce((a, p) => { return a + p.w; }, 0), r = rnd() * tot;
   for (let i = 0; i < PTYPES.length; i++) { r -= PTYPES[i].w; if (r <= 0) return PTYPES[i]; }
   return PTYPES[0];
 }
@@ -139,5 +141,5 @@ export const ROCKNAMES = ["Гвоздь","Слюда","Пест","Кремень
 export const CAPTAINS = ["Орлов","Вязов","Рахимова","Ли","Штерн","Данко","Мирра","Косой","Ясень","Тагир","Велес",
                 "Ниязи","Круг","Селин","Хольм","Арно","Петля","Сойка","Грач","Тихон","Бекет","Ланге","Уза",
                 "Кайя","Чибис","Строк","Драга","Инга","Марей","Стужа","Роник","Валь","Есаул","Йорк","Лада"];
-export function pickCaptain(): string{ return CAPTAINS[Math.floor(Math.random() * CAPTAINS.length)] + " " + (++S.capSeq); }
+export function pickCaptain(): string{ return CAPTAINS[Math.floor(rnd() * CAPTAINS.length)] + " " + (++S.capSeq); }
 

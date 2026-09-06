@@ -14,6 +14,8 @@ import type { Corp, Part, World } from "./types";
 
 import type { FlyAcct } from "./types";
 
+import { rnd } from "./rng";
+
 export function repriceMarket(): void {
   COMPS.forEach((f) => {
     let m = market[f.key], stock = 0, want = 0, sellers: Corp[] = [];
@@ -171,8 +173,8 @@ export function willSell(seller: Corp, buyer: Corp, k: string): boolean {
   if (seller.cash < 200) refuse *= 0.35;                             // бедному не до принципов
   refuse = clamp(refuse, 0, 0.92);
 
-  if (Math.random() >= refuse) return true;
-  seller.embargo[embKey(buyer.id, k)] = S.tick + 24 + Math.floor(Math.random() * 36);
+  if (rnd() >= refuse) return true;
+  seller.embargo[embKey(buyer.id, k)] = S.tick + 24 + Math.floor(rnd() * 36);
   S.refusals++;
   say("<b>" + seller.name + "</b> отказалась продавать " + f.name.toLowerCase() + " " + buyer.name + ".");
   return false;
@@ -289,7 +291,7 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
                    if (acct && acct.fly) acct.fly[part.k] = Math.max(0, (acct.fly[part.k] || 0) - 1);
                    take(part);
                  },
-                 t:0, dur:(140 + Math.random() * 50) / speedOf(seller.id), born:dateStr(), captain:pickCaptain() });
+                 t:0, dur:(140 + rnd() * 50) / speedOf(seller.id), born:dateStr(), captain:pickCaptain() });
   S.hauled++;
   return true;
 }

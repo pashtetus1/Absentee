@@ -6,32 +6,34 @@ import { canBuild, corps, fill, systems } from "./state";
 import { dist, rnd6 } from "./util";
 import type { Corp, Mark, Sys } from "./types";
 
+import { rnd } from "./rng";
+
 export function makeSystem(i: number, name: string, x: number, y: number, pool: string[]): Sys {
   // belt и gate дописываются ниже: belt тянет случайное число, и перенос его
   // в литерал сдвинул бы весь поток — партии перестали бы воспроизводиться
   const s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
             bodies:[], rocks:[], ventures:[], ships:[], yards:[], stations:[], mines:0 } as unknown as Sys;
-  const np = i === 0 ? 4 : 2 + Math.floor(Math.random() * 4);      // до пяти планет
+  const np = i === 0 ? 4 : 2 + Math.floor(rnd() * 4);      // до пяти планет
   const base = rnd6();
   for (let k = 0; k < np; k++) {
     const t = (i === 0 && k === 0) ? ptypeOf("terran") : rollType();
     // пятьдесят систем по пять планет — имён в пуле меньше, дальше идут
     // номера: "Кадм II", а не "Безымянная"
     const nm = pool.pop() || (BODYNAMES[(i * 5 + k) % BODYNAMES.length] + " " + ROMAN[1 + Math.floor((i * 5 + k) / BODYNAMES.length) % 4]);
-    s.bodies.push({ name: nm, type:t, r:150 + k*52 + Math.random()*16,
-                    ang: base + k * (1.5 + Math.random()*0.8), rad:8 + t.cap * 0.7,
+    s.bodies.push({ name: nm, type:t, r:150 + k*52 + rnd()*16,
+                    ang: base + k * (1.5 + rnd()*0.8), rad:8 + t.cap * 0.7,
                     kind:"planet", sys:i, world:null });
   }
   // Астероиды раскиданы по всей системе, а не выстроены в кольцо: пояс
   // читался как ещё одна орбита, хотя это просто камни, у каждого из которых
   // своё место. Держим их подальше от планет и друг от друга, чтобы подписи
   // не слипались.
-  s.belt = i === 0 || Math.random() < 0.75;
+  s.belt = i === 0 || rnd() < 0.75;
   if (s.belt) {
-    let n = 5 + Math.floor(Math.random()*4), guard = 0,
-        names = ROCKNAMES.slice().sort(() => { return Math.random() - 0.5; });
+    let n = 5 + Math.floor(rnd()*4), guard = 0,
+        names = ROCKNAMES.slice().sort(() => { return rnd() - 0.5; });
     while (s.rocks.length < n && guard++ < 400) {
-      const rr = 78 + Math.random() * 244, aa = rnd6();
+      const rr = 78 + rnd() * 244, aa = rnd6();
       const far = s.bodies.every((b) => {
         return Math.abs(b.r - rr) > b.rad + 16 || Math.abs(((b.ang - aa + 9.42) % 6.2832) - 3.1416) < 2.5;
       });
@@ -41,7 +43,7 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
       });
       if (!clear) continue;
       s.rocks.push({ name:names[s.rocks.length], r:rr, ang:aa,
-                     s:4.2 + Math.random()*2.6, seed:Math.random()*6.28, taken:false });
+                     s:4.2 + rnd()*2.6, seed:rnd()*6.28, taken:false });
     }
   }
   s.gate = { name:"ворота", r:352, ang:rnd6() };
@@ -66,16 +68,16 @@ export function sysName(i: number): string {
 // чем дальше от Тиры, тем реже соседи: минимальный зазор растёт с радиусом.
 // Плюс мягкая спиральная закрутка и лёгкая сплюснутость, как в ES2.
 export function makeGalaxy(): void {
-  const pool = BODYNAMES.slice().sort(() => { return Math.random() - 0.5; });
-  const names = SYSNAMES.slice(1).sort(() => { return Math.random() - 0.5; });
+  const pool = BODYNAMES.slice().sort(() => { return rnd() - 0.5; });
+  const names = SYSNAMES.slice(1).sort(() => { return rnd() - 0.5; });
   names.unshift(SYSNAMES[0]);
-  const cxp = CW / 2, cyp = CH / 2, arms = 2, twist = 0.010 + Math.random() * 0.006;
+  const cxp = CW / 2, cyp = CH / 2, arms = 2, twist = 0.010 + rnd() * 0.006;
   let pts = [{ x:cxp, y:cyp }], guard = 0;
   while (pts.length < 50 && guard++ < 40000) {
     // степень больше 0.5 разрежает середину: у края звёзд меньше на площадь
-    const r = 20 + 292 * Math.pow(Math.random(), 0.62);
-    const a = Math.random() < 0.72
-          ? Math.floor(Math.random() * arms) * (6.2832 / arms) + r * twist + (Math.random() - 0.5) * 1.15
+    const r = 20 + 292 * Math.pow(rnd(), 0.62);
+    const a = rnd() < 0.72
+          ? Math.floor(rnd() * arms) * (6.2832 / arms) + r * twist + (rnd() - 0.5) * 1.15
           : rnd6();                                  // четверть звёзд вне рукавов
     const p = { x:cxp + Math.cos(a) * r, y:cyp + Math.sin(a) * r * 0.88 };
     if (p.x < 24 || p.x > CW - 24 || p.y < 24 || p.y > CH - 24) continue;

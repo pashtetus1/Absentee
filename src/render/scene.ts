@@ -7,9 +7,7 @@ import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
 import { CH, CW, advanceFrame, cx, glow, last, setUiz, uiz } from "./canvas";
 import { advance, caption, dockLines, flame, grow, posOf, rock, ship, tiny, windowLines } from "./models";
-import type { Sys } from "../types";
-
-import type { Rock } from "../types";
+import type { Rock, Sys } from "../types";
 
 export function drawSystem(s: Sys): void {
   const mx = CW / 2, my = CH / 2;

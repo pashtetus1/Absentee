@@ -15,6 +15,8 @@ import { frame } from "./scene";
 
 import type { Hit } from "../types";
 
+import { seedOf } from "../rng";
+
 export function scene(): void {
   const map = U.view.mode === "map";
   el("tomap").style.display = map ? "none" : "inline-block";
@@ -77,6 +79,21 @@ export function syncControls(): void {
   el("doleval").textContent = L.dole.toFixed(1);
   el("speed").textContent = "×" + L.speed;
   el("subfield").value = L.subKey;
+}
+
+// Сид в адресе страницы: партию можно прислать ссылкой, и она развернётся
+// точно та же. Из адреса он и читается при загрузке — иначе воспроизвести
+// увиденное было бы нечем.
+function seedFromUrl(): number | undefined {
+  if (typeof location === "undefined") return undefined;
+  const m = /(?:^|[#&?])seed=(\d+)/.exec(location.hash + location.search);
+  return m ? (+m[1] >>> 0) : undefined;
+}
+function seedToUrl(): void {
+  if (typeof location === "undefined") return;
+  const tail = "#seed=" + seedOf();
+  // replaceState не всегда разрешён для file://, поэтому с запасным путём
+  try { history.replaceState(null, "", tail); } catch (e) { location.hash = tail; }
 }
 
 export function bindUI(): void {
@@ -231,7 +248,9 @@ export function bindUI(): void {
   });
   el("map").addEventListener("click", () => { U.view.mode = "map"; scene(); });
   el("tomap").addEventListener("click", () => { U.view.mode = "map"; scene(); });
-  el("reset").addEventListener("click", () => { build(); scene(); if (U.running) run(); });
+  // «Заново» — это НОВАЯ партия, поэтому сид новый; чтобы повторить прежнюю,
+  // достаточно вернуться по прежнему адресу
+  el("reset").addEventListener("click", () => { build(); seedToUrl(); scene(); if (U.running) run(); });
   el("ventures").addEventListener("click", (e) => {
     const row = (e.target as HTMLElement).closest(".clickrow");
     if (row) open(+row.getAttribute("data-sys"));
@@ -249,8 +268,17 @@ export function bindUI(): void {
     icon(c.getContext("2d"), c.getAttribute("data-kind"), 11, 10, 8, "#8894ae");
   });
 
+  // Смена якоря в адресе НЕ перезагружает страницу, поэтому вручную вписанный
+  // сид иначе не сработал бы: пришлось бы догадаться нажать F5. Сверяем с
+  // текущим, чтобы собственная запись адреса не вызвала пересборку по кругу.
+  if (typeof window !== "undefined") window.addEventListener("hashchange", () => {
+    const want = seedFromUrl();
+    if (want === undefined || want === seedOf()) return;
+    build(undefined, want); scene(); if (U.running) run();
+  });
+
   loadLevers(); syncControls();
-  build(); scene(); taxhint(); subhint(); pathint(); feehint(); dolehint();
+  build(undefined, seedFromUrl()); seedToUrl(); scene(); taxhint(); subhint(); pathint(); feehint(); dolehint();
   requestAnimationFrame(frame);
   run();
 }

@@ -9,14 +9,14 @@ import { COLTECH, COMPS, MARKS, MOVES, PTYPES, VTYPES } from "./data";
 import { icon } from "./render/models";
 import { bindUI } from "./render/ui";
 import { build } from "./setup";
+import { seedOf } from "./rng";
 import { L, S, U, corps, docks, feed, headless, market, patents, projects, routes, systems, voyages, worlds } from "./state";
 import { ENGINES, speedOf } from "./tech";
 import { step } from "./tick";
 import { popOf } from "./world";
-
 import type { Snapshot } from "./types";
 
-export { step, build, speedOf, popOf, icon };
+export { step, build, speedOf, popOf, icon, seedOf };
 
 export function state(): Snapshot {
   return { tick: S.tick, treasury: S.treasury, corps: corps, worlds: worlds, systems: systems,

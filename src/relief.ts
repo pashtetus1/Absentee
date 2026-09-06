@@ -13,6 +13,8 @@ import type { Corp, Pop, World } from "./types";
 
 import type { Rock } from "./types";
 
+import { rnd } from "./rng";
+
 export function corpRelief(): void {
   worlds.forEach((w) => {
     if (w.founder < 0) return;
@@ -62,11 +64,11 @@ export function turnPirate(c: Corp, lair: World, why: string): void {
 }
 export function events(): void {
   worlds.forEach((w) => {
-    if (w.blight <= 0 && Math.random() < 0.06) {
-      w.blight = 24 + Math.floor(Math.random() * 24);
+    if (w.blight <= 0 && rnd() < 0.06) {
+      w.blight = 24 + Math.floor(rnd() * 24);
       say("Неурожай на " + w.body.name + ": урожай упадёт вдвое на " + Math.ceil(w.blight / 12) + " года.");
     }
-    if (Math.random() < 0.03 && popOf(w) > 1) {
+    if (rnd() < 0.03 && popOf(w) > 1) {
       (["farm","prod","sci","free"] as (keyof Pop)[]).forEach((k) => { w.pop[k] *= 0.85; });
       say("Эпидемия на " + w.body.name + ": потеряно 15% населения.");
     }
@@ -74,7 +76,7 @@ export function events(): void {
   const anyPirate = corps.some((c) => { return c.pirate; });
   const chance = S.moveKnown && !anyPirate ? 0.25 : 0.003;
   corps.forEach((c) => {
-    if (c.pirate || !c.branches.length || Math.random() > chance) return;
+    if (c.pirate || !c.branches.length || rnd() > chance) return;
     const lair = c.branches[c.branches.length - 1].world;      // самый дальний филиал
     turnPirate(c, lair, "мятеж в " + c.name);
   });
@@ -92,7 +94,7 @@ export function piracy(): void {
     if (!p.home || p.pirate) return;
     // три года голода после первого жребия и монетка: не всякий голодный мир
     // берётся за оружие, но чем дольше голод, тем вернее
-    if (p.home.food.short < 36 || popOf(p.home) < 0.5 || Math.random() > 0.03) return;
+    if (p.home.food.short < 36 || popOf(p.home) < 0.5 || rnd() > 0.03) return;
     p.pirate = true; p.craft = "разбой"; p.nerve = 1.6;
     p.name = "Вольница " + p.home.body.name;
     p.color = PIRATES[S.pirateCount++ % PIRATES.length];
@@ -118,7 +120,7 @@ export function piracy(): void {
       if (Math.hypot(x - ps.x, y - ps.y) > 45) continue;               // не в зоне охоты
       // рейс идёт двести месяцев и десятки из них — в зоне; чтобы перехватывали
       // примерно каждый четвёртый, шанс в месяц должен быть крошечным
-      if (Math.random() > 0.0025) continue;
+      if (rnd() > 0.0025) continue;
       let loot;
       if (v.kind === "food") { p.home.food.stock += v.qty; loot = v.qty + " еды"; }
       else if (v.kind === "pops") { p.home.pop.free += v.qty; loot = v.qty.toFixed(1) + " человечков"; }

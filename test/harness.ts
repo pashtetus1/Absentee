@@ -65,7 +65,10 @@ export function load(file: string, { withDom = false, seed = null }: Options = {
 
   const sandbox: any = { module: { exports: {} }, Math: Object.create(Math), console };
   if (seed !== null) {
-    // свой генератор с сидом: одна и та же партия воспроизводится
+    // Подмена Math.random нужна для СТАРЫХ файлов: до появления src/rng.ts ядро
+    // брало случайность прямо у среды, и другого способа задать сид не было.
+    // Сличитель гоняет такие файлы до сих пор, поэтому подмена остаётся.
+    // Новое ядро сюда не заглядывает: у него сид ставится через build().
     let s = seed >>> 0;
     sandbox.Math.random = function () {
       s = (s * 1664525 + 1013904223) >>> 0;
@@ -101,6 +104,10 @@ export function load(file: string, { withDom = false, seed = null }: Options = {
   createContext(sandbox);
   runInContext(code, sandbox, { filename: file });
   const api: Harnessed = sandbox.module.exports;
+  // Новое ядро само держит генератор: пересобираем партию с нужным сидом.
+  // Алгоритм тот же, что в подмене выше, поэтому поток чисел совпадает и
+  // сличитель по-прежнему сравнивает старый файл с новым честно.
+  if (seed !== null && typeof api.seedOf === "function") api.build(undefined, seed);
   if (withDom) {
     let ts = 0;
     api.__frame = () => { const fn = sandbox.__frame; sandbox.__frame = null; if (fn) fn(ts += 16); };
