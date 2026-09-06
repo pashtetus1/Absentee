@@ -22,7 +22,7 @@ import { takeDock } from "./docks";
 import { harvestOf } from "./labour";
 import { askPrice, govFuel, govFuelAvail } from "./market";
 import { rnd } from "./rng";
-import { orderTransport } from "./shipyard";
+import { onOrder, orderTransport } from "./shipyard";
 import { L, S, corps, dateStr, say, voyages, worlds } from "./state";
 import { speedOf } from "./tech";
 import { canTravel, needWith, travelExtra } from "./travel";
@@ -136,9 +136,9 @@ export function foodRun(): void {
       // Готового нет — заказываем на верфи и ждём. Заказ висит, пока корабль не
       // сойдёт со стапеля: без этого голодная планета заказывала бы каждые
       // полгода, и верфь забивалась хлебовозами, которых никто не дождётся.
-      if ((w.ordered || 0) < 1) {
+      if (!onOrder("cargo", w, null)) {
         const bought = govBuyShip(w, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
-        if (bought && orderTransport("cargo", bought, src.sys, w, null)) w.ordered = (w.ordered || 0) + 1;
+        if (bought) orderTransport("cargo", bought, src.sys, w, null);
       }
       return;
     }

@@ -120,15 +120,25 @@ export function drawSystem(s: Sys): void {
   shipyards.filter((y) => y.world.sys === s.id).forEach((yard) => {
     const yp = yardPos(yard, mx, my), x = yp.x, y = yp.y;
     const head = yard.queue.find((b) => b.left > 0) || yard.queue[0];
-    cx.beginPath(); cx.arc(x, y, 11, 0, 6.2832);
-    cx.strokeStyle = yard.owner >= 0 ? corps[yard.owner].color : "#2b3557";
-    cx.lineWidth = 2; cx.stroke();
+    const done = head ? 1 - Math.max(0, head.left) / head.total : 0;
+    // Три крана-захвата: видно, что корабль ДЕРЖАТ, а не что он летит — среди
+    // сплошных кружков (планеты, стоянки, предприятия) форма читается сразу.
+    // Захваты загораются по одному: готовность видна и без дуги.
+    const idle = yard.owner >= 0 ? corps[yard.owner].color : "#2b3557";
+    for (let k = 0; k < 3; k++) {
+      const a = yard.ang * 2 + glow * 0.2 + k * 2.0944;
+      const cxo = Math.cos(a), cyo = Math.sin(a);
+      const lit = head && k / 3 < done;
+      cx.beginPath();
+      cx.moveTo(x + cxo * 3.5, y + cyo * 3.5);
+      cx.lineTo(x + cxo * 11, y + cyo * 11);
+      cx.strokeStyle = lit ? head.color : idle; cx.lineWidth = 2; cx.lineCap = "round"; cx.stroke();
+      cx.beginPath(); cx.arc(x + cxo * 11, y + cyo * 11, 2.1, 0, 6.2832);
+      cx.fillStyle = lit ? head.color : idle; cx.fill();
+    }
     if (head) {
-      const done = 1 - Math.max(0, head.left) / head.total;
-      cx.beginPath(); cx.arc(x, y, 11, -1.5708, -1.5708 + 6.2832 * done);
-      cx.strokeStyle = head.color; cx.lineWidth = 2; cx.stroke();
-      cx.globalAlpha = 0.35 + done * 0.65;
-      ship(head.glyph, x, y, 6.2, 0, head.color);
+      cx.globalAlpha = 0.4 + done * 0.6;
+      ship(head.glyph, x, y, 5.4, 0, head.color);
       cx.globalAlpha = 1;
     }
     if (yard.queue.length > 1) tiny(x + 15, y - 9, "+" + (yard.queue.length - 1), "#6f7c9e");

@@ -71,7 +71,6 @@ export function moveShips(): void {
         // тот же потолок, что у пришедших рейсом (dockShip)
         const here = docks.filter((x) => x.world === yard.world);
         if (here.length > 6) docks.splice(docks.indexOf(here[0]), 1);
-        if (yd.forWorld) yd.forWorld.ordered = Math.max(0, (yd.forWorld.ordered || 0) - 1);
         say("<b>" + (yd.forCorp !== undefined ? corps[yd.forCorp].name : "Правительство " + home.body.name) +
             "</b>: " + yd.vt.name + " сошёл со стапеля у " + yard.world.body.name + ".");
         continue;

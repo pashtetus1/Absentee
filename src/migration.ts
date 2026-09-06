@@ -3,7 +3,7 @@ import { vtype } from "./data";
 import { takeDock } from "./docks";
 import { dispatch, govBuyShip } from "./food";
 import { govFuel, govFuelAvail } from "./market";
-import { orderTransport } from "./shipyard";
+import { onOrder, orderTransport } from "./shipyard";
 import { S, say, voyages, worlds } from "./state";
 import { canTravel, needWith, travelExtra } from "./travel";
 import type { World } from "./types";
@@ -24,9 +24,9 @@ export function migrationRun(): void {
     if (!govFuelAvail(w, w, fk2)) return;
     const dkl = takeDock(null, w, w.sys, "liner", needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
     if (!dkl) {
-      if ((w.ordered || 0) < 1) {
+      if (!onOrder("liner", w, null)) {
         const bought = govBuyShip(w, w, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
-        if (bought && orderTransport("liner", bought, w.sys, w, null)) w.ordered = (w.ordered || 0) + 1;
+        if (bought) orderTransport("liner", bought, w.sys, w, null);
       }
       return;
     }

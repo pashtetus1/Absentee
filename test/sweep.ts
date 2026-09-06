@@ -24,23 +24,36 @@ import { load } from "./harness.ts";
 
 import type { ApproveMode } from "../src/types.ts";
 
-interface Game { seed: number; worlds: number; pop: number; hungry: number; food: number; crossed: number; }
+interface Game { seed: number; worlds: number; pop: number; hungry: number; food: number; crossed: number;
+                 queue: number; queueMax: number; jam: number; }
 interface Tally {
   games: number; worlds: number; pop: number; hungry: number;
   food: number; crossed: number; pairs: string[]; each: Game[];
+  queue: number; queueMax: number; jam: number;
 }
 
 const YEARS = 300;
 
 // ---- работник: свои сиды, ответ одной строкой JSON ------------------------
 function work(file: string, seeds: number[], approve?: ApproveMode): Tally {
-  const t: Tally = { games: seeds.length, worlds: 0, pop: 0, hungry: 0, food: 0, crossed: 0, pairs: [], each: [] };
+  const t: Tally = { games: seeds.length, worlds: 0, pop: 0, hungry: 0, food: 0, crossed: 0, pairs: [], each: [],
+                     queue: 0, queueMax: 0, jam: 0 };
   for (const seed of seeds) {
     const sim = load(file, { seed });
     if (approve) sim.setApproval(approve);
     const seen = new Set<any>(), crossed = new Set<any>();
+    let qsum = 0, qmax = 0, jam = 0, months = 0;
     for (let i = 0; i < YEARS * 12; i++) {
       sim.step();
+      // очереди верфей: средняя за партию, самая длинная и сколько месяцев
+      // хоть где-то стояла затором (больше пяти сборок)
+      const ys = sim.state().shipyards;
+      if (ys.length) {
+        let sum = 0, mx = 0;
+        ys.forEach((y) => { sum += y.queue.length; mx = Math.max(mx, y.queue.length); });
+        qsum += sum / ys.length; qmax = Math.max(qmax, mx); if (mx > 5) jam++;
+      }
+      months++;
       const food = sim.state().voyages.filter((v) => v.kind === "food");
       food.forEach((v) => seen.add(v));
       for (const a of food) for (const b of food) {
@@ -55,10 +68,12 @@ function work(file: string, seeds: number[], approve?: ApproveMode): Tally {
       seed, worlds: st.worlds.length,
       hungry: st.worlds.filter((w) => w.food.short > 2).length,
       pop: st.worlds.reduce((a, w) => a + w.pop.farm + w.pop.prod + w.pop.sci + w.pop.free, 0),
-      food: seen.size, crossed: crossed.size
+      food: seen.size, crossed: crossed.size,
+      queue: qsum / Math.max(1, months), queueMax: qmax, jam: jam
     };
     t.each.push(g);
     t.worlds += g.worlds; t.hungry += g.hungry; t.pop += g.pop; t.food += g.food; t.crossed += g.crossed;
+    t.queue += g.queue; t.queueMax = Math.max(t.queueMax, g.queueMax); t.jam += g.jam;
   }
   return t;
 }
@@ -105,6 +120,9 @@ async function main(): Promise<void> {
               ", людей " + (sum("pop") / n).toFixed(0) +
               ", голодают " + (sum("hungry") / n).toFixed(1) +
               ", хлебовозов " + (food / n).toFixed(0));
+  console.log("  очередь верфи: в среднем " + (sum("queue") / n).toFixed(1) +
+              ", самая длинная " + Math.max(...parts.map((p) => p.queueMax)) +
+              ", месяцев затора (>5 в очереди) " + (sum("jam") / n).toFixed(0) + " из " + (YEARS * 12));
   console.log("  встречных хлебовозов за все партии: " + crossed +
               (crossed ? "  (в " + clean + " партиях из " + n + " — ни одного)" : ""));
 }

@@ -107,7 +107,6 @@ export interface World {
   flow: string; blight: number;
   rough: number;                  // месяцы разрухи: свежая колония живёт на привозном
   yard?: Shipyard;                // верфь у планеты, если построена
-  ordered?: number;               // сколько транспортов уже заказано этой планетой
   yardTries?: number;             // сколько раз предлагали верфь здесь
   yardRetryAt?: number;           // раньше этого месяца не предложат снова
   edge?: boolean;                 // планета дошла до края, жребий уже брошен

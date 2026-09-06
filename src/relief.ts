@@ -5,7 +5,7 @@ import { corpBuyShip, takeDock } from "./docks";
 import { dispatch, surplusWorld } from "./food";
 import { takeFuel } from "./market";
 import { rnd } from "./rng";
-import { orderTransport } from "./shipyard";
+import { onOrder, orderTransport } from "./shipyard";
 import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
 import { devMult } from "./tech";
 import { canTravel, needWith, travelExtra } from "./travel";
@@ -33,8 +33,10 @@ export function corpRelief(): void {
     if (payer.cash < price + 60) return;
     const dk = takeDock(payer, null, src.sys, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
     if (!dk) {
-      const bought = corpBuyShip(payer, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
-      if (bought) orderTransport("cargo", bought, src.sys, null, payer);
+      if (!onOrder("cargo", null, payer)) {
+        const bought = corpBuyShip(payer, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
+        if (bought) orderTransport("cargo", bought, src.sys, null, payer);
+      }
       return;
     }
     const parts = dk.parts;
