@@ -22,6 +22,10 @@ export function makeWorld(body: Planet, seed: number, founder: number): World {
   return w;
 }
 export function popOf(w: World): number{ return w.pop.farm + w.pop.prod + w.pop.sci + w.pop.free; }
+// Резерв мира — сколько месяцев прокорма он держит про запас. К нему тянется
+// цена еды (labour), от него отсчитывают отдачу и просьбу хлебовозов (food).
+export const RESERVE = 18;
+export function reserveOf(w: World): number { return popOf(w) * RESERVE; }
 
 // ---- склад с адресом --------------------------------------------------
 // Деталь лежит там, где её сделали. Раньше склад был у компании общий на всю

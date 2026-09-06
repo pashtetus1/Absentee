@@ -26,14 +26,11 @@ import { onOrder, orderTransport } from "./shipyard";
 import { L, S, corps, dateStr, say, voyages, worlds } from "./state";
 import { speedOf } from "./tech";
 import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
-import { addStock, popOf, stockAt } from "./world";
+import { addStock, popOf, reserveOf, stockAt } from "./world";
 import type { Corp, Part, Voyage, World } from "./types";
 
-export const RESERVE = 18;          // месяцев прокорма
 export const GIVE_OVER = 1.2;       // отдаёт лишь то, что сверх этой доли резерва
 export const ASK_UNDER = 0.6;       // просит, когда запас упал ниже этой доли
-
-export function reserveOf(w: World): number { return popOf(w) * RESERVE; }
 
 export function surplusWorld(need: number, from: World): { w: World; extra: number; } {
   let best: World = null, bs = 0;

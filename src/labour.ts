@@ -4,8 +4,10 @@ import { YARD_MAX, YARD_MIN, YARD_SHARE } from "./shipyard";
 import { L, corps } from "./state";
 import { devCap, devMult } from "./tech";
 import { clamp } from "./util";
-import { popOf } from "./world";
+import { popOf, reserveOf } from "./world";
 import type { Pop, Wage, World } from "./types";
+
+export const PULL = 0.03;      // на сколько в месяц цена еды тянется к резерву (при пустом складе)
 
 export function squeeze(jobs: number, workers: number): number { return clamp(1 + 0.5 * (jobs - workers) / Math.max(1.2, workers), 0.55, 2.2); }
 
@@ -34,7 +36,16 @@ export function labour(w: World): void {
   const hungry = w.food.stock < 0;
   if (hungry) w.food.stock = 0;
   w.food.short = hungry ? w.food.short + 1 : 0;
-  w.food.price = clamp(w.food.price * (1 + 0.04 * (total - grown) / Math.max(1, total)), 0.2, 6);
+  // Цена еды — память мира о голоде, и до сих пор она помнила только ЭТОТ
+  // месяц: есть дефицит — дорожает, нет — дешевеет. Склад в ней не участвовал,
+  // и мир проедал резерв молча: на родине люди уходили из поля в цеха при
+  // ещё полном амбаре, цена не шевелилась, пока он не опустел, и лишь года
+  // через три-четыре голода зарплата в поле догоняла цеховую (родина голодала
+  // в каждой партии, первый раз на 2-5 году). Теперь цена тянется к резерву:
+  // ниже него дорожает даже в сытый месяц, выше — дешевеет, и люди идут в
+  // поле, пока есть что есть, а не когда уже нечего.
+  const lack = clamp(1 - w.food.stock / Math.max(1, reserveOf(w)), 0, 1);
+  w.food.price = clamp(w.food.price * (1 + 0.04 * (total - grown) / Math.max(1, total) + PULL * lack), 0.2, 6);
   w.wage.farm = w.type.farm > 0 ? w.food.price * 2.4 : 0;
 
   let jp = 0, js = 0;
