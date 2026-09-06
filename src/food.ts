@@ -18,10 +18,20 @@ import type { Corp, Part, Voyage, World } from "./types";
 
 import { rnd } from "./rng";
 
+import { harvestOf } from "./labour";
+
 export function surplusWorld(need: number, from: World): { w: World; extra: number; } {
   let best: World = null, bs = 0;
   worlds.forEach((w) => {
     if (w === from) return;
+    // Донор — мир, который РАСТИТ не меньше, чем съедает. Раньше такого понятия
+    // не было вовсе: отдавал тот, у кого в эту минуту больше на складе, — а склад
+    // ледника набит привозным, и резерв ему считали по его крошечному населению.
+    // Отсюда выходило смешное: мир отдавал последнее большому соседу, уходил в
+    // голод, и сосед вёз ему обратно ещё больше. Проверка закрывает это в корне:
+    // мир в дефиците не может оказаться источником, а значит не может быть
+    // донором и просителем одновременно.
+    if (harvestOf(w) < popOf(w)) return;
     const extra = w.food.stock - popOf(w) * 6;
     if (extra > bs) { bs = extra; best = w; }
   });

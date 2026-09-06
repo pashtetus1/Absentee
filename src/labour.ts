@@ -8,6 +8,19 @@ import type { Pop, Wage, World } from "./types";
 
 export function squeeze(jobs: number, workers: number): number { return clamp(1 + 0.5 * (jobs - workers) / Math.max(1.2, workers), 0.55, 2.2); }
 
+// Сколько мир вырастит В ЭТОМ месяце — единственное место, где это считается.
+// Раньше формула жила прямо в labour(), а те, кому урожай был нужен для
+// решения, прикидывали его заново и каждый по-своему: foodRun брал фермеров на
+// урожайность типа, relief — то же плюс освоение, orders — снова без освоения.
+// Три оценки одного числа расходились с настоящим тем сильнее, чем лучше был
+// освоен мир, и именно из-за этого освоенные миры записывались в нахлебники.
+export function harvestOf(w: World): number {
+  return w.pop.farm * w.type.farm *
+         (w.rough > 0 ? 0.55 : 1) *          // разруха первых десяти лет
+         (w.blight > 0 ? 0.5 : 1) *          // неурожай
+         devMult(w);                          // освоение класса миров
+}
+
 export function labour(w: World): void {
   const p = w.pop, total = popOf(w);
   if (total <= 0.02) return;
@@ -15,7 +28,7 @@ export function labour(w: World): void {
   if (w.rough > 0) w.rough--;
   const rough = w.rough > 0;
   if (w.blight > 0) w.blight--;
-  const grown = p.farm * w.type.farm * (rough ? 0.55 : 1) * (w.blight > 0 ? 0.5 : 1) * devMult(w);   // разруха, неурожай, освоение
+  const grown = harvestOf(w);   // разруха, неурожай, освоение
   w.food.stock += grown - total;
   const hungry = w.food.stock < 0;
   if (hungry) w.food.stock = 0;
