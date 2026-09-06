@@ -103,11 +103,24 @@ export function load(file: string, { withDom = false, seed = null }: Options = {
   }
   createContext(sandbox);
   runInContext(code, sandbox, { filename: file });
-  const api: Harnessed = sandbox.module.exports;
+  const raw: Harnessed = sandbox.module.exports;
   // Новое ядро само держит генератор: пересобираем партию с нужным сидом.
   // Алгоритм тот же, что в подмене выше, поэтому поток чисел совпадает и
   // сличитель по-прежнему сравнивает старый файл с новым честно.
-  if (seed !== null && typeof api.seedOf === "function") api.build(undefined, seed);
+  //
+  // И подменяем build: без сида он берёт НОВЫЙ случайный, как и должен по кнопке
+  // «Заново» в игре. Тесту это не годится — он зовёт build(mode), чтобы задать
+  // способ перелёта, и партия при этом обязана остаться той же. Здесь сид
+  // подставляется сам; тест по-прежнему может передать свой и получить другую.
+  // Поля экспортов — геттеры, поверх них не присвоить, поэтому берём копию.
+  let api = raw;
+  if (seed !== null && typeof raw.seedOf === "function") {
+    const copy: any = {};
+    for (const k of Object.keys(raw)) copy[k] = (raw as any)[k];
+    copy.build = (forcedMove?: string, s?: number) => raw.build(forcedMove, s === undefined ? seed : s);
+    api = copy as Harnessed;
+    api.build(undefined, seed);
+  }
   if (withDom) {
     let ts = 0;
     api.__frame = () => { const fn = sandbox.__frame; sandbox.__frame = null; if (fn) fn(ts += 16); };
