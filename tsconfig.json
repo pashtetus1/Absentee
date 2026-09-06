@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    // Ядро когда-нибудь переедет на C# (журнал, п.9), поэтому типы здесь —
+    // не украшение, а черновик будущих структур /Sim. Строгость включена
+    // сразу: смысл переезда как раз в том, чтобы опечатка в поле падала при
+    // сборке, а не превращалась в NaN через двести симулированных лет.
+    "strict": false,
+    "noImplicitAny": false,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
+    "target": "ES2018",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2018", "DOM"],
+    "noEmit": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"]
+}

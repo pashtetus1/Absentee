@@ -11,6 +11,12 @@
 # Ветки не перечислены заранее: сайт собирается из того, что реально есть в
 # репозитории на момент запуска. Удалил ветку — она пропала и с сайта.
 #
+# Готового index.html в репозитории БОЛЬШЕ НЕТ: игра лежит исходниками в src/,
+# и файл собирается здесь. Поэтому каждая ветка распаковывается во временный
+# каталог и собирается своей сборкой — у ветки может быть другой src/ и другой
+# package.json, и это нормально. Старые ветки, где index.html ещё лежит в git
+# готовым, публикуются как раньше, без сборки: так уже выложенное не отвалится.
+#
 # Перед выкладкой прогоняются тесты ТОЙ ветки, в которую пушнули: остальные
 # проверялись, когда пушили их. Если тесты падают, не публикуется ничего.
 
@@ -45,8 +51,11 @@ jobs:
 
       - name: Прогнать тесты ветки ${{ github.ref_name }}
         run: |
-          if [ -f test/run.js ]; then
-            node test/run.js
+          if [ -f package.json ]; then
+            npm ci --no-audit --no-fund
+            npm test          # собирает dist/index.html и гоняет проверки по нему
+          elif [ -f test/run.js ]; then
+            node test/run.js  # ветка старого образца, без сборки
           else
             echo "в этой ветке тестов нет — публикую как есть"
           fi
@@ -57,12 +66,25 @@ jobs:
           list=""
           for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -v '^origin/HEAD$'); do
             br="${ref#origin/}"
-            if ! git cat-file -e "$ref:index.html" 2>/dev/null; then
-              echo "пропускаю $br: нет index.html"
+            rm -rf .branch && mkdir .branch
+            git archive "$ref" | tar -x -C .branch
+            if [ -f .branch/package.json ]; then
+              # ветка со сборкой: готового файла в git нет, собираем из src/
+              if ( cd .branch && npm ci --no-audit --no-fund && npm run build ) > /tmp/build.log 2>&1; then
+                out=".branch/dist/index.html"
+              else
+                echo "пропускаю $br: не собралась"
+                tail -20 /tmp/build.log
+                continue
+              fi
+            elif [ -f .branch/index.html ]; then
+              out=".branch/index.html"     # ветка старого образца: файл лежит готовым
+            else
+              echo "пропускаю $br: нет ни сборки, ни index.html"
               continue
             fi
             mkdir -p "site/$br"
-            git show "$ref:index.html" > "site/$br/index.html"
+            cp "$out" "site/$br/index.html"
             sha=$(git rev-parse --short "$ref")
             when=$(git log -1 --format=%cd --date=format:'%Y-%m-%d' "$ref")
             mark=""
@@ -70,6 +92,7 @@ jobs:
             list="$list<p style=\"margin:14px 0\"><a style=\"color:#f2b33d;font-size:17px\" href=\"$br/\">$br</a><br><span style=\"color:#5d6881;font-size:13px\">$sha · $when$mark</span></p>"
             echo "положил $br ($sha)"
           done
+          rm -rf .branch
           # корневая страничка: вход должен объяснять, что где лежит
           {
             echo '<!doctype html><meta charset="utf-8"><title>Порог</title>'

@@ -34,7 +34,7 @@ function runYears(sim, years, check) {
 
 // ── ядро запускается и не падает ────────────────────────────────────────────
 test("ядро стартует без браузера", () => {
-  const sim = load("index.html", { seed: 1 });
+  const sim = load("dist/index.html", { seed: 1 });
   const st = sim.state();
   assert(st.corps.length === 5, "должно быть пять компаний");
   assert(st.worlds.length === 1, "на старте освоена только Тира");
@@ -42,7 +42,7 @@ test("ядро стартует без браузера", () => {
 });
 
 test("двести лет без исключений", () => {
-  const sim = load("index.html", { seed: 7 });
+  const sim = load("dist/index.html", { seed: 7 });
   runYears(sim, 200);
 });
 
@@ -50,7 +50,7 @@ test("двести лет без исключений", () => {
 // Уже ломалось: убыль вычиталась только из свободных, и когда безработных не
 // оставалось, итог расходился с суммой по занятиям — панель начинала врать.
 test("население неотрицательно и конечно", () => {
-  const sim = load("index.html", { seed: 3 });
+  const sim = load("dist/index.html", { seed: 3 });
   runYears(sim, 120, (st) => {
     st.worlds.forEach((w) => {
       ["farm","prod","sci","free"].forEach((k) => {
@@ -62,7 +62,7 @@ test("население неотрицательно и конечно", () => 
 });
 
 test("мир не переполняется сверх предела навсегда", () => {
-  const sim = load("index.html", { seed: 11 });
+  const sim = load("dist/index.html", { seed: 11 });
   const st = runYears(sim, 150);
   st.worlds.forEach((w) => {
     const total = sim.popOf(w);
@@ -72,7 +72,7 @@ test("мир не переполняется сверх предела навс�
 
 // ── деньги ──────────────────────────────────────────────────────────────────
 test("касса и цены остаются числами", () => {
-  const sim = load("index.html", { seed: 5 });
+  const sim = load("dist/index.html", { seed: 5 });
   runYears(sim, 150, (st) => {
     assert(Number.isFinite(st.treasury), "казна стала не числом");
     st.corps.forEach((c) => assert(Number.isFinite(c.cash), c.name + ": касса стала не числом"));
@@ -85,7 +85,7 @@ test("касса и цены остаются числами", () => {
 });
 
 test("цены держатся в коридоре от базы", () => {
-  const sim = load("index.html", { seed: 9 });
+  const sim = load("dist/index.html", { seed: 9 });
   const st = runYears(sim, 200);
   sim.consts.COMPS.forEach((f) => {
     const p = st.market[f.key].price;
@@ -94,7 +94,7 @@ test("цены держатся в коридоре от базы", () => {
 });
 
 test("склад деталей не уходит в минус", () => {
-  const sim = load("index.html", { seed: 13 });
+  const sim = load("dist/index.html", { seed: 13 });
   runYears(sim, 150, (st) => {
     st.corps.forEach((c) => {
       eachStock(c, (k, n, sys) => {
@@ -109,7 +109,7 @@ test("склад деталей не уходит в минус", () => {
 // Уже ломалось: к 29 году лежало 222 товара при нуле заказов, и весь труд
 // планеты уходил в никуда.
 test("склад не забивается деталями без спроса", () => {
-  const sim = load("index.html", { seed: 17 });
+  const sim = load("dist/index.html", { seed: 17 });
   const st = runYears(sim, 120);
   st.corps.forEach((c) => {
     if (c.pirate) return;            // у вольницы склад — награбленное, а не работа
@@ -121,14 +121,14 @@ test("склад не забивается деталями без спроса"
 
 // ── технологии, патенты, монополия ──────────────────────────────────────────
 test("за сто лет осваивают хотя бы половину деталей", () => {
-  const sim = load("index.html", { seed: 23 });
+  const sim = load("dist/index.html", { seed: 23 });
   const st = runYears(sim, 100);
   const known = sim.consts.COMPS.filter((f) => st.corps.some((c) => c.known[f.key])).length;
   assert(known >= 3, "освоено всего " + known + " деталей из " + sim.consts.COMPS.length);
 });
 
 test("патент даёт монополию на производство", () => {
-  const sim = load("index.html", { seed: 29 });
+  const sim = load("dist/index.html", { seed: 29 });
   const st = runYears(sim, 60);
   // только детали: технологии колонизации на складе не лежат
   sim.consts.COMPS.map((f) => f.key).forEach((k) => {
@@ -147,13 +147,13 @@ test("патент даёт монополию на производство", (
 
 // ── рынок реально работает ──────────────────────────────────────────────────
 test("к ста годам детали покупаются друг у друга", () => {
-  const sim = load("index.html", { seed: 31 });
+  const sim = load("dist/index.html", { seed: 31 });
   const st = runYears(sim, 100);
   assert(st.trades > 0, "за сто лет ни одной сделки: рынок мёртв");
 });
 
 test("корабли собираются из чужих деталей", () => {
-  const sim = load("index.html", { seed: 37 });
+  const sim = load("dist/index.html", { seed: 37 });
   const st = runYears(sim, 120);
   let mixed = 0, total = 0;
   st.systems.forEach((s) => s.ventures.forEach((v) => {
@@ -168,13 +168,13 @@ test("корабли собираются из чужих деталей", () =>
 // Деталь на складе — рычаг, а не товар: продать двигатель тому, кто рвётся к
 // последнему астероиду, значит устроить его рывок своими руками.
 test("компании отказывают друг другу", () => {
-  const sim = load("index.html", { seed: 61 });
+  const sim = load("dist/index.html", { seed: 61 });
   const st = runYears(sim, 150);
   assert(st.refusals > 0, "за сто пятьдесят лет ни одного отказа: рычаг не работает");
 });
 
 test("отказ помнится годами, а не перерешается каждый месяц", () => {
-  const sim = load("index.html", { seed: 67 });
+  const sim = load("dist/index.html", { seed: 67 });
   let seen = false;
   runYears(sim, 120, (st) => {
     st.corps.forEach((c) => {
@@ -187,14 +187,14 @@ test("отказ помнится годами, а не перерешается
 });
 
 test("отказы не душат экономику насмерть", () => {
-  const sim = load("index.html", { seed: 71 });
+  const sim = load("dist/index.html", { seed: 71 });
   const st = runYears(sim, 200);
   assert(st.trades > 50, "всего " + st.trades + " сделок: рынок задушен отказами");
   assert(st.worlds.length > 1, "из-за отказов не основано ни одной колонии");
 });
 
 test("свёрнутая сборка возвращает детали на склад", () => {
-  const sim = load("index.html", { seed: 73 });
+  const sim = load("dist/index.html", { seed: 73 });
   runYears(sim, 200, (st) => {
     st.corps.forEach((c) => {
       eachStock(c, (k, n) => assert(n >= 0, c.name + ": отрицательный склад " + k + " после отмены"));
@@ -204,7 +204,7 @@ test("свёрнутая сборка возвращает детали на с�
 
 // ── корабли долетают ────────────────────────────────────────────────────────
 test("флот не зависает в пути", () => {
-  const sim = load("index.html", { seed: 41 });
+  const sim = load("dist/index.html", { seed: 41 });
   runYears(sim, 150, (st) => {
     st.systems.forEach((s) => s.ships.forEach((sh) => {
       assert(sh.t <= 1.001, "корабль пролетел мимо цели: t=" + sh.t.toFixed(2));
@@ -220,7 +220,7 @@ test("флот не зависает в пути", () => {
 // планету, и на одной планете вырастало по десять колоний. В панели это
 // выглядело как 104 мира при сорока планетах в галактике.
 test("на планете не больше одной колонии", () => {
-  const sim = load("index.html", { seed: 2 });
+  const sim = load("dist/index.html", { seed: 2 });
   const st = runYears(sim, 250);
   const bodies = new Set();
   let planets = 0;
@@ -233,19 +233,19 @@ test("на планете не больше одной колонии", () => {
 });
 
 test("переселение случается", () => {
-  const sim = load("index.html", { seed: 4 });
+  const sim = load("dist/index.html", { seed: 4 });
   const st = runYears(sim, 250);
   assert(st.movedPops > 0.5, "за двести пятьдесят лет переселено " + st.movedPops.toFixed(1) + " человечков");
 });
 
 test("за двести лет осваивают новые миры", () => {
-  const sim = load("index.html", { seed: 43 });
+  const sim = load("dist/index.html", { seed: 43 });
   const st = runYears(sim, 200);
   assert(st.worlds.length > 1, "за двести лет не основано ни одной колонии");
 });
 
 test("бесплодные миры получают привозную еду", () => {
-  const sim = load("index.html", { seed: 47 });
+  const sim = load("dist/index.html", { seed: 47 });
   const st = runYears(sim, 250);
   const barren = st.worlds.filter((w) => w.type.farm < 1 && w.founder >= 0);
   if (!barren.length) return;                       // в этой партии таких не колонизовали
@@ -253,7 +253,7 @@ test("бесплодные миры получают привозную еду",
 });
 
 test("еда не берётся из ниоткуда", () => {
-  const sim = load("index.html", { seed: 53 });
+  const sim = load("dist/index.html", { seed: 53 });
   runYears(sim, 150, (st) => {
     st.worlds.forEach((w) => {
       assert(w.food.stock >= -1e-9, w.body.name + ": отрицательный запас еды");
@@ -267,7 +267,7 @@ test("еда не берётся из ниоткуда", () => {
 // расселения — иначе на трети сеймов игра просто стоит.
 ["drives", "opener", "gates"].forEach((mode) => {
   test("способ «" + mode + "»: системы открываются", () => {
-    const sim = load("index.html", { seed: 83 });
+    const sim = load("dist/index.html", { seed: 83 });
     sim.build(mode);
     const st = runYears(sim, 250);
     assert(st.move.key === mode, "режим не установился");
@@ -277,7 +277,7 @@ test("еда не берётся из ниоткуда", () => {
 });
 
 test("под воротами хлебовоз летает только между воротами", () => {
-  const sim = load("index.html", { seed: 89 });
+  const sim = load("dist/index.html", { seed: 89 });
   sim.build("gates");
   runYears(sim, 200, (st) => {
     st.voyages.forEach((v) => {
@@ -291,7 +291,7 @@ test("под воротами хлебовоз летает только меж�
 });
 
 test("под порталооткрывателями рейсы идут только по прожжённым проходам", () => {
-  const sim = load("index.html", { seed: 97 });
+  const sim = load("dist/index.html", { seed: 97 });
   sim.build("opener");
   runYears(sim, 200, (st) => {
     st.voyages.forEach((v) => {
@@ -319,7 +319,7 @@ test("под порталооткрывателями рейсы идут тол
 });
 
 test("под движками межзвёздный транспорт везёт двигатель", () => {
-  const sim = load("index.html", { seed: 103 });
+  const sim = load("dist/index.html", { seed: 103 });
   sim.build("drives");
   let checked = 0;
   runYears(sim, 250, (st) => {
@@ -339,7 +339,7 @@ test("под движками межзвёздный транспорт везё
 test("на старшей марке достижима вся галактика", () => {
   const D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   for (const seed of [1, 2, 3, 4, 5]) {
-    const sim = load("index.html", { seed });
+    const sim = load("dist/index.html", { seed });
     const S = sim.state().systems;
     const R = sim.consts.MARKS[sim.consts.MARKS.length - 1].range;
     const seen = new Set([0]), q = [0];
@@ -352,7 +352,7 @@ test("на старшей марке достижима вся галактик�
 });
 
 test("звёзды стоят не по кольцам", () => {
-  const sim = load("index.html", { seed: 5 });
+  const sim = load("dist/index.html", { seed: 5 });
   const S = sim.state().systems, home = S[0];
   const rs = S.slice(1).map((s) => Math.hypot(s.x - home.x, s.y - home.y));
   // у ровных колец радиусы сбиваются в несколько значений; проверяем, что
@@ -364,7 +364,7 @@ test("звёзды стоят не по кольцам", () => {
 });
 
 test("астероиды раскиданы по системе, а не по кольцу", () => {
-  const sim = load("index.html", { seed: 7 });
+  const sim = load("dist/index.html", { seed: 7 });
   const S = sim.state().systems.filter((s) => s.rocks.length >= 4);
   assert(S.length > 0, "ни в одной системе нет астероидов");
   const spread = S.map((s) => {
@@ -380,7 +380,7 @@ test("астероиды раскиданы по системе, а не по к
 // корпус никто не продавал — и планета всё это время числилась занятой, так
 // что её не мог взять никто. Первая колония уезжала на сто четвёртый год.
 test("зависшая подписка распадается и освобождает планету", () => {
-  const sim = load("index.html", { seed: 3 });
+  const sim = load("dist/index.html", { seed: 3 });
   runYears(sim, 200, (st) => {
     st.projects.forEach((pr) => {
       assert((pr.wait || 0) < 90, "подписка на " + pr.body.name + " висит без движения " + pr.wait + " месяцев");
@@ -399,7 +399,7 @@ test("зависшая подписка распадается и освобож
 });
 
 test("распавшаяся подписка не съедает деньги вкладчиков", () => {
-  const sim = load("index.html", { seed: 5 });
+  const sim = load("dist/index.html", { seed: 5 });
   runYears(sim, 200, (st) => {
     st.corps.forEach((c) => assert(Number.isFinite(c.cash) && c.cash >= -41, c.name + ": касса " + c.cash));
   });
@@ -410,14 +410,14 @@ test("распавшаяся подписка не съедает деньги �
 // межзвёздное топливо. Если это не происходит, значит склад опять общий на
 // всю галактику и рынок телепортирует.
 test("детали возят грузовиком, а не телепортируют", () => {
-  const sim = load("index.html", { seed: 3 });
+  const sim = load("dist/index.html", { seed: 3 });
   const st = runYears(sim, 200);
   assert(st.hauled > 0, "за двести лет ни одного грузовика с деталями");
   assert(st.burned > 0, "топливо не сжигается: рейсы бесплатны");
 });
 
 test("грузовик с деталями долетает и отдаёт груз", () => {
-  const sim = load("index.html", { seed: 5 });
+  const sim = load("dist/index.html", { seed: 5 });
   runYears(sim, 200, (st) => {
     st.voyages.forEach((v) => {
       if (v.kind !== "parts") return;
@@ -428,7 +428,7 @@ test("грузовик с деталями долетает и отдаёт гр
 });
 
 test("топлива на складах не бывает меньше нуля", () => {
-  const sim = load("index.html", { seed: 7 });
+  const sim = load("dist/index.html", { seed: 7 });
   runYears(sim, 150, (st) => {
     st.corps.forEach((c) => eachStock(c, (k, n) => {
       if (k === "fuel" || k === "sfuel") assert(n >= 0, c.name + ": " + k + " ушло в минус");
@@ -437,7 +437,7 @@ test("топлива на складах не бывает меньше нуля
 });
 
 test("запросы продавцов остаются в коридоре торга", () => {
-  const sim = load("index.html", { seed: 11 });
+  const sim = load("dist/index.html", { seed: 11 });
   runYears(sim, 200, (st) => {
     st.corps.forEach((c) => Object.keys(c.ask).forEach((k) => {
       assert(c.ask[k] >= 0.7 - 1e-9 && c.ask[k] <= 2.2 + 1e-9, c.name + ": запрос ×" + c.ask[k].toFixed(2) + " за " + k);
@@ -446,7 +446,7 @@ test("запросы продавцов остаются в коридоре т�
 });
 
 test("торг не одинаков у всех: запросы расходятся", () => {
-  const sim = load("index.html", { seed: 13 });
+  const sim = load("dist/index.html", { seed: 13 });
   const st = runYears(sim, 120);
   const asks = st.corps.map((c) => c.ask.hull);
   assert(Math.max(...asks) - Math.min(...asks) > 0.03, "все просят одно и то же: торга нет");
@@ -456,7 +456,7 @@ test("торг не одинаков у всех: запросы расходя�
 // Пять марок, каждая быстрее; патентуются как всё остальное. База нарочно
 // медленная — ускорение должно ощущаться наградой.
 test("ходовые двигатели исследуются и ускоряют рейсы", () => {
-  const sim = load("index.html", { seed: 17 });
+  const sim = load("dist/index.html", { seed: 17 });
   const st = runYears(sim, 200);
   const known = sim.consts.ENGINES.filter((e) => st.corps.some((c) => c.known[e.key])).length;
   assert(known >= 2, "за двести лет освоено всего " + known + " марок двигателей");
@@ -465,7 +465,7 @@ test("ходовые двигатели исследуются и ускоряю
 });
 
 test("длительность рейса всегда конечна и положительна", () => {
-  const sim = load("index.html", { seed: 19 });
+  const sim = load("dist/index.html", { seed: 19 });
   runYears(sim, 150, (st) => {
     st.voyages.forEach((v) => assert(v.dur > 0 && Number.isFinite(v.dur), "рейс с длительностью " + v.dur));
     st.systems.forEach((s) => s.ships.forEach((sh) => assert(sh.dur > 0 && Number.isFinite(sh.dur), "корабль с длительностью " + sh.dur)));
@@ -476,7 +476,7 @@ test("длительность рейса всегда конечна и пол�
 // Без клика над кораблём видно только имя командира, поэтому имя обязано быть
 // у каждого корабля и рейса без исключения: пустая подпись — это дыра.
 test("у каждого корабля и рейса есть командир", () => {
-  const sim = load("index.html", { seed: 23 });
+  const sim = load("dist/index.html", { seed: 23 });
   runYears(sim, 200, (st) => {
     st.voyages.forEach((v) => assert(typeof v.captain === "string" && v.captain.length > 1, "рейс " + v.kind + " без командира"));
     st.systems.forEach((s) => s.ships.forEach((sh) => assert(typeof sh.captain === "string" && sh.captain.length > 1, "корабль " + sh.kind + " без командира")));
@@ -488,7 +488,7 @@ test("у каждого корабля и рейса есть командир",
 // требование "детали в своей системе" и партия еды на три года убивали её с
 // полным складом провизии и казной в полторы тысячи.
 test("свежая колония начинает в разрухе, и разруха проходит", () => {
-  const sim = load("index.html", { seed: 4 });
+  const sim = load("dist/index.html", { seed: 4 });
   let sawRough = false;
   runYears(sim, 200, (st) => {
     st.worlds.forEach((w) => {
@@ -506,7 +506,7 @@ test("свежая колония начинает в разрухе, и раз�
 });
 
 test("колонии в основном выживают", () => {
-  const sim = load("index.html", { seed: 4 });
+  const sim = load("dist/index.html", { seed: 4 });
   const st = runYears(sim, 200);
   const cols = st.worlds.filter((w) => w.founder >= 0);
   const dead = cols.filter((w) => sim.popOf(w) < 0.3).length;
@@ -521,7 +521,7 @@ test("колонии в основном выживают", () => {
 // классом миров и своим филиалом, и она вкладывается в освоение этого класса.
 // Марки освоения бесконечны — за взятой появляется следующая.
 test("доведённый до края мир рождает компанию", () => {
-  const sim = load("index.html", { seed: 3 });
+  const sim = load("dist/index.html", { seed: 3 });
   const st = runYears(sim, 300);
   const born = st.corps.length - 5;
   assert(born > 0, "за триста лет ни одного кризиса");
@@ -543,7 +543,7 @@ test("доведённый до края мир рождает компанию"
 test("на краю выпадают все три исхода, а не один", () => {
   const kinds = {};
   [3, 6, 1, 4, 11].forEach((seed) => {
-    const sim = load("index.html", { seed });
+    const sim = load("dist/index.html", { seed });
     const st = runYears(sim, 300);
     st.corps.slice(5).forEach((c) => {
       kinds[c.origin] = (kinds[c.origin] || 0) + 1;
@@ -558,7 +558,7 @@ test("на краю выпадают все три исхода, а не оди�
 // на нём теперь своя контора, а во втором случае ещё и беззаконие.
 test("артель и вольница не выводят мир из государства", () => {
   [3, 6, 1].forEach((seed) => {
-    const sim = load("index.html", { seed });
+    const sim = load("dist/index.html", { seed });
     const st = runYears(sim, 300);
     st.corps.slice(5).forEach((c) => {
       if (c.origin === "государство" || !c.bornAt) return;
@@ -569,7 +569,7 @@ test("артель и вольница не выводят мир из госу�
 });
 
 test("освоение миров растёт без предела", () => {
-  const sim = load("index.html", { seed: 1 });
+  const sim = load("dist/index.html", { seed: 1 });
   const st = runYears(sim, 300);
   const known = Object.keys(st.patents).filter((k) => /^dev_/.test(k) && st.corps.some((c) => c.known[k]));
   assert(known.length > 0, "ни одной марки освоения за триста лет");
@@ -583,7 +583,7 @@ test("освоение миров растёт без предела", () => {
 });
 
 test("на карте много типов планет", () => {
-  const sim = load("index.html", { seed: 2 });
+  const sim = load("dist/index.html", { seed: 2 });
   const types = new Set();
   sim.state().systems.forEach((s) => s.bodies.forEach((b) => types.add(b.type.key)));
   assert(types.size >= 12, "типов планет всего " + types.size);
@@ -594,7 +594,7 @@ test("на карте много типов планет", () => {
 // семь лет голода, и мир отделяется, забирая филиал. А независимый мир,
 // голодающий ещё четыре года, уходит в разбой и перехватывает рейсы.
 test("компании сами шлют еду голодающим мирам с их филиалами", () => {
-  const sim = load("index.html", { seed: 3 });
+  const sim = load("dist/index.html", { seed: 3 });
   let relief = 0;
   const seen = new Set();
   runYears(sim, 300, (st) => {
@@ -606,7 +606,7 @@ test("компании сами шлют еду голодающим мирам 
 test("вольница появляется от голода и грабит", () => {
   let pirates = 0, raids = 0;
   for (const seed of [3, 6, 1]) {
-    const sim = load("index.html", { seed });
+    const sim = load("dist/index.html", { seed });
     const st = runYears(sim, 300);
     pirates += st.corps.filter((c) => c.pirate).length;
     raids += st.raids;
@@ -623,7 +623,7 @@ test("вольница появляется от голода и грабит", 
 // Хлебовоз после рейса не исчезает: висит на орбите мира-получателя и уходит в
 // следующий рейс из этой системы вместо покупки нового корпуса и трюма.
 test("отработанные транспортники встают на стоянку и уходят снова", () => {
-  const sim = load("index.html", { seed: 2 });
+  const sim = load("dist/index.html", { seed: 2 });
   let maxDocks = 0, reused = 0;
   const seen = new Set();
   runYears(sim, 300, (st) => {
@@ -641,7 +641,7 @@ test("отработанные транспортники встают на ст
 // считаные проценты. А мятеж гарантирует, что к началу перелётов хоть одна
 // компания вне закона — иначе вольница появлялась только через голод и поздно.
 test("к открытию перелётов родина заполнена на проценты, а не наполовину", () => {
-  const sim = load("index.html", { seed: 1 });
+  const sim = load("dist/index.html", { seed: 1 });
   let fillAtOpen = null;
   runYears(sim, 150, (st) => {
     if (fillAtOpen === null && st.systems.filter((s) => s.unlocked).length > 1) {
@@ -655,7 +655,7 @@ test("к открытию перелётов родина заполнена н�
 
 test("к началу перелётов кто-то уже вне закона", () => {
   for (const seed of [1, 2, 3]) {
-    const sim = load("index.html", { seed });
+    const sim = load("dist/index.html", { seed });
     const st = runYears(sim, 150);
     assert(st.corps.some((c) => c.pirate), "сейм " + seed + ": за сто пятьдесят лет ни одного пирата");
   }
@@ -666,7 +666,7 @@ test("к началу перелётов кто-то уже вне закона"
 // корпус заново, пока предыдущие годами летели. В воздухе висело под восемьдесят
 // грузовиков в затылок друг другу, а деньги уходили впустую.
 test("покупатель не заказывает то, что уже летит", () => {
-  const sim = load("index.html", { seed: 3 });
+  const sim = load("dist/index.html", { seed: 3 });
   runYears(sim, 300, (st) => {
     const per = {};
     st.voyages.forEach((v) => {
@@ -685,7 +685,7 @@ test("покупатель не заказывает то, что уже лет�
 // с деталями летели в пустую систему, где у покупателя нет ни цеха, ни склада,
 // ни человека. Теперь туда идёт готовый корабль, а не запчасти.
 test("детали везут в систему с филиалом, а не в пустую", () => {
-  const sim = load("index.html", { seed: 1 });
+  const sim = load("dist/index.html", { seed: 1 });
   let bad = 0, total = 0;
   runYears(sim, 300, (st) => {
     st.voyages.forEach((v) => {
@@ -701,7 +701,7 @@ test("детали везут в систему с филиалом, а не в 
 });
 
 test("готовый корабль сам идёт в чужую систему", () => {
-  const sim = load("index.html", { seed: 1 });
+  const sim = load("dist/index.html", { seed: 1 });
   let ferries = 0;
   runYears(sim, 300, (st) => {
     st.voyages.forEach((v) => {
@@ -718,8 +718,8 @@ test("готовый корабль сам идёт в чужую систему
 // Ради этого стенд и городился: увидел странную партию — вбил сейм и смотришь
 // ту же самую партию глазами.
 test("один сейм даёт одну и ту же партию", () => {
-  const a = load("index.html", { seed: 101 });
-  const b = load("index.html", { seed: 101 });
+  const a = load("dist/index.html", { seed: 101 });
+  const b = load("dist/index.html", { seed: 101 });
   runYears(a, 60); runYears(b, 60);
   const sa = a.state(), sb = b.state();
   close(sa.treasury, sb.treasury, 1e-6, "казна разошлась при одном сейме");
@@ -732,7 +732,7 @@ test("один сейм даёт одну и ту же партию", () => {
 // систему: иначе отрисовка вовсе не исполняется, и в ней годами живут
 // падения — так уже прятался рейс открывателя без поля from.
 test("код отрисовки не падает на заглушках DOM", () => {
-  const sim = load("index.html", { withDom: true, seed: 59 });
+  const sim = load("dist/index.html", { withDom: true, seed: 59 });
   sim.build("opener");
   for (let i = 0; i < 250 * 12; i++) {
     sim.step();

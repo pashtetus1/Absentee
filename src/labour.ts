@@ -1,0 +1,86 @@
+// ===================== рынок труда на каждом мире =====================
+import { clamp } from "./util";
+import { popOf } from "./world";
+import { devCap, devMult } from "./tech";
+import { L, corps } from "./state";
+
+export function squeeze(jobs, workers) { return clamp(1 + 0.5 * (jobs - workers) / Math.max(1.2, workers), 0.55, 2.2); }
+
+export function labour(w) {
+  var p = w.pop, total = popOf(w);
+  if (total <= 0.02) return;
+
+  if (w.rough > 0) w.rough--;
+  var rough = w.rough > 0;
+  if (w.blight > 0) w.blight--;
+  var grown = p.farm * w.type.farm * (rough ? 0.55 : 1) * (w.blight > 0 ? 0.5 : 1) * devMult(w);   // разруха, неурожай, освоение
+  w.food.stock += grown - total;
+  var hungry = w.food.stock < 0;
+  if (hungry) w.food.stock = 0;
+  w.food.short = hungry ? w.food.short + 1 : 0;
+  w.food.price = clamp(w.food.price * (1 + 0.04 * (total - grown) / Math.max(1, total)), 0.2, 6);
+  w.wage.farm = w.type.farm > 0 ? w.food.price * 2.4 : 0;
+
+  var jp = 0, js = 0;
+  w.branches.forEach(function (b) {
+    var c = corps[b.corp], n = Math.max(1, c.branches.length);
+    b.jobs.prod = clamp(c.cash / (180 * n), 0.3, 8) * (rough ? 0.35 : 1);   // цехов ещё нет
+    b.jobs.sci = clamp(c.cash / (420 * n), 0.1, 5) * (rough ? 0.35 : 1) * (c.native ? 2.2 : 1);   // отделившиеся живут наукой
+    jp += b.jobs.prod; js += b.jobs.sci;
+  });
+  w.wage.prod = 3.0 * squeeze(jp, p.prod);
+  w.wage.sci = 4.2 * squeeze(js, p.sci);
+  var kp = jp > 0 ? Math.min(1, p.prod / jp) : 0, ks = js > 0 ? Math.min(1, p.sci / js) : 0;
+  w.branches.forEach(function (b) { b.emp.prod = b.jobs.prod * kp; b.emp.sci = b.jobs.sci * ks; });
+
+  var outP = Math.max(0, p.prod - jp) * 0.05, outS = Math.max(0, p.sci - js) * 0.05;
+  p.prod -= outP; p.sci -= outS; p.free += outP + outS;
+
+  var openP = Math.max(0, jp - p.prod), openS = Math.max(0, js - p.sci);
+  var eager = clamp(0.32 - L.dole * 0.07, 0.04, 0.32);
+  var take = Math.min(p.free * eager, openP + openS);
+  if (take > 0 && openP + openS > 0) {
+    var shareP = openP / (openP + openS);
+    p.free -= take; p.prod += take * shareP; p.sci += take * (1 - shareP);
+  }
+  if (w.type.farm > 0) {
+    var toFarm = p.free * clamp(0.04 - L.dole * 0.01, 0.005, 0.04);
+    p.free -= toFarm; p.farm += toFarm;
+  }
+
+  var best = w.type.farm > 0 ? "farm" : "prod";
+  if (w.wage.prod > w.wage[best]) best = "prod";
+  if (w.wage.sci > w.wage[best]) best = "sci";
+  var mv = 0;
+  ["farm","prod","sci"].forEach(function (k) {
+    if (k === best) return;
+    if (w.wage[best] < w.wage[k] * 1.12) return;
+    var open = best === "farm" ? 1e9 : (best === "prod" ? jp - p.prod : js - p.sci);
+    if (open <= 0) return;
+    var m = Math.min(p[k] * 0.012, open);
+    p[k] -= m; p[best] += m; mv += m;
+  });
+  w.flow = mv > 0.02 ? "идут в " + ({ farm:"поле", prod:"цеха", sci:"лаборатории" })[best] : "перетока почти нет";
+
+  // Рост и убыль. Тесно — растут медленнее, голодно — убывают. Убыль берётся
+  // со ВСЕХ каст: если вычитать только из свободных, итог расходится с
+  // суммой по занятиям и панель начинает врать (так уже было).
+  w.cap = w.cap0 + devCap(w);                               // освоение поднимает предел
+  var fill = total / w.cap;
+  // рост медленный: родина огромна, и без этого она заполнялась на треть к
+  // первому перелёту, а должна оставаться почти пустой и бедной
+  // Голод должен КУСАТЬСЯ. При прежних 0.25% в месяц за четыре года голода мир
+  // терял 11% людей — то есть голодал часто (треть месяцев) и безнаказанно.
+  var g = hungry ? -0.004 : 0.0012 * (1 - fill);
+  var add = total * g;
+  if (add >= 0) p.free += add;
+  else ["farm","prod","sci","free"].forEach(function (k) { p[k] = Math.max(0, p[k] + add * p[k] / total); });
+
+  // Желание уехать: теснота плюс безработица плюс голод. Это не приказ игрока
+  // и не приказ компании — просто людям тут нечего ловить.
+  var unemp = p.free / Math.max(0.05, total);
+  var push = Math.max(0, fill - 0.7) * 1.4 + Math.max(0, unemp - 0.12) * 1.2 + (hungry ? 0.5 : 0) + (rough ? 0.3 : 0);
+  w.wantOut = clamp(push * total * 0.25, 0, p.free + p.farm * 0.3);
+  w.wantIn = Math.max(0, w.cap * 0.85 - total);
+}
+
