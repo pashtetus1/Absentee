@@ -82,6 +82,15 @@ export function shipLines(sh: Ship): string[] {              // корабль �
   if (sh.kind === "colony") return ["Колониальный модуль · " + who, "→ " + sh.body.name + " · " + eta(sh.t, sh.dur)];
   return ["Платформа · " + who, "→ " + sh.dest.label + " · " + eta(sh.t, sh.dur)];
 }
+// Перегон везёт не тонны, а другой корабль. Слово для него одно и то же и в
+// подписи на карте, и в панели, и внутри системы (shipLines): одна вещь не
+// должна называться в трёх местах по-разному.
+export function cargoName(v: Voyage): string {
+  return v.cargo === "colony" ? "Колониальный модуль"
+       : v.cargo === "mine"   ? "Платформа"
+       : v.cargo === "gate"   ? "Портальный корабль"
+       :                        "Прыжковый корабль";
+}
 export function voyageLines(v: Voyage): string[] {             // рейс между звёздами или между мирами
   if (v.kind === "jump" || v.kind === "gate")
     return [(v.kind === "gate" ? "Портальный · " : "Прыжковый · ") + corps[v.corp].name,
@@ -92,7 +101,16 @@ export function voyageLines(v: Voyage): string[] {             // рейс ме�
   if (v.kind === "food")
     return ["Хлебовоз · " + v.qty + " еды" + (v.relief !== undefined ? " · помощь от " + corps[v.relief].name : ""),
             v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
-  return ["Переселенцы · " + v.qty.toFixed(1) + " чел.", v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
+  // Перегон готового корабля и уход прыжкового к точке старта. У обоих нет ни
+  // груза в тоннах, ни миров на концах — только системы, и оба доезжали до
+  // хвоста функции, где v.qty.toFixed роняло кадр: карта переставала
+  // рисоваться, а вместе с ней вставала и партия.
+  if (v.kind === "ferry" || v.kind === "reloc")
+    return [cargoName(v) + (v.kind === "reloc" ? " · к точке старта · " : " · перегон · ") + corps[v.corp].name,
+            systems[v.sysFrom].name + " → " + systems[v.to].name + " · " + eta(v.t, v.dur)];
+  if (v.kind === "pops")
+    return ["Переселенцы · " + v.qty.toFixed(1) + " чел.", v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
+  return ["Рейс · " + v.kind, eta(v.t, v.dur)];     // незнакомый вид рейса подписывается, а не роняет кадр
 }
 // Без клика — только имя командира, мелко и тускло. Полное окно с деталями
 // и их изготовителями тащится за кораблём лишь после клика по нему: карта с

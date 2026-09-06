@@ -18,8 +18,9 @@ import { DEVS, ENGINES, techOf } from "../tech";
 import { fuelCost } from "../travel";
 import { fmt } from "../util";
 import { popOf } from "../world";
+import { cargoName } from "./models";
 import { seenSys } from "./scene";
-import type { Part, World } from "../types";
+import type { Build, Part, World } from "../types";
 
 export type Ctl = HTMLElement & { value: any; textContent: any; disabled: boolean; checked: boolean };
 export function el(id: string): Ctl { return document.getElementById(id) as Ctl; }
@@ -95,7 +96,21 @@ export function inspector(): void {
       fuelCost(d.sysFrom, d.to) + '.</div></div>';
     return;
   }
-  if (U.pick.kind === "cargo") {
+  // Перегон готового корабля в чужую систему и уход прыжкового к точке старта.
+  // Ни того, ни другого панель не знала: оба падали в ветку хлебовоза, где
+  // d.qty.toFixed рушил inspector. А его зовёт step() — и партия вставала
+  // насмерть, не только окно.
+  if ((U.pick.kind === "cargo" || U.pick.kind === "jumpship") && (d.kind === "ferry" || d.kind === "reloc")) {
+    box.innerHTML = '<div class="card"><h3>' + cargoName(d) + '</h3>' +
+      '<div class="sub">' + corps[d.corp].name + ' · ' + (d.kind === "reloc" ? 'идёт к точке старта в ' : 'перегон в ') +
+      systems[d.to].name + ' из ' + systems[d.sysFrom].name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
+      '<div class="sub" style="margin:0 0 4px">' + (d.kind === "reloc"
+        ? 'Там заправится и прыгнет к ' + systems[d.jumpTo].name + '.'
+        : 'По прилёте встанет на свой курс в системе.') + '</div>' +
+      partsList(d.parts, d.corp) + '</div>';
+    return;
+  }
+  if (U.pick.kind === "cargo" && (d.kind === "food" || d.kind === "pops")) {
     box.innerHTML = '<div class="card"><h3>' + (d.kind === "food" ? "Грузовик" : "Переселенческий") + '</h3>' +
       '<div class="sub">везёт ' + (d.kind === "food" ? d.qty + " еды" : d.qty.toFixed(1) + " человечков") +
       ' с ' + d.from.body.name + ' на ' + d.to.body.name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
@@ -135,10 +150,24 @@ export function inspector(): void {
       ' · осталось ' + Math.round(d.left / 12) + ' лет</div>' + partsList(d.parts, d.lead) + '</div>';
     return;
   }
+  // Кликают по ВЕРФИ, а не по сборке: с тех пор как верфь стала постройкой, в
+  // hits кладут её саму. Панель об этом не знала и читала у верфи поля сборки
+  // (d.vt.name у Shipyard нет) — а inspector зовётся из step(), так что один
+  // клик по кранам останавливал партию насмерть, а не только ломал окно.
   if (U.pick.kind === "yard") {
-    box.innerHTML = '<div class="card"><h3>' + d.vt.name + ' на стапеле</h3>' +
-      '<div class="sub">' + corps[d.lead].name + ' · готовность ' + Math.round((1 - d.left / d.total) * 100) +
-      '% · до спуска ' + d.left + ' мес.</div>' + partsList(d.parts, d.lead) + '</div>';
+    const head: Build = d.queue.find((b: Build) => b.left > 0) || d.queue[0];
+    box.innerHTML = '<div class="card"><h3>Верфь у ' + d.world.body.name + '</h3>' +
+      '<div class="sub">' + (d.owner >= 0 ? "хозяин " + corps[d.owner].name : "общая") +
+      ' · людей на стапеле ' + d.crew.toFixed(1) + ' · в очереди ' + d.queue.length + '</div>' +
+      (head ? '<div class="sub" style="margin:0 0 4px">' + corps[head.lead].name + ' · ' + head.vt.name +
+              ' · готовность ' + Math.round((1 - Math.max(0, head.left) / head.total) * 100) + '%' +
+              (d.crew > 0 ? ' · до спуска ' + Math.ceil(Math.max(0, head.left) / d.crew) + ' мес.'
+                          : ' · рук на стапеле нет') + '</div>' +
+              partsList(head.parts, head.lead) +
+              (d.queue.length > 1 ? '<div class="sub" style="margin:6px 0 0">Ждут следом: ' +
+                d.queue.filter((b: Build) => b !== head).map((b: Build) => corps[b.lead].name + " · " + b.vt.name).join(", ") +
+                '</div>' : '')
+            : '<div class="empty">Очередь пуста.</div>') + '</div>';
     return;
   }
   box.innerHTML = '<div class="empty">—</div>';
