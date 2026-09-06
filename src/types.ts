@@ -106,7 +106,10 @@ export interface World {
   parts: Part[];                  // из чего был собран колониальный модуль
   flow: string; blight: number;
   rough: number;                  // месяцы разрухи: свежая колония живёт на привозном
-  edge?: boolean;                 // мир дошёл до края, жребий уже брошен
+  yard?: Shipyard;                // верфь у планеты, если построена
+  yardTries?: number;             // сколько раз предлагали верфь здесь
+  yardRetryAt?: number;           // раньше этого месяца не предложат снова
+  edge?: boolean;                 // планета дошла до края, жребий уже брошен
   free?: boolean;                 // мир объявил независимость и вышел из государства
   reliefAt?: number;              // когда сюда в последний раз слали помощь
 }
@@ -196,6 +199,41 @@ export interface Yard {
   vent?: Venture; dest?: Dest; dst?: number;
   to?: number; gateHere?: number; fuelWait?: number;
   body?: Planet; backers?: { corp: number; sum: number }[];
+}
+
+/** Как государство отвечает на предложения. В браузере manual — решает игрок;
+ *  остальное — для стенда, иначе партия без игрока встала бы на первом же
+ *  предложении. random берёт монетку из своего генератора: воспроизводимо. */
+export type ApproveMode = "manual" | "always" | "never" | "random";
+
+/** Верфь: постройка у планеты. Строит по очереди, тем быстрее, чем больше рук. */
+export interface Shipyard {
+  id: number; world: World;
+  owner: number;                  // -1 государственная, пользуются все; иначе — хозяин
+  ang: number;                    // орбита вокруг своей планеты
+  queue: Build[];                 // кто первый встал
+  crew: number;                   // сколько людей удалось нанять в этом месяце
+  born: number;
+  backers: { corp: number; sum: number }[];   // кто скидывался на постройку
+}
+
+/** Позиция очереди верфи. Пока это Yard; шаг 3 плана уводит Sys.yards сюда. */
+export type Build = Yard;
+
+/** Предложение компаний построить верфь. Первое место, где решает игрок. */
+export interface Proposal {
+  id: number; world: World; lead: number;
+  cost: number;                   // деньгами
+  purse: number;                  // сколько внесли компании
+  share: number;                  // их доля, не выше SHARE_CAP
+  stateSum: number;               // сколько доложила казна
+  need: Record<string, number>; got: Record<string, number>; parts: Part[];   // детали, как у Project
+  fly?: Record<string, number>;   // что уже везут
+  backers: { corp: number; sum: number }[];
+  state: "pending" | "approved" | "declined" | "building" | "done";
+  since: number; until: number;   // подано; до какого месяца висит
+  attempt: number;                // которая попытка для этой планеты
+  left: number;                   // сколько осталось строить
 }
 
 /** Корабль внутри системы: идёт от верфи к цели. */
@@ -295,6 +333,7 @@ export interface Snapshot {
   move: Move; routes: Record<string, boolean>;
   market: Record<string, MarketRow>; patents: Record<string, Patent>;
   voyages: Voyage[]; projects: Project[]; docks: Dock[];
+  shipyards: Shipyard[]; proposals: Proposal[];
   trades: number; shipped: number; movedPops: number; refusals: number;
   dropped: number; hauled: number; burned: number; raids: number;
   feed: { d: string; t: string }[];
@@ -321,4 +360,8 @@ export interface Core {
   speedOf(corpId: number): number;
   popOf(w: World): number;
   setView(mode: string, sys?: number): void;
+  /** Как отвечать на предложения без игрока: стенду нужна политика. */
+  setApproval(mode: ApproveMode): void;
+  /** Решить судьбу предложения по его id; false — такого нет. */
+  decide(id: number, ok: boolean): boolean;
 }

@@ -14,16 +14,18 @@ import { panels } from "./render/panels";
 import { patentsExpire, research } from "./science";
 import { L, S, U, headless, resetTickCache, tickCache, worlds } from "./state";
 
+import { proposalsTick, reviewProposals } from "./shipyard";
+
 export function step(): void {
   S.tick++; markTick(); S.yearNow = Math.floor(S.tick / 12);
   resetTickCache();
   worlds.forEach(labour);
-  economy(); research(); tickCache.dev = new Map(); tickCache.devBest = null;
+  economy(); proposalsTick(); research(); tickCache.dev = new Map(); tickCache.devBest = null;
   produce(); trade(); stalledOrders(); stalledProjects();
   if (S.tick % 3 === 0) { patentsExpire(); tickCache.dev = new Map(); tickCache.devBest = null; }
   if (S.tick % 6 === 0) { foodRun(); corpRelief(); migrationRun(); despair(); }
   piracy();
-  if (S.tick % 12 === 0) { reviewOrders(); reviewProjects(); branchTrade(); events(); }
+  if (S.tick % 12 === 0) { reviewOrders(); reviewProjects(); reviewProposals(); branchTrade(); events(); }
   assemble(); moveShips(); ventureIncome();
   if (!headless && (L.speed <= 4 || Date.now() - U.lastPanel > 120)) { panels(); U.lastPanel = Date.now(); }
 }

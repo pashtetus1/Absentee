@@ -5,7 +5,7 @@
 
 import { COMPS, compOf, pickCaptain } from "./data";
 import { freeRocks, releaseOrder } from "./orders";
-import { L, S, corps, dateStr, market, patLive, patents, projects, say, systems, tickCache, voyages, worlds } from "./state";
+import { L, S, corps, dateStr, market, patLive, patents, projects, proposals, say, shipyards, systems, tickCache, voyages, worlds } from "./state";
 import { speedOf } from "./tech";
 import { canTravel } from "./travel";
 import { clamp } from "./util";
@@ -347,6 +347,28 @@ export function trade(): void {
                 if (projects.indexOf(pr) < 0) { addStock(lead, pr.sys, part.k, 1); return; }
                 pr.got[part.k] = (pr.got[part.k] || 0) + 1; pr.parts.push(part);
               }, false, pr);
+    });
+  });
+
+  // Одобренная верфь: ведущий свозит детали на планету. Платит сам — это его
+  // вклад сверх денег в складчину, как и у ведущего колонии.
+  proposals.forEach((p) => {
+    if (p.state !== "approved") return;
+    const lead = corps[p.lead], sys = p.world.sys;
+    COMPS.forEach((f) => {
+      if (!p.fly) p.fly = {};
+      if ((p.need[f.key] || 0) - (p.got[f.key] || 0) - (p.fly[f.key] || 0) <= 0) return;
+      if (stockAt(lead, sys, f.key) > 0) {
+        addStock(lead, sys, f.key, -1);
+        p.got[f.key] = (p.got[f.key] || 0) + 1; p.parts.push({ k:f.key, from:lead.id });
+        return;
+      }
+      buyPart(lead, f.key, sys, 0.5,
+              (sum: number) => { if (lead.cash < sum + 25) return false; lead.cash -= sum; return true; },
+              (part: Part) => {
+                if (proposals.indexOf(p) < 0) { addStock(lead, sys, part.k, 1); return; }
+                p.got[part.k] = (p.got[part.k] || 0) + 1; p.parts.push(part);
+              }, false, p);
     });
   });
   // индекс продавцов верен только внутри торгов: позже в тике склады

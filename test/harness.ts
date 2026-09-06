@@ -120,6 +120,10 @@ export function load(file: string, { withDom = false, seed = null }: Options = {
     copy.build = (forcedMove?: string, s?: number) => raw.build(forcedMove, s === undefined ? seed : s);
     api = copy as Harnessed;
     api.build(undefined, seed);
+    // Предложения без игрока повисли бы: стенд отвечает на них монеткой из
+    // генератора партии, так что прогон остаётся воспроизводимым. Тест, которому
+    // нужно иное, ставит политику сам.
+    if (typeof api.setApproval === "function") api.setApproval("random");
   }
   if (withDom) {
     let ts = 0;

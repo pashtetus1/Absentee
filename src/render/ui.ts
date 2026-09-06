@@ -17,6 +17,8 @@ import type { Hit } from "../types";
 
 import { seedOf } from "../rng";
 
+import { decideById } from "../shipyard";
+
 export function scene(): void {
   const map = U.view.mode === "map";
   el("tomap").style.display = map ? "none" : "inline-block";
@@ -254,6 +256,12 @@ export function bindUI(): void {
   el("ventures").addEventListener("click", (e) => {
     const row = (e.target as HTMLElement).closest(".clickrow");
     if (row) open(+row.getAttribute("data-sys"));
+  });
+  el("proposals").addEventListener("click", (e: Event) => {
+    const b = (e.target as HTMLElement).closest(".decide") as HTMLElement;
+    if (!b) return;
+    decideById(+b.getAttribute("data-prop"), b.getAttribute("data-ok") === "1");
+    panels();
   });
   el("worlds").addEventListener("click", (e) => {
     const row = (e.target as HTMLElement).closest(".clickrow");

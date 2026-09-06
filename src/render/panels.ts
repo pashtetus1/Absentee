@@ -11,7 +11,7 @@ import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype } from 
 import { dockValue } from "../docks";
 import { galaxyRange, within } from "../galaxy";
 import { prodOf, sciOf } from "../science";
-import { L, S, U, UPKEEP, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, systems, voyages, worlds } from "../state";
+import { L, S, U, UPKEEP, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, voyages, worlds } from "../state";
 import { DEVS, ENGINES, techOf } from "../tech";
 import { fmt } from "../util";
 import { popOf } from "../world";
@@ -308,6 +308,27 @@ export function panels(): void {
         const list = Object.keys(by).map((id) => { return corps[+id].name + " (" + by[id].join(", ") + ")"; });
         return list.length ? '<div class="rmeta" style="color:var(--bad)">не продаёт: ' + list.join("; ") + '</div>' : '';
       })() + '</div>';
+  }).join("");
+
+  // Предложения: первое место, где игрок решает. Блок прячется, когда пусто,
+  // чтобы не висел заголовок над пустотой.
+  el("propblock").hidden = proposals.length === 0;
+  el("proposals").innerHTML = proposals.map((p) => {
+    const lead = corps[p.lead], ask = Math.round(p.cost * (1 - p.share));
+    const status = p.state === "pending" ? "ждёт решения " + Math.max(0, p.until - S.tick) + " мес"
+                 : p.state === "approved" ? "одобрено, собирают" : "строится, " + p.left + " мес";
+    const head = '<div class="srow"><span class="rname">Верфь у ' + p.world.body.name + '</span>' +
+                 '<span class="rval">' + status + '</span></div>';
+    const meta = '<div class="rmeta">предлагает ' + lead.name + ' · компании дают ' + Math.round(p.share * 100) +
+                 '% (внесли ' + Math.round(p.purse) + ' из ' + Math.round(p.cost * p.share) + ') · от казны ' + ask +
+                 (p.stateSum ? ', доложено ' + Math.round(p.stateSum) : '') +
+                 (p.attempt > 1 ? ' · попытка ' + p.attempt : '') + '</div>';
+    const parts = '<div class="rmeta">детали: ' + Object.keys(p.need).map((k) =>
+                  compOf(k).short + ' ' + (p.got[k] || 0) + '/' + p.need[k]).join(', ') + '</div>';
+    const btns = p.state !== "pending" ? '' :
+      '<div style="margin-top:6px"><button class="decide" data-prop="' + p.id + '" data-ok="1">Одобрить</button> ' +
+      '<button class="decide" data-prop="' + p.id + '" data-ok="0">Отказать</button></div>';
+    return '<div class="row">' + head + meta + parts + btns + '</div>';
   }).join("");
 
   el("feed").innerHTML = feed.slice(0, 10).map((f) => {

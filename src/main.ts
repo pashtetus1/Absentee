@@ -10,17 +10,23 @@ import { icon } from "./render/models";
 import { bindUI } from "./render/ui";
 import { build } from "./setup";
 import { seedOf } from "./rng";
-import { L, S, U, corps, docks, feed, headless, market, patents, projects, routes, systems, voyages, worlds } from "./state";
+import { L, S, U, corps, docks, feed, headless, market, patents, projects, proposals, routes, shipyards, systems, voyages, worlds } from "./state";
 import { ENGINES, speedOf } from "./tech";
 import { step } from "./tick";
 import { popOf } from "./world";
 import type { Snapshot } from "./types";
 
+import { decideById } from "./shipyard";
+import type { ApproveMode } from "./types";
+
 export { step, build, speedOf, popOf, icon, seedOf };
+export { decideById as decide };
+
+export function setApproval(mode: ApproveMode): void { L.approve = mode; }
 
 export function state(): Snapshot {
   return { tick: S.tick, treasury: S.treasury, corps: corps, worlds: worlds, systems: systems,
-           move: S.move, routes: routes, market: market, patents: patents, voyages: voyages, projects: projects,
+           move: S.move, routes: routes, market: market, patents: patents, voyages: voyages, projects: projects, shipyards: shipyards, proposals: proposals,
            trades: S.trades, shipped: S.shipped, movedPops: S.movedPops, refusals: S.refusals, dropped: S.dropped,
            hauled: S.hauled, burned: S.burned, raids: S.raids, docks: docks, feed: feed };
 }

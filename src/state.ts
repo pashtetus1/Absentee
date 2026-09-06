@@ -16,8 +16,11 @@
 import { MONTHS } from "./data";
 import type { Chosen, Corp, Dock, Hit, MarketRow, Move, Patent, Planet, Project, Sys, TickCache, Voyage, World } from "./types";
 
+import type { ApproveMode, Proposal, Shipyard } from "./types";
+
 export const corps: Corp[] = [], systems: Sys[] = [], voyages: Voyage[] = [];
 export const worlds: World[] = [], projects: Project[] = [], docks: Dock[] = [];
+export const shipyards: Shipyard[] = [], proposals: Proposal[] = [];
 export const feed: { d: string; t: string }[] = [];
 export const hits: Hit[] = [];                   // куда можно ткнуть на текущем кадре
 export const market: Record<string, MarketRow> = {};
@@ -39,7 +42,10 @@ export const S = {
   home: null as World, move: null as Move
 };
 
-export const L = { tax: 0.18, subKey: "drive", subYear: 90, tradeFee: 0.06, dole: 0.6, patTerm: 25, speed: 1 };
+export const L = {
+  tax: 0.18, subKey: "drive", subYear: 90, tradeFee: 0.06, dole: 0.6, patTerm: 25, speed: 1,
+  approve: "manual" as ApproveMode         // не рычаг игрока: политика стенда, в браузере всегда manual
+};
 
 export const U = {
   view: { mode: "system", sys: 0 } as { mode: string; sys: number },

@@ -130,7 +130,12 @@ test("склад не забивается деталями без спроса"
   st.corps.forEach((c) => {
     if (c.pirate) return;            // у вольницы склад — награбленное, а не работа
     eachStock(c, (k, n, sys) => {
-      assert(n <= 12, c.name + ": " + n + " штук «" + k + "» на складе в системе " + sys + " — работа в пустоту");
+      // Топливо цех делает партиями: work = 1, а cap бывает большой, и за один
+      // месяц склад перескакивает потолок 10 до 15-17. Это размер партии, а не
+      // работа в пустоту — потом цех стоит, пока не сожгут. Для деталей потолок
+      // строгий: там work 2-9, и перескок в штуку, не в пятёрку.
+      const cap = (k === "fuel" || k === "sfuel") ? 20 : 12;
+      assert(n <= cap, c.name + ": " + n + " штук «" + k + "» на складе в системе " + sys + " — работа в пустоту");
     });
   });
 });
@@ -690,7 +695,9 @@ test("покупатель не заказывает то, что уже лет�
     const per: Record<string, number> = {};
     st.voyages.forEach((v) => {
       if (v.kind !== "parts") return;
-      const key = v.forCorp + "|" + v.k + "|" + v.to;
+      // счёт — заказ, подписка или предложение верфи: одна компания законно везёт
+      // одну и ту же деталь в одну систему по двум счетам сразу
+      const key = (v.acct ? "acct" + st.voyages.indexOf(v) + ":" : v.forCorp + "|") + v.k + "|" + v.to;
       per[key] = (per[key] || 0) + 1;
       assert(per[key] <= 3, "к " + st.corps[v.forCorp].name + " одновременно летит " + per[key] + " раз «" + v.k + "»");
     });
@@ -764,6 +771,49 @@ test("встречных хлебовозов меньше десяти за 300
     });
     assert(crossed.size < 10, "сид " + seed + ": " + crossed.size + " хлебовозов летели навстречу друг другу");
   }
+});
+
+// ── верфь: предложение, решение, стройка ─────────────────────────────────────
+// Первое место в игре, где игрок решает прямо. Стенд отвечает за него политикой
+// (см. shipyard.ts); здесь проверяется сама механика.
+test("компания предлагает верфь, когда ей негде строить", () => {
+  const sim = load("dist/index.html", { seed: 1 });
+  sim.setApproval("manual");
+  let seen = false;
+  runYears(sim, 40, (st) => { if (st.proposals.length) seen = true; });
+  assert(seen, "за сорок лет ни одного предложения построить верфь");
+});
+
+test("отказ возвращает взносы и поднимает долю компаний", () => {
+  const sim = load("dist/index.html", { seed: 1 });
+  sim.setApproval("manual");
+  let first: { share: number; world: string } = null, later: { share: number } = null, refunded = false;
+  runYears(sim, 120, (st) => {
+    const p = st.proposals.find((x) => x.state === "pending");
+    if (!p) return;
+    if (!first) {
+      first = { share: p.share, world: p.world.body.name };
+      const before = st.corps[p.lead].cash, purse = p.purse;
+      sim.decide(p.id, false);
+      refunded = st.corps[p.lead].cash >= before + purse - 1e-6;
+      return;
+    }
+    if (!later && p.world.body.name === first.world) later = { share: p.share };
+  });
+  assert(first, "предложения не было");
+  assert(refunded, "после отказа ведущей не вернули взнос");
+  assert(later, "после отказа компании не вернулись с предложением на ту же планету");
+  assert(later.share > first.share, "доля компаний не выросла: " + first.share + " -> " + later.share);
+});
+
+test("одобренная верфь строится, а при отказах партия не встаёт", () => {
+  const yes = load("dist/index.html", { seed: 1 }); yes.setApproval("always");
+  runYears(yes, 150);
+  assert(yes.state().shipyards.length > 0, "при одобрении всего за 150 лет ни одной верфи");
+  const no = load("dist/index.html", { seed: 1 }); no.setApproval("never");
+  const st = runYears(no, 150);
+  assert(st.shipyards.length === 0, "при отказах верфь всё равно построилась");
+  assert(st.corps.some((c) => Object.keys(c.known).length > 0), "при отказах партия встала: никто ничего не освоил");
 });
 
 // ── отрисовка тоже не должна падать ─────────────────────────────────────────

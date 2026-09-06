@@ -22,6 +22,8 @@ import { fileURLToPath } from "node:url";
 
 import { load } from "./harness.ts";
 
+import type { ApproveMode } from "../src/types.ts";
+
 interface Game { seed: number; worlds: number; pop: number; hungry: number; food: number; crossed: number; }
 interface Tally {
   games: number; worlds: number; pop: number; hungry: number;
@@ -31,10 +33,11 @@ interface Tally {
 const YEARS = 300;
 
 // ---- работник: свои сиды, ответ одной строкой JSON ------------------------
-function work(file: string, seeds: number[]): Tally {
+function work(file: string, seeds: number[], approve?: ApproveMode): Tally {
   const t: Tally = { games: seeds.length, worlds: 0, pop: 0, hungry: 0, food: 0, crossed: 0, pairs: [], each: [] };
   for (const seed of seeds) {
     const sim = load(file, { seed });
+    if (approve) sim.setApproval(approve);
     const seen = new Set<any>(), crossed = new Set<any>();
     for (let i = 0; i < YEARS * 12; i++) {
       sim.step();
@@ -63,11 +66,14 @@ function work(file: string, seeds: number[]): Tally {
 // ---- раздатчик: режет сиды, собирает ответы --------------------------------
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
-  if (argv[0] === "--worker") { console.log(JSON.stringify(work(argv[1], argv[2].split(",").map(Number)))); return; }
+  if (argv[0] === "--worker") { console.log(JSON.stringify(work(argv[1], argv[2].split(",").map(Number), argv[3] as ApproveMode))); return; }
 
   const file = argv[0] || "dist/index.html";
   const total = +(argv[1] || 100);
   const jobs = Math.min(+(argv[2] || cpus().length), total);
+  // политика одобрения: random по умолчанию; always/never показывают, что
+  // теряет государство, которое всё принимает или всё отклоняет
+  const approve = (argv[3] || "random") as ApproveMode;
   const self = fileURLToPath(import.meta.url);
 
   const shards: number[][] = Array.from({ length: jobs }, (): number[] => []);
@@ -75,7 +81,7 @@ async function main(): Promise<void> {
 
   const started = Date.now();
   const parts = await Promise.all(shards.map((s) => new Promise<Tally>((res, rej) =>
-    execFile(process.execPath, [self, "--worker", file, s.join(",")], { maxBuffer: 1 << 26 },
+    execFile(process.execPath, [self, "--worker", file, s.join(","), approve], { maxBuffer: 1 << 26 },
       (e, out) => e ? rej(e) : res(JSON.parse(out))))));
 
   const sum = (k: keyof Tally) => parts.reduce((a, p) => a + (p[k] as number), 0);
@@ -85,7 +91,7 @@ async function main(): Promise<void> {
   const each = parts.flatMap((p) => p.each).sort((a, b) => a.seed - b.seed);
   const clean = each.filter((g) => g.crossed === 0).length;
 
-  console.log(file + " · " + n + " партий по " + YEARS + " лет · " + ((Date.now() - started) / 1000).toFixed(1) + " с");
+  console.log(file + " · " + n + " партий по " + YEARS + " лет · предложения: " + approve + " · " + ((Date.now() - started) / 1000).toFixed(1) + " с");
   console.log("");
   // при малом числе партий — каждая строкой: так виден разброс, а не только среднее
   if (n <= 16) {
