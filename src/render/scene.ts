@@ -2,14 +2,13 @@
 import { vis } from "../clock";
 import { MARKRANGE } from "../data";
 import { galaxyRange, within } from "../galaxy";
-import { S, U, cam, corps, docks, hits, routes, systems, voyages } from "../state";
+import { yardAt } from "../shipyard";
+import { S, U, cam, corps, docks, hits, routes, shipyards, systems, voyages } from "../state";
 import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
 import { CH, CW, advanceFrame, cx, glow, last, setUiz, uiz } from "./canvas";
-import { advance, caption, dockLines, flame, grow, posOf, rock, ship, tiny, windowLines } from "./models";
+import { advance, caption, dockLines, flame, grow, posOf, rock, ship, tiny, windowLines, yardLines } from "./models";
 import type { Rock, Sys } from "../types";
-
-import { yardAt } from "../shipyard";
 
 export function drawSystem(s: Sys): void {
   const mx = CW / 2, my = CH / 2;
@@ -63,11 +62,24 @@ export function drawSystem(s: Sys): void {
   // системе висел кружок "выход" — он ничего не означал ни при движках, ни
   // при открывателях и только сбивал.
   if (S.move.key === "gates" && (s.gate.built || s.gate.building)) {
-    const jp = posOf(s.gate, mx, my), jr = 9 + Math.sin(glow * 1.6) * 1.6;
+    const jp = posOf(s.gate, mx, my), jr = 11 + Math.sin(glow * 1.6) * 1.8;
+    const col = s.gate.built ? "#9aa8ff" : "#3a4460";
+    // Кольцо с четырьмя засечками, развёрнутое от звезды: это створ, в который
+    // уходят, а не ещё одна планета на орбите.
+    const face = Math.atan2(jp.y - my, jp.x - mx);
     cx.beginPath(); cx.arc(jp.x, jp.y, jr, 0, 6.2832);
-    cx.strokeStyle = s.gate.built ? "#9aa8ff" : "#3a4460"; cx.lineWidth = 1.4; cx.stroke();
+    cx.strokeStyle = col; cx.lineWidth = 1.6; cx.stroke();
+    for (let k = 0; k < 4; k++) {
+      const a = face + 0.7854 + k * 1.5708;
+      cx.beginPath();
+      cx.moveTo(jp.x + Math.cos(a) * jr, jp.y + Math.sin(a) * jr);
+      cx.lineTo(jp.x + Math.cos(a) * (jr + 5), jp.y + Math.sin(a) * (jr + 5));
+      cx.strokeStyle = col; cx.lineWidth = 1.6; cx.stroke();
+    }
     if (s.gate.built) {
-      cx.beginPath(); cx.arc(jp.x, jp.y, jr * 0.42, 0, 6.2832); cx.fillStyle = "#9aa8ff"; cx.fill();
+      const g = cx.createRadialGradient(jp.x, jp.y, 0, jp.x, jp.y, jr);
+      g.addColorStop(0, "rgba(154,168,255,0.55)"); g.addColorStop(1, "rgba(154,168,255,0)");
+      cx.beginPath(); cx.arc(jp.x, jp.y, jr, 0, 6.2832); cx.fillStyle = g; cx.fill();
     }
     cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = s.gate.built ? "#8f9bc4" : "#4e5872";
     cx.textAlign = "center"; cx.textBaseline = "top";
@@ -85,21 +97,28 @@ export function drawSystem(s: Sys): void {
     hits.push({ x:x, y:y, r:9, kind:"vent", data:st.vent });
   });
 
-  // верфь у своей планеты; рисуется голова очереди (шаг 4 плана сделает красиво)
-  const yardHere = yardAt(s.id);
-  const op = yardHere ? posOf(yardHere.world.body, mx, my) : { x: mx, y: my };
-  (yardHere ? yardHere.queue.slice(0, 1) : []).forEach((yd, i) => {
-    const a = -1.5708 + i * 1.05, off = yardHere.world.body.rad + 24;
-    const x = op.x + Math.cos(a) * off, y = op.y + Math.sin(a) * off;
-    const done = 1 - yd.left / yd.total;
-    cx.beginPath(); cx.arc(x, y, 10, 0, 6.2832);
-    cx.strokeStyle = "#1e2740"; cx.lineWidth = 2; cx.stroke();
-    cx.beginPath(); cx.arc(x, y, 10, -1.5708, -1.5708 + 6.2832 * done);
-    cx.strokeStyle = yd.color; cx.lineWidth = 2; cx.stroke();
-    cx.globalAlpha = 0.35 + done * 0.65;
-    ship(yd.glyph, x, y, 6.2, 0, yd.color);
-    cx.globalAlpha = 1;
-    hits.push({ x:x, y:y, r:13, kind:"yard", data:yd });
+  // Верфь вращается вокруг СВОЕЙ планеты, выше дорожек стоянки. Рисуется
+  // голова очереди с дугой готовности; сколько ждёт следом — числом рядом.
+  shipyards.filter((y) => y.world.sys === s.id).forEach((yard) => {
+    const p = posOf(yard.world.body, mx, my), off = yard.world.body.rad + 34;
+    const a = yard.ang + glow * 0.12;                 // медленнее стоянок
+    const x = p.x + Math.cos(a) * off, y = p.y + Math.sin(a) * off;
+    const head = yard.queue.find((b) => b.left > 0) || yard.queue[0];
+    cx.beginPath(); cx.arc(x, y, 11, 0, 6.2832);
+    cx.strokeStyle = yard.owner >= 0 ? corps[yard.owner].color : "#2b3557";
+    cx.lineWidth = 2; cx.stroke();
+    if (head) {
+      const done = 1 - Math.max(0, head.left) / head.total;
+      cx.beginPath(); cx.arc(x, y, 11, -1.5708, -1.5708 + 6.2832 * done);
+      cx.strokeStyle = head.color; cx.lineWidth = 2; cx.stroke();
+      cx.globalAlpha = 0.35 + done * 0.65;
+      ship(head.glyph, x, y, 6.2, 0, head.color);
+      cx.globalAlpha = 1;
+    }
+    if (yard.queue.length > 1) tiny(x + 15, y - 9, "+" + (yard.queue.length - 1), "#6f7c9e");
+    if (U.pick && U.pick.data === yard) caption(x, y, yardLines(yard), "#8f9bc4");
+    else tiny(x, y + 15, "верфь", yard.crew > 0 ? "#7f8cb4" : "#4e5872");
+    hits.push({ x:x, y:y, r:14, kind:"yard", data:yard });
   });
 
   s.ships.forEach((sh) => {
@@ -128,14 +147,14 @@ export function drawSystem(s: Sys): void {
     // половиной минуты, то есть неподвижность; теперь круг за 24-39 секунд.
     // Ближняя дорожка быстрее дальней, как и положено на орбите.
     const lane = d.lane || 0;
-    const a = d.ang + glow * (0.26 - lane * 0.05), off = b.rad + 16 + lane * 5;
+    const a = d.ang + glow * (0.26 - lane * 0.05), off = b.rad + 13 + lane * 4;
     const x = p.x + Math.cos(a) * off, y = p.y + Math.sin(a) * off;
     cx.globalAlpha = 0.55;
-    ship("cargo", x, y, 5, a + 1.5708, d.corp >= 0 ? corps[d.corp].color : "#8894ae");
+    ship("cargo", x, y, 3.4, a + 1.5708, d.corp >= 0 ? corps[d.corp].color : "#8894ae");
     cx.globalAlpha = 1;
     if (U.pick && U.pick.data === d) caption(x, y, dockLines(d), d.corp >= 0 ? corps[d.corp].color : "#8894ae");
     else tiny(x, y, d.captain, "#5d6881");
-    hits.push({ x:x, y:y, r:10, kind:"dock", data:d });
+    hits.push({ x:x, y:y, r:8, kind:"dock", data:d });
   });
 
   voyages.forEach((v) => {
@@ -241,11 +260,32 @@ export function drawMap(): void {
     // несут sysFrom/to; хлебовозы и переселенцы — между мирами
     if (v.sysFrom !== undefined) { a = systems[v.sysFrom]; b = systems[v.to]; }
     else { a = systems[v.from.sys]; b = systems[v.to.sys]; if (a === b) return; }
-    const k = clamp(vis(v), 0, 1), x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
-    cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(x, y);
+    const k = clamp(vis(v), 0, 1);
+    const isJump = v.kind === "jump" || v.kind === "opener" || v.kind === "reloc";
+    // Прыжок идёт ДУГОЙ, а не по линейке: прямая между звёздами читается как
+    // чертёж, дуга — как полёт. Изгиб тем сильнее, чем длиннее перегон, а
+    // сторона постоянна для пары звёзд, чтобы встречные не сливались в нить.
+    const dxm = b.x - a.x, dym = b.y - a.y, lenm = Math.hypot(dxm, dym) || 1;
+    const bend = isJump ? Math.min(34, lenm * 0.16) * (((a.id + b.id) % 2) ? 1 : -1) : 0;
+    const cpx = (a.x + b.x) / 2 - dym / lenm * bend, cpy = (a.y + b.y) / 2 + dxm / lenm * bend;
+    const at = (u: number) => ({ x: (1-u)*(1-u)*a.x + 2*(1-u)*u*cpx + u*u*b.x,
+                                 y: (1-u)*(1-u)*a.y + 2*(1-u)*u*cpy + u*u*b.y });
+    const pt = at(k), x = pt.x, y = pt.y;
+    cx.beginPath(); cx.moveTo(a.x, a.y);
+    // управляющая точка ПОДкривой от 0 до k, иначе пройденный след не ляжет на дугу
+    if (bend) cx.quadraticCurveTo(a.x + (cpx - a.x) * k, a.y + (cpy - a.y) * k, x, y);
+    else cx.lineTo(x, y);
     cx.strokeStyle = v.color; cx.globalAlpha = 0.3; cx.lineWidth = 1.2 * uiz; cx.stroke(); cx.globalAlpha = 1;
-    const isJump = v.kind === "jump" || v.kind === "opener";
-    const rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
+    // тающий след за прыжковым: несколько точек позади вдоль той же дуги
+    if (isJump) for (let q = 1; q <= 6; q++) {
+      const u = k - q * 0.012;
+      if (u <= 0) break;
+      const sp = at(u);
+      cx.beginPath(); cx.arc(sp.x, sp.y, (2.4 - q * 0.3) * uiz, 0, 6.2832);
+      cx.fillStyle = v.color; cx.globalAlpha = 0.3 * (1 - q / 7); cx.fill(); cx.globalAlpha = 1;
+    }
+    const nx = at(Math.min(1, k + 0.01));
+    const rot = Math.atan2(nx.y - y, nx.x - x) + 1.5708;
     // те же взлёт и посадка, что в системе: из точки у звезды-отправителя и в
     // точку у звезды-получателя — иначе одно и то же движение выглядит
     // по-разному на двух видах

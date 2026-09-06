@@ -8,9 +8,9 @@ import { vis } from "../clock";
 import { compOf } from "../data";
 import { dockValue } from "../docks";
 import { corps, systems } from "../state";
+import { Dock, Part, Ship, Shipyard, Sys, Voyage } from "../types";
 import { clamp } from "../util";
 import { CH, CW, cx, getCx, glow, setCx, uiz } from "./canvas";
-import type { Dock, Part, Ship, Sys, Voyage } from "../types";
 
 export function posOf(o: { ang: number; r: number }, mx: number, my: number): { x: number; y: number; } { return { x:mx + Math.cos(o.ang) * o.r, y:my + Math.sin(o.ang) * o.r }; }
 
@@ -125,6 +125,20 @@ export function dockLines(d: Dock): string[] {
 // Одно окошко на корабль в системе и на рейс между звёздами: сверху разное,
 // снизу одинаковое (командир и из чего собран). Что именно пришло, говорит
 // isVoyage — поэтому приведение здесь не догадка, а разбор по этому признаку.
+/** Строки окошка верфи: кто хозяин, кто на стапеле, сколько ждёт следом. */
+export function yardLines(y: Shipyard): string[] {
+  const out = [y.owner >= 0 ? "верфь «" + corps[y.owner].name + "»" : "верфь, общая"];
+  out.push("людей на стапеле " + y.crew.toFixed(1));
+  const head = y.queue.find((b) => b.left > 0) || y.queue[0];
+  if (!head) out.push("очередь пуста");
+  else {
+    out.push(corps[head.lead].name + " · " + head.vt.name + " · " +
+             Math.round((1 - Math.max(0, head.left) / head.total) * 100) + "%");
+    if (y.queue.length > 1) out.push("ждут следом: " + (y.queue.length - 1));
+  }
+  return out;
+}
+
 export function windowLines(o: Ship | Voyage, isVoyage: boolean): string[] {
   const v = o as Voyage, sh = o as Ship;
   const head = isVoyage ? voyageLines(v) : shipLines(sh);

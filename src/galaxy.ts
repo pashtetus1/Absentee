@@ -2,11 +2,10 @@
 
 import { BODYNAMES, MARKS, ROCKNAMES, SYSNAMES, ptypeOf, rollType } from "./data";
 import { CH, CW } from "./render/canvas";
+import { rnd } from "./rng";
 import { canBuild, corps, fill, systems } from "./state";
 import { dist, rnd6 } from "./util";
 import type { Corp, Mark, Sys } from "./types";
-
-import { rnd } from "./rng";
 
 export function makeSystem(i: number, name: string, x: number, y: number, pool: string[]): Sys {
   // belt и gate дописываются ниже: belt тянет случайное число, и перенос его
@@ -46,7 +45,9 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
                      s:4.2 + rnd()*2.6, seed:rnd()*6.28, taken:false });
     }
   }
-  s.gate = { name:"ворота", r:352, ang:rnd6() };
+  // Ворота стоят на КРАЮ системы. Прежние 352 попадали внутрь последней орбиты
+  // (планеты доходят до 150 + 4*52 + 16 = 374), и ворота висели между планетами.
+  s.gate = { name:"ворота", r:420, ang:rnd6() };
   return s;
 }
 
