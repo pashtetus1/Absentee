@@ -5,7 +5,7 @@ import { dateStr, say, worlds } from "./state";
 import type { Corp, Planet, World } from "./types";
 
 export function makeWorld(body: Planet, seed: number, founder: number): World {
-  var w = { body:body, sys:body.sys, type:body.type, cap:body.type.cap, cap0:body.type.cap,
+  const w = { body:body, sys:body.sys, type:body.type, cap:body.type.cap, cap0:body.type.cap,
             pop:{ farm:seed * 0.6, prod:seed * 0.3, sci:seed * 0.05, free:seed * 0.05 },
             wage:{ farm:2.4, prod:3, sci:4.2 }, food:{ stock:seed * 2, price:1, short:0 },
             gov:{ cash:60 }, slots:2 + Math.round(body.type.cap / 4), rights:[], branches:[],
@@ -28,7 +28,7 @@ export function popOf(w: World): number{ return w.pop.farm + w.pop.prod + w.pop.
 // галактику, и корпус мгновенно оказывался за пять звёзд от цеха — рынок был
 // честным только на бумаге. Теперь у каждой единицы есть система, и если она
 // не та, деталь придётся ВЕЗТИ.
-export function stockAt(c: Corp, sys: number, k: string): number{ var s = c.stock[sys]; return (s && s[k]) || 0; }
+export function stockAt(c: Corp, sys: number, k: string): number{ const s = c.stock[sys]; return (s && s[k]) || 0; }
 // Сумма по системам держится в c.tot и правится вместе со складом: профиль
 // показал, что пересчёт суммы через Object.keys на каждый запрос съедал
 // пятнадцать процентов тика. Все записи в склад идут ТОЛЬКО через addStock.
@@ -40,19 +40,19 @@ export function addStock(c: Corp, sys: number, k: string, n: number): void {
 }
 export function totalStock(c: Corp, k: string): number { return (c.tot && c.tot[k]) || 0; }
 export function whereStock(c: Corp, k: string): number[] {                 // системы, где у компании есть эта деталь
-  var out = [];
-  for (var s in c.stock) if (c.stock[s][k] > 0) out.push(+s);
+  const out = [];
+  for (let s in c.stock) if (c.stock[s][k] > 0) out.push(+s);
   return out;
 }
 export function firstStockSys(c: Corp, k: string): number {              // первая такая система, без массива
-  for (var s in c.stock) if (c.stock[s][k] > 0) return +s;
+  for (let s in c.stock) if (c.stock[s][k] > 0) return +s;
   return -1;
 }
-export function hasBranch(c: Corp, w: World): boolean{ return w.branches.some(function (b) { return b.corp === c.id; }); }
+export function hasBranch(c: Corp, w: World): boolean{ return w.branches.some((b) => { return b.corp === c.id; }); }
 
 export function openBranch(c: Corp, w: World, quiet?: boolean): { corp: number; world: World; emp: { prod: number; sci: number; }; jobs: { prod: number; sci: number; }; } {
   if (hasBranch(c, w)) return null;
-  var b = { corp:c.id, world:w, emp:{ prod:0.4, sci:0.1 }, jobs:{ prod:1, sci:0.4 } };
+  const b = { corp:c.id, world:w, emp:{ prod:0.4, sci:0.1 }, jobs:{ prod:1, sci:0.4 } };
   w.branches.push(b); c.branches.push(b);
   if (!quiet) say("<b>" + c.name + "</b> открыла филиал на " + w.body.name + ".");
   return b;

@@ -13,7 +13,7 @@ import { allTech } from "./tech";
 import { openBranch, popOf } from "./world";
 import type { Corp, World } from "./types";
 
-export var EXTRA = ["#c9a0ff","#8ef0d0","#ffd27a","#ff9ecf","#9ad4ff","#d4ff7a","#ffb4a0","#a0ffe0"];
+export const EXTRA = ["#c9a0ff","#8ef0d0","#ffd27a","#ff9ecf","#9ad4ff","#d4ff7a","#ffb4a0","#a0ffe0"];
 export const PIRATES = ["#ff5c5c","#ff8c42","#e04f8f","#ff3b6b"];
 // Имя зависит от того, какой жребий выпал миру (см. despair), поэтому
 // приходит снаружи, а не собирается здесь: "Свободный" годится только для
@@ -26,17 +26,17 @@ export function freeName(w: World): string {
 // и артель с независимостью становятся неотличимы. А home не годится как
 // запись о родине: turnPirate при мятеже переносит логово на другой мир.
 export function spawnCorp(w: World, name: string, origin: string): Corp {
-  var founder = corps[w.founder >= 0 ? w.founder : 0];
-  var c = { id:corps.length, name:name || freeName(w),
+  const founder = corps[w.founder >= 0 ? w.founder : 0];
+  const c = { id:corps.length, name:name || freeName(w),
             color:EXTRA[(corps.length - TEMPLATE.length) % EXTRA.length], craft:"выживание",
             nerve:1.3, apt:{}, cash:Math.max(60, w.gov.cash * 0.8), known:{}, spent:{}, stock:{},
             target:null, order:null, branches:[], sold:0, bought:0, cool:0, embargo:{}, ask:{},
             native:w.type.tech, home:w, origin:origin || "государство", bornAt:w } as Corp;
-  Object.keys(founder.apt).forEach(function (k) { c.apt[k] = founder.apt[k] * 0.8; });
+  Object.keys(founder.apt).forEach((k) => { c.apt[k] = founder.apt[k] * 0.8; });
   c.apt[w.type.tech] = 1.6;                        // свой мир они понимают лучше всех
-  allTech().forEach(function (f) { c.spent[f.key] = 0; });
-  COMPS.forEach(function (f) { c.ask[f.key] = 1.05; });
-  Object.keys(founder.known).forEach(function (k) { c.known[k] = true; });
+  allTech().forEach((f) => { c.spent[f.key] = 0; });
+  COMPS.forEach((f) => { c.ask[f.key] = 1.05; });
+  Object.keys(founder.known).forEach((k) => { c.known[k] = true; });
   corps.push(c);
   return c;
 }
@@ -55,10 +55,10 @@ export function spawnCorp(w: World, name: string, origin: string): Corp {
 // Общее у всех трёх: касса мира скидывается в общее дело (остаётся пятая
 // часть), счётчик голода обнуляется, второй раз жребий не тянут.
 export function despair(): void {
-  worlds.forEach(function (w) {
+  worlds.forEach((w) => {
     if (w.founder < 0 || w.edge || w.food.short < 48 || popOf(w) < 0.5) return;   // четыре года голода
     w.edge = true;
-    var roll = Math.random(), c;
+    let roll = Math.random(), c;
     if (roll < 0.3333) {
       c = spawnCorp(w, "Артель " + w.body.name, "артель");
       openBranch(c, w, true);
@@ -74,11 +74,11 @@ export function despair(): void {
           "Мир при этом из государства не вышел.");
     } else {
       c = spawnCorp(w, null, "государство");
-      var lost = w.branches.map(function (b) { return corps[b.corp].name; });
+      const lost = w.branches.map((b) => { return corps[b.corp].name; });
       // прежние филиалы отбираются: их хозяева не кормили этот мир
-      w.branches.forEach(function (b) {
-        var o = corps[b.corp];
-        o.branches = o.branches.filter(function (x) { return x !== b; });
+      w.branches.forEach((b) => {
+        const o = corps[b.corp];
+        o.branches = o.branches.filter((x) => { return x !== b; });
       });
       w.branches = [];
       openBranch(c, w, true);

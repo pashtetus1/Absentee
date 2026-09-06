@@ -21,7 +21,7 @@ export function posOf(o: { ang: number; r: number }, mx: number, my: number): { 
 // вверх (вызывающий код доворачивает на atan2 + 90 градусов).
 export function poly(pts: number[]): void {
   cx.beginPath();
-  for (var i = 0; i < pts.length; i += 2) i ? cx.lineTo(pts[i], pts[i+1]) : cx.moveTo(pts[i], pts[i+1]);
+  for (let i = 0; i < pts.length; i += 2) i ? cx.lineTo(pts[i], pts[i+1]) : cx.moveTo(pts[i], pts[i+1]);
   cx.closePath(); cx.fill();
 }
 // Огонёк за кормой. Дрожит по glow, чтобы корабль читался живым, а не
@@ -29,8 +29,8 @@ export function poly(pts: number[]): void {
 export function flame(x: number, y: number, s: number, rot: number): void {
   cx.save();
   cx.translate(x, y); cx.rotate(rot || 0); cx.scale(s / 8, s / 8);
-  var flick = 1 + Math.sin(glow * 23 + x * 0.7 + y * 0.3) * 0.28;
-  var len = 9 * flick;
+  const flick = 1 + Math.sin(glow * 23 + x * 0.7 + y * 0.3) * 0.28;
+  const len = 9 * flick;
   cx.globalAlpha = 0.55;
   cx.fillStyle = "#ff8b3d";
   cx.beginPath(); cx.moveTo(-2.6, 5.2); cx.lineTo(0, 5.2 + len); cx.lineTo(2.6, 5.2); cx.closePath(); cx.fill();
@@ -45,7 +45,7 @@ export function flame(x: number, y: number, s: number, rot: number): void {
 // а не "моргнул" посреди пустоты. out/back — доли пути на рост и на сжатие;
 // ноль означает "с этого конца не анимировать" (корабль там уходит за край).
 export function grow(k: number, out?: number, back?: number): number {
-  var a = out === undefined ? 0.2 : out, b = back === undefined ? 0.2 : back;
+  const a = out === undefined ? 0.2 : out, b = back === undefined ? 0.2 : back;
   return Math.min(a > 0 ? clamp(k / a, 0, 1) : 1, b > 0 ? clamp((1 - k) / b, 0, 1) : 1);
 }
 // Окошко с подписью, которое тащится за кораблём. Рейсы идут годами, и весь
@@ -54,31 +54,31 @@ export function grow(k: number, out?: number, back?: number): number {
 export function caption(x: number, y: number, lines: string[], col: string): void {
   cx.save();
   cx.font = "500 " + (9.5 * uiz) + "px system-ui, sans-serif";
-  var w = 0;
-  lines.forEach(function (l) { w = Math.max(w, cx.measureText(l).width); });
-  var pad = 5 * uiz, h = lines.length * 12 * uiz + pad * 2 - 2 * uiz, bw = w + pad * 2;
+  let w = 0;
+  lines.forEach((l) => { w = Math.max(w, cx.measureText(l).width); });
+  const pad = 5 * uiz, h = lines.length * 12 * uiz + pad * 2 - 2 * uiz, bw = w + pad * 2;
   // Границы экрана в координатах карты: при зуме видно CW/cam.k на CH/cam.k,
   // то есть ровно CW*uiz на CH*uiz, — иначе окошко прижималось бы к краю
   // ГАЛАКТИКИ, а не к краю вида.
-  var bx = x + 14 * uiz, by = clamp(y - h / 2, 4 * uiz, CH * uiz - h - 4 * uiz);
+  let bx = x + 14 * uiz, by = clamp(y - h / 2, 4 * uiz, CH * uiz - h - 4 * uiz);
   if (bx + bw > CW * uiz - 4 * uiz) bx = x - 14 * uiz - bw;   // не вылезать за правый край
   cx.beginPath(); cx.moveTo(x + 6 * uiz, y); cx.lineTo(bx < x ? bx + bw : bx, y);
   cx.strokeStyle = col; cx.globalAlpha = 0.5; cx.lineWidth = uiz; cx.stroke(); cx.globalAlpha = 1;
   cx.fillStyle = "rgba(11,17,32,0.88)"; cx.fillRect(bx, by, bw, h);
   cx.strokeStyle = col; cx.globalAlpha = 0.7; cx.strokeRect(bx + 0.5 * uiz, by + 0.5 * uiz, bw - uiz, h - uiz); cx.globalAlpha = 1;
   cx.textAlign = "left"; cx.textBaseline = "top";
-  lines.forEach(function (l, i) {
+  lines.forEach((l, i) => {
     cx.fillStyle = i ? "#8894ae" : "#e4e9f4";
     cx.fillText(l, bx + pad, by + pad - uiz + i * 12 * uiz);
   });
   cx.restore();
 }
 export function eta(t: number, dur: number): string {
-  var m = Math.max(0, Math.round((1 - clamp(t, 0, 1)) * dur)), yr = Math.floor(m / 12), mo = m % 12;
+  const m = Math.max(0, Math.round((1 - clamp(t, 0, 1)) * dur)), yr = Math.floor(m / 12), mo = m % 12;
   return "ещё " + (yr ? yr + " г. " : "") + mo + " мес.";
 }
 export function shipLines(sh: Ship): string[] {              // корабль внутри системы
-  var who = corps[sh.corp].name;
+  const who = corps[sh.corp].name;
   if (sh.kind === "colony") return ["Колониальный модуль · " + who, "→ " + sh.body.name + " · " + eta(sh.t, sh.dur)];
   return ["Платформа · " + who, "→ " + sh.dest.label + " · " + eta(sh.t, sh.dur)];
 }
@@ -106,19 +106,19 @@ export function tiny(x: number, y: number, text: string, col: string): void {
 }
 // строки полного окна: кто и что, куда и когда, командир, изготовители деталей
 export function makersOfParts(parts: Part[], ownerId: number): string[] {
-  var by: Record<string, number> = {};
-  (parts || []).forEach(function (p) { var k = p.k + "|" + p.from; by[k] = (by[k] || 0) + 1; });
-  return Object.keys(by).map(function (k) {
-    var bits = k.split("|"), f = compOf(bits[0]), from = corps[+bits[1]];
+  const by: Record<string, number> = {};
+  (parts || []).forEach((p) => { const k = p.k + "|" + p.from; by[k] = (by[k] || 0) + 1; });
+  return Object.keys(by).map((k) => {
+    const bits = k.split("|"), f = compOf(bits[0]), from = corps[+bits[1]];
     return f.short + (by[k] > 1 ? " ×" + by[k] : "") + " — " + (+bits[1] === ownerId ? "своё" : from.name);
   });
 }
 export function dockLines(d: Dock): string[] {
-  var owner = d.corp >= 0 ? corps[d.corp].name : "правительство " + (d.gov ? d.gov.body.name : "?");
-  var lines = [(d.kind === "liner" ? "Переселенческий" : "Грузовик") + " · на стоянке у " + d.world.body.name,
+  const owner = d.corp >= 0 ? corps[d.corp].name : "правительство " + (d.gov ? d.gov.body.name : "?");
+  let lines = [(d.kind === "liner" ? "Переселенческий" : "Грузовик") + " · на стоянке у " + d.world.body.name,
                "хозяин: " + owner + " · цена " + Math.round(dockValue(d)),
                "командир " + d.captain];
-  var mk = makersOfParts(d.parts, d.corp);
+  const mk = makersOfParts(d.parts, d.corp);
   if (mk.length) lines = lines.concat(["из чего собран:"]).concat(mk);
   return lines;
 }
@@ -126,12 +126,12 @@ export function dockLines(d: Dock): string[] {
 // снизу одинаковое (командир и из чего собран). Что именно пришло, говорит
 // isVoyage — поэтому приведение здесь не догадка, а разбор по этому признаку.
 export function windowLines(o: Ship | Voyage, isVoyage: boolean): string[] {
-  var v = o as Voyage, sh = o as Ship;
-  var head = isVoyage ? voyageLines(v) : shipLines(sh);
-  var owner = isVoyage ? (v.forCorp !== undefined ? v.forCorp : v.corp) : sh.corp;
-  var lines = head.concat(["командир " + o.captain]);
+  const v = o as Voyage, sh = o as Ship;
+  const head = isVoyage ? voyageLines(v) : shipLines(sh);
+  const owner = isVoyage ? (v.forCorp !== undefined ? v.forCorp : v.corp) : sh.corp;
+  let lines = head.concat(["командир " + o.captain]);
   if (isVoyage && v.kind === "parts") lines.push("везёт: " + compOf(v.k).short + " — " + corps[v.corp].name);
-  var mk = makersOfParts(o.parts, owner);
+  const mk = makersOfParts(o.parts, owner);
   if (mk.length) lines = lines.concat(["из чего собран:"]).concat(mk);
   return lines;
 }
@@ -171,9 +171,9 @@ export function ship(kind: string, x: number, y: number, s: number, rot: number,
 }
 export function rock(x: number, y: number, rad: number, seed: number, col: string): void {
   cx.beginPath();
-  for (var i = 0; i < 9; i++) {
-    var a = i / 9 * 6.2832, rr = rad * (0.74 + 0.36 * Math.abs(Math.sin(seed + i * 2.3)));
-    var px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+  for (let i = 0; i < 9; i++) {
+    const a = i / 9 * 6.2832, rr = rad * (0.74 + 0.36 * Math.abs(Math.sin(seed + i * 2.3)));
+    const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
     i ? cx.lineTo(px, py) : cx.moveTo(px, py);
   }
   cx.closePath(); cx.fillStyle = col; cx.fill();
@@ -181,13 +181,13 @@ export function rock(x: number, y: number, rad: number, seed: number, col: strin
 
 export function advance(s: Sys, dt: number): void {
   if (s.pulse > 0) s.pulse = Math.max(0, s.pulse - dt * 0.5);
-  var mx = CW/2, my = CH/2, op = posOf(s.bodies[0], mx, my);
-  s.ships.forEach(function (sh) {
-    var tp = posOf(sh.kind === "colony" ? sh.body : sh.dest.ref, mx, my);
-    var k = clamp(vis(sh), 0, 1), e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
+  const mx = CW/2, my = CH/2, op = posOf(s.bodies[0], mx, my);
+  s.ships.forEach((sh) => {
+    const tp = posOf(sh.kind === "colony" ? sh.body : sh.dest.ref, mx, my);
+    const k = clamp(vis(sh), 0, 1), e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
     sh.x = op.x + (tp.x - op.x) * e; sh.y = op.y + (tp.y - op.y) * e;
     sh.ang = Math.atan2(tp.y - op.y, tp.x - op.x) + 1.5708;
-    var tl = sh.trail, lp = tl[tl.length - 1];
+    const tl = sh.trail, lp = tl[tl.length - 1];
     if (!lp || Math.abs(lp.x - sh.x) + Math.abs(lp.y - sh.y) > 1.5) {
       tl.push({ x:sh.x, y:sh.y }); if (tl.length > 40) tl.shift();
     }
@@ -199,6 +199,6 @@ export function advance(s: Sys, dt: number): void {
 // её отдают наружу через THRESHOLD.icon. Контекст подменяется на время вызова
 // и возвращается обратно — иначе следующий кадр рисовал бы в значок.
 export function icon(ctx: CanvasRenderingContext2D, kind: string, x: number, y: number, s: number, col: string): void {
-  var keep = getCx();
+  const keep = getCx();
   setCx(ctx); ship(kind, x, y, s, 0, col); setCx(keep);
 }

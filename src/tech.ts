@@ -7,19 +7,19 @@ import { COLTECH, COMPS, MARKS, colOf, compOf, markOf } from "./data";
 import { canBuild, corps, patents, tickCache } from "./state";
 import type { ColTech, Corp, Dev, Engine, Tech, World } from "./types";
 
-export var ENGINES: Engine[] = [
+export const ENGINES: Engine[] = [
   { key:"eng1", name:"Ходовые двигатели Mk1", short:"ход Mk1", diff:700,  mult:1.3 },
   { key:"eng2", name:"Ходовые двигатели Mk2", short:"ход Mk2", diff:1500, mult:1.6 },
   { key:"eng3", name:"Ходовые двигатели Mk3", short:"ход Mk3", diff:2600, mult:2.0 },
   { key:"eng4", name:"Ходовые двигатели Mk4", short:"ход Mk4", diff:4000, mult:2.5 },
   { key:"eng5", name:"Ходовые двигатели Mk5", short:"ход Mk5", diff:5600, mult:3.1 }
 ];
-export function engOf(k: string): Engine{ for (var i=0;i<ENGINES.length;i++) if (ENGINES[i].key===k) return ENGINES[i]; }
+export function engOf(k: string): Engine{ for (let i=0;i<ENGINES.length;i++) if (ENGINES[i].key===k) return ENGINES[i]; }
 // во сколько раз корабли этой компании быстрее базы (по лучшей доступной марке)
 export function speedOf(corpId: number): number {
-  var c = corps[corpId], best = 1;
+  let c = corps[corpId], best = 1;
   if (!c) return 1;
-  ENGINES.forEach(function (e) { if (canBuild(c, e.key)) best = Math.max(best, e.mult); });
+  ENGINES.forEach((e) => { if (canBuild(c, e.key)) best = Math.max(best, e.mult); });
   return best;
 }
 // Освоение миров по классам, Mk1 и до бесконечности: каждая марка даёт +12%
@@ -29,34 +29,34 @@ export function speedOf(corpId: number): number {
 // вкладываются сюда в первую очередь — это единственное, что им по-настоящему
 // нужно.
 export const DEVS: Dev[] = [];
-export function devOf(k: string): Dev{ for (var i=0;i<DEVS.length;i++) if (DEVS[i].key===k) return DEVS[i]; }
+export function devOf(k: string): Dev{ for (let i=0;i<DEVS.length;i++) if (DEVS[i].key===k) return DEVS[i]; }
 export function devKey(cls: string, n: number): string{ return "dev_" + cls + "_" + n; }
 export function ensureDev(cls: string, n: number): void {
   if (devOf(devKey(cls, n))) return;
-  var col = colOf(cls);
-  var d = { key:devKey(cls, n), cls:cls, mark:n, short:col.short + " Mk" + n,
+  const col = colOf(cls);
+  const d = { key:devKey(cls, n), cls:cls, mark:n, short:col.short + " Mk" + n,
             name:"Освоение: " + col.name.toLowerCase() + " Mk" + n,
             diff:Math.round(900 * Math.pow(1.45, n - 1)) };
   DEVS.push(d);
-  corps.forEach(function (c) { if (c.spent[d.key] === undefined) c.spent[d.key] = 0; });
+  corps.forEach((c) => { if (c.spent[d.key] === undefined) c.spent[d.key] = 0; });
   if (!patents[d.key]) patents[d.key] = { owner:-1, since:0, told:false };
 }
 // лучшая марка освоения, действующая на этом мире: среди компаний с филиалом
 // лучшая марка класса у компании считается раз за тик на компанию, а не на
 // каждую пару филиал x мир: марок освоения к концу партии под сотню
 export function corpDevBest(c: Corp, cls: string): number {
-  var byCorp = tickCache.devBest || (tickCache.devBest = {});
-  var mine = byCorp[c.id] || (byCorp[c.id] = {});
+  const byCorp = tickCache.devBest || (tickCache.devBest = {});
+  const mine = byCorp[c.id] || (byCorp[c.id] = {});
   if (mine[cls] !== undefined) return mine[cls];
-  var best = 0;
-  DEVS.forEach(function (d) { if (d.cls === cls && canBuild(c, d.key)) best = Math.max(best, d.mark); });
+  let best = 0;
+  DEVS.forEach((d) => { if (d.cls === cls && canBuild(c, d.key)) best = Math.max(best, d.mark); });
   mine[cls] = best;
   return best;
 }
 export function devLevel(w: World): number {
   if (tickCache.dev.has(w)) return tickCache.dev.get(w);
-  var best = 0;
-  w.branches.forEach(function (b) { best = Math.max(best, corpDevBest(corps[b.corp], w.type.tech)); });
+  let best = 0;
+  w.branches.forEach((b) => { best = Math.max(best, corpDevBest(corps[b.corp], w.type.tech)); });
   tickCache.dev.set(w, best);
   return best;
 }

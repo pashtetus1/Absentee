@@ -63,11 +63,11 @@ export const headless = typeof document === "undefined";
 // Присваивание сломало бы связь с модулями, которые этот же массив читают.
 export function fill<T>(arr: T[], items: T[]): T[] {
   arr.length = 0;
-  for (var i = 0; i < items.length; i++) arr.push(items[i]);
+  for (let i = 0; i < items.length; i++) arr.push(items[i]);
   return arr;
 }
 export function clear<T extends object>(obj: T): T {
-  for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k)) delete (obj as any)[k];
+  for (let k in obj) if (Object.prototype.hasOwnProperty.call(obj, k)) delete (obj as any)[k];
   return obj;
 }
 export function resetCam(): void { cam.x = 0; cam.y = 0; cam.k = 1; }
@@ -79,11 +79,11 @@ export function planets(s: Sys): Planet[] { return s.bodies; }
 
 // Патент — монополия НА ПРОИЗВОДСТВО (или на колонизацию класса миров), а не
 // право продать лицензию. Догнавший обязан ждать истечения.
-export function patLive(k: string): boolean { var p = patents[k]; return !!(p && p.owner >= 0 && Y() - p.since < L.patTerm); }
+export function patLive(k: string): boolean { const p = patents[k]; return !!(p && p.owner >= 0 && Y() - p.since < L.patTerm); }
 export function knows(c: Corp, k: string): boolean { return !!c.known[k]; }
 export function canBuild(c: Corp, k: string): boolean { return knows(c, k) && (!patLive(k) || patents[k].owner === c.id); }
-export function makersOf(k: string): Corp[] { return corps.filter(function (c) { return canBuild(c, k); }); }
-export function anyKnows(k: string): boolean { return corps.some(function (c) { return c.known[k]; }); }
+export function makersOf(k: string): Corp[] { return corps.filter((c) => { return canBuild(c, k); }); }
+export function anyKnows(k: string): boolean { return corps.some((c) => { return c.known[k]; }); }
 export function anyMakes(k: string): boolean { return makersOf(k).length > 0; }
 
 // Кеш на один тик. Богатство компании, "последний астероид", уровень освоения

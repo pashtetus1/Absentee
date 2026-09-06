@@ -23,10 +23,10 @@ export function el(id: string): Ctl { return document.getElementById(id) as Ctl;
 
 export function partsList(parts: Part[], ownerId: number): string {
   if (!parts || !parts.length) return '<div class="empty">Состав неизвестен.</div>';
-  var by: Record<string, number> = {};
-  parts.forEach(function (p) { var k = p.k + "|" + p.from; by[k] = (by[k] || 0) + 1; });
-  return Object.keys(by).map(function (k) {
-    var bits = k.split("|"), f = compOf(bits[0]), from = corps[+bits[1]];
+  const by: Record<string, number> = {};
+  parts.forEach((p) => { const k = p.k + "|" + p.from; by[k] = (by[k] || 0) + 1; });
+  return Object.keys(by).map((k) => {
+    const bits = k.split("|"), f = compOf(bits[0]), from = corps[+bits[1]];
     return '<div class="part"><i class="dot" style="background:' + from.color + '"></i>' +
            '<span class="pn">' + f.name.toLowerCase() + (by[k] > 1 ? " ×" + by[k] : "") + '</span>' +
            '<span class="pw">' + (+bits[1] === ownerId ? "своё" : from.name) + '</span></div>';
@@ -34,7 +34,7 @@ export function partsList(parts: Part[], ownerId: number): string {
 }
 
 export function worldCard(w: World): string {
-  var p = w.pop, total = popOf(w);
+  const p = w.pop, total = popOf(w);
   return '<div class="card"><h3>' + w.body.name + ' · ' + w.type.name + '</h3>' +
     '<div class="sub">' + fmt(total) + ' из ' + w.cap + ' человечков · ' +
     (w.founder >= 0 ? "основана " + corps[w.founder].name + ", " + w.born : "родина") + '</div>' +
@@ -51,19 +51,19 @@ export function worldCard(w: World): string {
     ' · содержание ' + (popOf(w) * UPKEEP).toFixed(1) + '/мес' +
     ' · уехать хотят ' + w.wantOut.toFixed(1) + ' · ' + w.flow + '</div>' +
     '<div class="sub" style="margin:0">Филиалы (' + w.branches.length + ' из ' + w.slots + '): ' +
-    (w.branches.length ? w.branches.map(function (b) { return corps[b.corp].name; }).join(", ") : "нет") + '</div>' +
+    (w.branches.length ? w.branches.map((b) => { return corps[b.corp].name; }).join(", ") : "нет") + '</div>' +
     (w.parts.length ? '<div class="sub" style="margin:7px 0 2px">Модуль собран из:</div>' + partsList(w.parts, w.founder) : '') +
     '</div>';
 }
 
 export function inspector(): void {
-  var box = el("inspect");
+  const box = el("inspect");
   if (!U.pick) { box.innerHTML = '<div class="empty">Ткни в планету, корабль, станцию или верфь.</div>'; return; }
-  var d = U.pick.data;
+  const d = U.pick.data;
   if (U.pick.kind === "body") {
     if (d.world) { box.innerHTML = worldCard(d.world); return; }
-    var pr = projects.filter(function (p) { return p.body === d; })[0];
-    var who = corps.filter(function (c) { return canBuild(c, d.type.tech); }).map(function (c) { return c.name; });
+    const pr = projects.filter((p) => { return p.body === d; })[0];
+    const who = corps.filter((c) => { return canBuild(c, d.type.tech); }).map((c) => { return c.name; });
     box.innerHTML = '<div class="card"><h3>' + d.name + ' · ' + d.type.name + '</h3>' +
       '<div class="sub">не заселена · предел ' + d.type.cap + ' · урожай с фермера ' + d.type.farm + '</div>' +
       '<div class="part"><span class="pn">нужна технология</span><span class="pw">' + colOf(d.type.tech).name + '</span></div>' +
@@ -73,7 +73,7 @@ export function inspector(): void {
     return;
   }
   if (U.pick.kind === "dock") {
-    var owner = d.corp >= 0 ? corps[d.corp].name : "правительство " + (d.gov ? d.gov.body.name : "?");
+    const owner = d.corp >= 0 ? corps[d.corp].name : "правительство " + (d.gov ? d.gov.body.name : "?");
     box.innerHTML = '<div class="card"><h3>' + (d.kind === "liner" ? "Переселенческий" : "Грузовик") + ' на стоянке</h3>' +
       '<div class="sub">на орбите ' + d.world.body.name + ' с ' + Math.floor(d.since / 12) + ' года · командир ' + d.captain + '</div>' +
       '<div class="part"><span class="pn">хозяин</span><span class="pw">' + owner + '</span></div>' +
@@ -82,7 +82,7 @@ export function inspector(): void {
     return;
   }
   if (U.pick.kind === "cargo" && d.kind === "parts") {
-    var fc = compOf(d.k), buyer = corps[d.forCorp], sellerC = corps[d.corp];
+    const fc = compOf(d.k), buyer = corps[d.forCorp], sellerC = corps[d.corp];
     box.innerHTML = '<div class="card"><h3>Грузовик с деталями</h3>' +
       '<div class="sub">везёт ' + fc.name.toLowerCase() + ' из ' + systems[d.sysFrom].name + ' в ' +
       systems[d.to].name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
@@ -128,27 +128,27 @@ export function inspector(): void {
 }
 
 export function panels(): void {
-  el("market").innerHTML = COMPS.map(function (f) {
-    var m = market[f.key], makers = makersOf(f.key);
-    var dots = makers.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
-    var dir = m.price > m.last * 1.001 ? "up" : m.price < m.last * 0.999 ? "down" : "";
-    var p = patents[f.key];
-    var pat = patLive(f.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm)
+  el("market").innerHTML = COMPS.map((f) => {
+    const m = market[f.key], makers = makersOf(f.key);
+    const dots = makers.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+    const dir = m.price > m.last * 1.001 ? "up" : m.price < m.last * 0.999 ? "down" : "";
+    const p = patents[f.key];
+    const pat = patLive(f.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm)
             : p.owner >= 0 ? "патент истёк" : "";
-    var seg = "", chasers: string[] = [];
-    corps.forEach(function (c) {
+    let seg = "", chasers: string[] = [];
+    corps.forEach((c) => {
       if (canBuild(c, f.key) || c.spent[f.key] < 1) return;
       seg += '<i style="width:' + Math.min(100, c.spent[f.key] / f.diff * 100) + '%;background:' + c.color + '99"></i>';
       if (c.target === f.key) chasers.push(c.name);
     });
-    var meta = makers.length
+    const meta = makers.length
       ? (pat ? pat + " · " : "") + "склад " + m.stock + " · заказано " + m.want + " · просят " +
-        (function () {
-          var a = makers.map(function (c) { return c.ask[f.key]; });
-          var lo = Math.min.apply(null, a), hi = Math.max.apply(null, a);
+        (() => {
+          const a = makers.map((c) => { return c.ask[f.key]; });
+          const lo = Math.min.apply(null, a), hi = Math.max.apply(null, a);
           return "×" + lo.toFixed(2) + (hi - lo > 0.02 ? "–" + hi.toFixed(2) : "");
         })()
-      : "никто не делает · лучший на " + Math.round(Math.max.apply(null, corps.map(function (c) { return c.spent[f.key]; }))) +
+      : "никто не делает · лучший на " + Math.round(Math.max.apply(null, corps.map((c) => { return c.spent[f.key]; }))) +
         " из " + f.diff + (chasers.length ? " · ищут: " + chasers.join(", ") : "");
     return '<div class="row"><div class="rhead"><span class="rname">' + f.name + '</span>' + dots +
            '<span class="price ' + dir + '">' + m.price.toFixed(1) + '</span></div>' +
@@ -156,75 +156,75 @@ export function panels(): void {
            '<div class="rmeta">' + meta + '</div></div>';
   }).join("");
 
-  var range = galaxyRange();
+  const range = galaxyRange();
   el("portal").innerHTML =
     '<div class="row"><div class="rhead"><span class="rname">' + moveName() + '</span>' +
     '<span class="price">дальность ' + Math.round(range) + '</span></div>' +
     '<div class="rmeta">' + (S.moveKnown ? S.move.hint : "Пока никто не довёл первую марку, неизвестно даже, что именно откроется.") + '</div></div>' +
-    MARKS.map(function (m) {
-      var p = patents[m.key], holders = makersOf(m.key);
-      var dots = holders.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+    MARKS.map((m) => {
+      const p = patents[m.key], holders = makersOf(m.key);
+      const dots = holders.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
       // сколько закрытых звёзд эта марка достаёт из уже открытых систем
-      var opens = 0;
-      systems.forEach(function (s) {
+      let opens = 0;
+      systems.forEach((s) => {
         if (!s.unlocked) return;
-        opens += within(s.id, m.range).filter(function (n) { return !systems[n].unlocked; }).length;
+        opens += within(s.id, m.range).filter((n) => { return !systems[n].unlocked; }).length;
       });
-      var meta = holders.length
+      const meta = holders.length
         ? (patLive(m.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm) + " · " : "") +
           "дальность " + m.range + " · достаёт звёзд " + opens
-        : "лучший продвинулся на " + Math.round(Math.max.apply(null, corps.map(function (c) { return c.spent[m.key]; }))) +
+        : "лучший продвинулся на " + Math.round(Math.max.apply(null, corps.map((c) => { return c.spent[m.key]; }))) +
           " из " + m.diff + " · дальность " + m.range;
       return '<div class="row"><div class="rhead"><span class="rname">' + (S.moveKnown ? m.short : markName(m)) +
              (m.range <= range ? "" : " · недоступна") + '</span>' + dots + '</div>' +
              '<div class="rmeta">' + meta + '</div></div>';
     }).join("");
 
-  el("engines").innerHTML = ENGINES.map(function (e) {
-    var p = patents[e.key], holders = makersOf(e.key);
-    var dots = holders.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
-    var meta = holders.length
+  el("engines").innerHTML = ENGINES.map((e) => {
+    const p = patents[e.key], holders = makersOf(e.key);
+    const dots = holders.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+    const meta = holders.length
       ? (patLive(e.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm) + " · " : "") +
         "рейсы в " + e.mult.toFixed(1) + " раза быстрее"
-      : "лучший на " + Math.round(Math.max.apply(null, corps.map(function (c) { return c.spent[e.key]; }))) +
+      : "лучший на " + Math.round(Math.max.apply(null, corps.map((c) => { return c.spent[e.key]; }))) +
         " из " + e.diff + " · даст ×" + e.mult.toFixed(1);
     return '<div class="row"><div class="rhead"><span class="rname">' + e.short + '</span>' + dots + '</div>' +
            '<div class="rmeta">' + meta + '</div></div>';
   }).join("");
 
-  el("devs").innerHTML = DEVS.slice().sort(function (a, b) { return a.cls < b.cls ? -1 : a.cls > b.cls ? 1 : a.mark - b.mark; })
-    .map(function (d) {
-      var p = patents[d.key], holders = makersOf(d.key);
-      var dots = holders.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
-      var meta = holders.length
+  el("devs").innerHTML = DEVS.slice().sort((a, b) => { return a.cls < b.cls ? -1 : a.cls > b.cls ? 1 : a.mark - b.mark; })
+    .map((d) => {
+      const p = patents[d.key], holders = makersOf(d.key);
+      const dots = holders.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+      const meta = holders.length
         ? (patLive(d.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm) + " · " : "") +
           "+" + (12 * d.mark) + "% урожая, +" + d.mark + " к пределу на мирах с филиалом"
-        : "лучший на " + Math.round(Math.max.apply(null, corps.map(function (c) { return c.spent[d.key] || 0; }))) + " из " + d.diff;
+        : "лучший на " + Math.round(Math.max.apply(null, corps.map((c) => { return c.spent[d.key] || 0; }))) + " из " + d.diff;
       return '<div class="row"><div class="rhead"><span class="rname">' + d.short + '</span>' + dots + '</div>' +
              '<div class="rmeta">' + meta + '</div></div>';
     }).join("") || '<div class="empty">Ещё ничего не освоено.</div>';
 
-  el("coltech").innerHTML = COLTECH.map(function (f) {
-    var p = patents[f.key], makers = makersOf(f.key);
-    var dots = makers.map(function (c) { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
-    var free = 0;
-    systems.forEach(function (s) {
+  el("coltech").innerHTML = COLTECH.map((f) => {
+    const p = patents[f.key], makers = makersOf(f.key);
+    const dots = makers.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+    let free = 0;
+    systems.forEach((s) => {
       if (!s.unlocked) return;
-      s.bodies.forEach(function (b) { if (!b.world && b.type.tech === f.key) free++; });
+      s.bodies.forEach((b) => { if (!b.world && b.type.tech === f.key) free++; });
     });
-    var meta = makers.length
+    const meta = makers.length
       ? (patLive(f.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm) + " · " : "") +
         "свободных миров " + free
-      : "лучший на " + Math.round(Math.max.apply(null, corps.map(function (c) { return c.spent[f.key]; }))) +
+      : "лучший на " + Math.round(Math.max.apply(null, corps.map((c) => { return c.spent[f.key]; }))) +
         " из " + f.diff + " · миров рядом " + free;
     return '<div class="row"><div class="rhead"><span class="rname">' + f.name + '</span>' + dots + '</div>' +
            '<div class="rmeta">' + meta + '</div></div>';
   }).join("");
 
-  el("worlds").innerHTML = worlds.map(function (w, i) {
-    var total = popOf(w), fill = Math.round(total / w.cap * 100);
-    var dots = w.branches.map(function (b) { return '<i class="pip" style="background:' + corps[b.corp].color + '"></i>'; }).join("");
-    var food = w.food.short > 2 ? '<span style="color:var(--bad)">голод</span>'
+  el("worlds").innerHTML = worlds.map((w, i) => {
+    const total = popOf(w), fill = Math.round(total / w.cap * 100);
+    const dots = w.branches.map((b) => { return '<i class="pip" style="background:' + corps[b.corp].color + '"></i>'; }).join("");
+    const food = w.food.short > 2 ? '<span style="color:var(--bad)">голод</span>'
              : (w.pop.farm * w.type.farm >= total ? "кормится сама" : "живёт на привозном");
     return '<div class="row clickrow" data-world="' + i + '"><div class="srow">' +
            '<span class="rname">' + w.body.name + '</span>' + dots +
@@ -233,60 +233,60 @@ export function panels(): void {
            ' · уехать хотят ' + w.wantOut.toFixed(1) + '</div></div>';
   }).join("") || '<div class="empty">Освоена только Тира.</div>';
 
-  var vbox = el("ventures");
+  const vbox = el("ventures");
   if (U.view.mode === "map") {
-    vbox.innerHTML = systems.map(function (s) {
+    vbox.innerHTML = systems.map((s) => {
       if (!seenSys(s)) return "";
       if (!s.unlocked) {
-        var inb = voyages.filter(function (v) { return v.kind === "jump" && v.to === s.id; })[0];
+        const inb = voyages.filter((v) => { return v.kind === "jump" && v.to === s.id; })[0];
         return '<div class="row"><div class="srow"><span class="rname">неизведанная система</span>' +
                '<span class="rmeta">' + (inb ? "летит " + corps[inb.corp].name : "нет корабля") + '</span></div></div>';
       }
-      var ws = s.bodies.filter(function (b) { return b.world; });
+      const ws = s.bodies.filter((b) => { return b.world; });
       return '<div class="row clickrow" data-sys="' + s.id + '"><div class="srow">' +
              '<span class="rname">' + s.name + (s.id === 0 ? " · дом" : "") + '</span>' +
              '<span class="rmeta">платформ ' + s.mines + ' · миров ' + ws.length + '</span></div>' +
-             '<div class="rmeta">' + s.bodies.map(function (b) {
+             '<div class="rmeta">' + s.bodies.map((b) => {
                return b.name + " (" + b.type.name + (b.world ? ", " + fmt(popOf(b.world)) : "") + ")"; }).join(", ") +
              '</div></div>';
     }).join("");
   } else {
-    var s = systems[U.view.sys], rows: string[] = [];
-    s.yards.forEach(function (yd) {
+    const s = systems[U.view.sys], rows: string[] = [];
+    s.yards.forEach((yd) => {
       rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + yd.color + '"></i>' +
         '<span class="rname">' + corps[yd.lead].name + ' · ' + yd.vt.name + '</span>' +
         '<span class="rmeta">верфь ' + Math.round((1 - yd.left / yd.total) * 100) + '%</span></div></div>');
     });
-    s.ventures.forEach(function (v) {
+    s.ventures.forEach((v) => {
       if (v.building) return;
       rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + corps[v.lead].color + '"></i>' +
         '<span class="rname">' + corps[v.lead].name + ' · платформа</span>' +
         '<span class="rmeta">' + v.yield + '/мес</span></div>' +
         '<div class="rmeta">' + v.dest.label + ' · осталось ' + Math.round(v.left / 12) + ' лет</div></div>');
     });
-    projects.forEach(function (pr) {
+    projects.forEach((pr) => {
       if (pr.sys !== s.id) return;
       rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + corps[pr.lead].color + '"></i>' +
         '<span class="rname">консорциум · ' + pr.body.name + '</span>' +
         '<span class="rmeta">' + Math.round(pr.purse) + '/' + pr.cost + '</span></div>' +
-        '<div class="rmeta">вкладчики: ' + pr.backers.map(function (b) { return corps[b.corp].name; }).join(", ") + '</div></div>');
+        '<div class="rmeta">вкладчики: ' + pr.backers.map((b) => { return corps[b.corp].name; }).join(", ") + '</div></div>');
     });
     vbox.innerHTML = rows.length ? rows.join("") : '<div class="empty">Здесь пока ничего не происходит.</div>';
   }
 
-  var totPop = worlds.reduce(function (a, w) { return a + popOf(w); }, 0);
+  const totPop = worlds.reduce((a, w) => { return a + popOf(w); }, 0);
   el("treasury").textContent = Math.round(S.treasury).toLocaleString("ru-RU");
   el("date").textContent = dateStr();
   el("stats").textContent = "Миров " + worlds.length + " · людей " + fmt(totPop) + " · сделок " + S.trades +
     " · еды перевезено " + Math.round(S.shipped) + " · деталей грузовиком " + S.hauled +
     " · топлива сожжено " + S.burned + " · отказов " + S.refusals + ", свёрнуто сборок " + S.dropped;
 
-  el("corps").innerHTML = corps.slice().sort(function (a, b) { return b.cash - a.cash; }).map(function (c) {
-    var can = COMPS.filter(function (f) { return canBuild(c, f.key); }).map(function (f) { return f.short; });
-    var col = COLTECH.filter(function (f) { return canBuild(c, f.key); }).map(function (f) { return f.short; });
-    var task = c.order
+  el("corps").innerHTML = corps.slice().sort((a, b) => { return b.cash - a.cash; }).map((c) => {
+    const can = COMPS.filter((f) => { return canBuild(c, f.key); }).map((f) => { return f.short; });
+    const col = COLTECH.filter((f) => { return canBuild(c, f.key); }).map((f) => { return f.short; });
+    const task = c.order
       ? "собирает " + vtype(c.order.type).name + ": " +
-        Object.keys(c.order.need).map(function (k) { return compOf(k).short + " " + (c.order.got[k] || 0) + "/" + c.order.need[k]; }).join(", ")
+        Object.keys(c.order.need).map((k) => { return compOf(k).short + " " + (c.order.got[k] || 0) + "/" + c.order.need[k]; }).join(", ")
       : (c.target ? "исследует " + techOf(c.target).short : "ничего не начинает");
     return '<div class="row"><div class="rhead"><i class="dot" style="background:' + c.color + '"></i>' +
       '<span class="rname">' + c.name + '</span><span class="price">' + Math.round(c.cash) + '</span></div>' +
@@ -295,19 +295,19 @@ export function panels(): void {
       '<div class="rmeta">' + task + '</div>' +
       (can.length ? '<div class="rmeta" style="color:var(--gold)">делает: ' + can.join(", ") + '</div>' : '') +
       (col.length ? '<div class="rmeta" style="color:var(--ok)">колонизует: ' + col.join(", ") + '</div>' : '') +
-      (function () {
-        var by: Record<string, string[]> = {};
-        Object.keys(c.embargo).forEach(function (k) {
+      (() => {
+        const by: Record<string, string[]> = {};
+        Object.keys(c.embargo).forEach((k) => {
           if (c.embargo[k] <= S.tick) return;
-          var bits = k.split("|");
+          const bits = k.split("|");
           (by[bits[0]] = by[bits[0]] || []).push(compOf(bits[1]).short);
         });
-        var list = Object.keys(by).map(function (id) { return corps[+id].name + " (" + by[id].join(", ") + ")"; });
+        const list = Object.keys(by).map((id) => { return corps[+id].name + " (" + by[id].join(", ") + ")"; });
         return list.length ? '<div class="rmeta" style="color:var(--bad)">не продаёт: ' + list.join("; ") + '</div>' : '';
       })() + '</div>';
   }).join("");
 
-  el("feed").innerHTML = feed.slice(0, 10).map(function (f) {
+  el("feed").innerHTML = feed.slice(0, 10).map((f) => {
     return '<p><span class="y">' + f.d + '</span> ' + f.t + '</p>';
   }).join("");
 

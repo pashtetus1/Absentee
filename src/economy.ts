@@ -5,16 +5,16 @@ import { popOf } from "./world";
 import type { Rock } from "./types";
 
 export function ventureIncome(): void {
-  systems.forEach(function (s) {
-    for (var i = s.ventures.length - 1; i >= 0; i--) {
-      var v = s.ventures[i];
+  systems.forEach((s) => {
+    for (let i = s.ventures.length - 1; i >= 0; i--) {
+      const v = s.ventures[i];
       if (!v.live) continue;
       corps[v.lead].cash += v.yield;
       v.left--;
       if (v.left <= 0) {
         say("Платформа " + corps[v.lead].name + " на " + v.dest.label + " выработала ресурс.");
         (v.dest.ref as Rock).taken = false; s.mines--;
-        s.stations = s.stations.filter(function (st) { return st.vent !== v; });
+        s.stations = s.stations.filter((st) => { return st.vent !== v; });
         s.ventures.splice(i, 1);
       }
     }
@@ -22,10 +22,10 @@ export function ventureIncome(): void {
 }
 
 export function economy(): void {
-  corps.forEach(function (c) {
+  corps.forEach((c) => {
     if (c.cool > 0) c.cool--;
-    var earn = 0, wages = 0;
-    c.branches.forEach(function (b) {
+    let earn = 0, wages = 0;
+    c.branches.forEach((b) => {
       earn += b.emp.prod * 6.5;
       wages += b.emp.prod * b.world.wage.prod + b.emp.sci * b.world.wage.sci;
       b.world.gov.cash += b.emp.prod * (b.world.rough > 0 ? 0.3 : 0.8);   // местный налог; в разруху собирать почти нечего
@@ -34,7 +34,7 @@ export function economy(): void {
     c.cash += earn * (1 - L.tax) - wages;
     if (c.cash < -40) c.cash = -40;
   });
-  worlds.forEach(function (w) {
+  worlds.forEach((w) => {
     S.treasury -= w.pop.free * L.dole;
     w.gov.cash += w.rough > 0 ? 0.35 : 1.2;             // подушная подать
     // Содержание: люди стоят денег просто тем, что они есть. Раньше касса мира

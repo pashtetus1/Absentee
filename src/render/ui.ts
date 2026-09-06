@@ -16,16 +16,16 @@ import { frame } from "./scene";
 import type { Hit } from "../types";
 
 export function scene(): void {
-  var map = U.view.mode === "map";
+  const map = U.view.mode === "map";
   el("tomap").style.display = map ? "none" : "inline-block";
   el("sname").textContent = map ? "Галактика" : systems[U.view.sys].name;
   if (map) {
-    var op = systems.filter(function (s) { return s.unlocked; }).length;
+    const op = systems.filter((s) => { return s.unlocked; }).length;
     el("smeta").textContent = "открыто систем " + op + " из " + systems.length + " · миров " + worlds.length + " · " + moveName();
   } else {
-    var s = systems[U.view.sys];
+    const s = systems[U.view.sys];
     el("smeta").textContent = "планет " + s.bodies.length + " · " +
-      s.bodies.map(function (b) { return b.type.name; }).join(", ");
+      s.bodies.map((b) => { return b.type.name; }).join(", ");
   }
   el("ventlab").textContent = map ? "Что происходит в системах" : "Предприятия · " + systems[U.view.sys].name;
   panels();
@@ -33,7 +33,7 @@ export function scene(): void {
 export function open(i: number): void { U.view = { mode:"system", sys:i }; U.pick = null; scene(); }
 
 export function taxhint(): void {
-  var p = Math.round(L.tax * 100);
+  const p = Math.round(L.tax * 100);
   el("taxhint").textContent =
     p < 10 ? "У компаний много денег: они держат много мест, зарплаты растут."
   : p < 25 ? "Рабочий баланс: наём растёт, казна пополняется."
@@ -52,7 +52,7 @@ export function pathint(): void {
     : "Держатель успевает нажиться, но конкуренты копят знание к сроку.";
 }
 export function feehint(): void {
-  var p = Math.round(L.tradeFee * 100);
+  const p = Math.round(L.tradeFee * 100);
   el("feehint").textContent = p === 0
     ? "Торговля свободна: комплекты собираются быстро, казна с этого не имеет ничего."
     : p < 15 ? "Умеренный сбор: казна зарабатывает, сборка почти не страдает."
@@ -82,69 +82,69 @@ export function syncControls(): void {
 export function bindUI(): void {
   // el() отдаёт общий тип элемента управления, а тут нужен именно холст
   setCanvas(el("view") as unknown as HTMLCanvasElement);
-  var dpr = window.devicePixelRatio || 1;
+  const dpr = window.devicePixelRatio || 1;
   cv.width = CW * dpr; cv.height = CH * dpr;
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   // экран -> координаты сцены (на карте ещё и через камеру)
   function scenePos(e: { clientX: number; clientY: number }): { x: number; y: number; } {
-    var rect = cv.getBoundingClientRect();
-    var x = (e.clientX - rect.left) / rect.width * CW, y = (e.clientY - rect.top) / rect.height * CH;
+    const rect = cv.getBoundingClientRect();
+    let x = (e.clientX - rect.left) / rect.width * CW, y = (e.clientY - rect.top) / rect.height * CH;
     if (U.view.mode === "map") { x = (x - cam.x) / cam.k; y = (y - cam.y) / cam.k; }
     return { x:x, y:y };
   }
 
-  var drag: { x: number; y: number; cx: number; cy: number } = null, moved = 0;
-  cv.addEventListener("mousedown", function (e: MouseEvent) {
+  let drag: { x: number; y: number; cx: number; cy: number } = null, moved = 0;
+  cv.addEventListener("mousedown", (e: MouseEvent) => {
     if (U.view.mode !== "map") return;
     drag = { x:e.clientX, y:e.clientY, cx:cam.x, cy:cam.y }; moved = 0;
   });
-  window.addEventListener("mousemove", function (e: MouseEvent) {
+  window.addEventListener("mousemove", (e: MouseEvent) => {
     if (!drag) {
       // наведение на рейс на карте показывает его окошко
       if (U.view.mode !== "map") return;
-      var p = scenePos(e); U.hover = null;
-      hits.forEach(function (h) {
+      const p = scenePos(e); U.hover = null;
+      hits.forEach((h) => {
         if (h.kind !== "cargo" && h.kind !== "jumpship") return;
         if (Math.abs(p.x - h.x) <= h.r && Math.abs(p.y - h.y) <= h.r) U.hover = h.data;
       });
       return;
     }
-    var rect = cv.getBoundingClientRect();
-    var sx = CW / rect.width, sy = CH / rect.height;
-    var dx = (e.clientX - drag.x) * sx, dy = (e.clientY - drag.y) * sy;
+    const rect = cv.getBoundingClientRect();
+    const sx = CW / rect.width, sy = CH / rect.height;
+    const dx = (e.clientX - drag.x) * sx, dy = (e.clientY - drag.y) * sy;
     moved = Math.max(moved, Math.abs(dx) + Math.abs(dy));
     cam.x = drag.cx + dx; cam.y = drag.cy + dy;
   });
-  window.addEventListener("mouseup", function () { setTimeout(function () { drag = null; }, 0); });
+  window.addEventListener("mouseup", () => { setTimeout(() => { drag = null; }, 0); });
 
   // Зум ТОЛЬКО с зажатым Ctrl. Простое колесо обязано прокручивать страницу:
   // канвас занимает пол-экрана, и перехват колеса читается как зависание —
   // страница не едет, а карта визуально не меняется.
-  cv.addEventListener("wheel", function (e: WheelEvent) {
+  cv.addEventListener("wheel", (e: WheelEvent) => {
     if (U.view.mode !== "map" || !(e.ctrlKey || e.metaKey)) return;
     e.preventDefault();
     zoomAt(scenePos(e), e.deltaY < 0 ? 1.15 : 0.87);
   }, { passive:false });
 
   function zoomAt(p: { x: number; y: number }, mul: number): void {
-    var k = clamp(cam.k * mul, 0.7, 4);
+    const k = clamp(cam.k * mul, 0.7, 4);
     // приближаем к точке под курсором, а не к углу канваса
     cam.x += p.x * (cam.k - k); cam.y += p.y * (cam.k - k);
     cam.k = k;
   }
-  el("zin").addEventListener("click", function () { zoomAt({ x:CW/2, y:CH/2 }, 1.3); });
-  el("zout").addEventListener("click", function () { zoomAt({ x:CW/2, y:CH/2 }, 0.77); });
-  el("zfit").addEventListener("click", function () { resetCam(); });
+  el("zin").addEventListener("click", () => { zoomAt({ x:CW/2, y:CH/2 }, 1.3); });
+  el("zout").addEventListener("click", () => { zoomAt({ x:CW/2, y:CH/2 }, 0.77); });
+  el("zfit").addEventListener("click", () => { resetCam(); });
 
-  cv.addEventListener("dblclick", function () { resetCam(); });
+  cv.addEventListener("dblclick", () => { resetCam(); });
 
-  cv.addEventListener("click", function (e: MouseEvent) {
+  cv.addEventListener("click", (e: MouseEvent) => {
     if (moved > 4) { moved = 0; return; }          // это было перетаскивание
-    var p = scenePos(e);
-    var best: Hit = null, bd = 1e9;
-    hits.forEach(function (h) {
-      var d = Math.sqrt((p.x - h.x) * (p.x - h.x) + (p.y - h.y) * (p.y - h.y));
+    const p = scenePos(e);
+    let best: Hit = null, bd = 1e9;
+    hits.forEach((h) => {
+      const d = Math.sqrt((p.x - h.x) * (p.x - h.x) + (p.y - h.y) * (p.y - h.y));
       if (d <= h.r && d < bd) { bd = d; best = h; }
     });
     if (!best) return;
@@ -152,34 +152,34 @@ export function bindUI(): void {
     U.pick = best; panels();
   });
 
-  var sel = el("subfield");
-  sel.innerHTML = allTech().map(function (f) {
+  const sel = el("subfield");
+  sel.innerHTML = allTech().map((f) => {
     return '<option value="' + f.key + '">' + (markOf(f.key) ? markName(f) : f.name) + '</option>';
   }).join("");
-  sel.addEventListener("change", function (e: Event) { L.subKey = (e.target as Ctl).value; subhint(); saveLevers(); });
+  sel.addEventListener("change", (e: Event) => { L.subKey = (e.target as Ctl).value; subhint(); saveLevers(); });
 
-  el("tax").addEventListener("input", function (e: Event) {
+  el("tax").addEventListener("input", (e: Event) => {
     L.tax = +(e.target as Ctl).value / 100;
     el("taxval").textContent = Math.round(L.tax * 100) + "%"; taxhint(); saveLevers();
   });
-  el("sub").addEventListener("input", function (e: Event) {
+  el("sub").addEventListener("input", (e: Event) => {
     L.subYear = +(e.target as Ctl).value; el("subval").textContent = L.subYear; subhint(); saveLevers();
   });
-  el("pat").addEventListener("input", function (e: Event) {
+  el("pat").addEventListener("input", (e: Event) => {
     L.patTerm = +(e.target as Ctl).value; el("patval").textContent = L.patTerm + " лет";
-    allTech().forEach(function (f) { var p = patents[f.key]; if (p.owner >= 0 && Y() - p.since < L.patTerm) p.told = false; });
+    allTech().forEach((f) => { const p = patents[f.key]; if (p.owner >= 0 && Y() - p.since < L.patTerm) p.told = false; });
     pathint(); saveLevers();
   });
-  el("fee").addEventListener("input", function (e: Event) {
+  el("fee").addEventListener("input", (e: Event) => {
     L.tradeFee = +(e.target as Ctl).value / 100;
     el("feeval").textContent = Math.round(L.tradeFee * 100) + "%"; feehint(); saveLevers();
   });
-  el("dole").addEventListener("input", function (e: Event) {
+  el("dole").addEventListener("input", (e: Event) => {
     L.dole = +(e.target as Ctl).value / 5; el("doleval").textContent = L.dole.toFixed(1); dolehint(); saveLevers();
   });
   function togglePause(): void {
     U.running = !U.running;
-    var b = el("play");
+    const b = el("play");
     b.textContent = U.running ? "Пауза" : "Пуск";
     b.className = U.running ? "live" : "";
     if (U.running) run(); else clearInterval(U.timer);
@@ -195,15 +195,15 @@ export function bindUI(): void {
   // считаем вторым мнением и берём большее, потому что у разных мобильных
   // браузеров эти два числа означают разное. Панель прячется при прокрутке —
   // visualViewport присылает событие, и кнопка опускается обратно.
-  var vv = window.visualViewport;
+  const vv = window.visualViewport;
   if (vv) {
     // Пинч-зум — вторая беда того же корня: fixed раздувается вместе со
     // страницей, кнопка занимала пол-экрана и вылезала за левый край, потому
     // что left:50% — это середина СТРАНИЦЫ, а не видимого окошка. Отдаём в CSS
     // и обратный множитель зума, и границы видимой области.
-    var fitPause = function () {
-      var st = document.documentElement.style, seen = vv.height + vv.offsetTop;
-      var gap = Math.max(document.documentElement.clientHeight - seen, window.innerHeight - seen, 0);
+    const fitPause = () => {
+      const st = document.documentElement.style, seen = vv.height + vv.offsetTop;
+      const gap = Math.max(document.documentElement.clientHeight - seen, window.innerHeight - seen, 0);
       st.setProperty("--vvbot", Math.round(gap) + "px");
       st.setProperty("--vvleft", Math.round(vv.offsetLeft) + "px");
       st.setProperty("--vvw", Math.round(vv.width) + "px");
@@ -215,35 +215,37 @@ export function bindUI(): void {
   }
   // пробел — пауза; но не когда курсор в ползунке или выпадающем списке,
   // там пробел свой
-  window.addEventListener("keydown", function (e) {
+  window.addEventListener("keydown", (e) => {
     if (e.code !== "Space" || e.repeat) return;
-    var tag = (e.target && (e.target as HTMLElement).tagName) || "";
+    const tag = (e.target && (e.target as HTMLElement).tagName) || "";
     if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || tag === "BUTTON") return;
     e.preventDefault();
     togglePause();
   });
-  el("speed").addEventListener("click", function () {
-    var ladder = [1, 2, 4, 10, 20];
+  el("speed").addEventListener("click", () => {
+    const ladder = [1, 2, 4, 10, 20];
     L.speed = ladder[(ladder.indexOf(L.speed) + 1) % ladder.length];
-    this.textContent = "×" + L.speed; if (U.running) run(); saveLevers();
+    // раньше здесь стояло this — та же кнопка, но из-за него обработчик не мог
+    // стать стрелкой; у стрелки this чужой
+    el("speed").textContent = "×" + L.speed; if (U.running) run(); saveLevers();
   });
-  el("map").addEventListener("click", function () { U.view.mode = "map"; scene(); });
-  el("tomap").addEventListener("click", function () { U.view.mode = "map"; scene(); });
-  el("reset").addEventListener("click", function () { build(); scene(); if (U.running) run(); });
-  el("ventures").addEventListener("click", function (e) {
-    var row = (e.target as HTMLElement).closest(".clickrow");
+  el("map").addEventListener("click", () => { U.view.mode = "map"; scene(); });
+  el("tomap").addEventListener("click", () => { U.view.mode = "map"; scene(); });
+  el("reset").addEventListener("click", () => { build(); scene(); if (U.running) run(); });
+  el("ventures").addEventListener("click", (e) => {
+    const row = (e.target as HTMLElement).closest(".clickrow");
     if (row) open(+row.getAttribute("data-sys"));
   });
-  el("worlds").addEventListener("click", function (e) {
-    var row = (e.target as HTMLElement).closest(".clickrow");
+  el("worlds").addEventListener("click", (e) => {
+    const row = (e.target as HTMLElement).closest(".clickrow");
     if (!row) return;
-    var w = worlds[+row.getAttribute("data-world")];
+    const w = worlds[+row.getAttribute("data-world")];
     U.view = { mode:"system", sys:w.sys };
     U.pick = { kind:"body", data:w.body };
     scene();
   });
 
-  Array.prototype.forEach.call(document.querySelectorAll("canvas.ikon"), function (c) {
+  Array.prototype.forEach.call(document.querySelectorAll("canvas.ikon"), (c) => {
     icon(c.getContext("2d"), c.getAttribute("data-kind"), 11, 10, 8, "#8894ae");
   });
 

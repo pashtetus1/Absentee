@@ -23,12 +23,12 @@ export function canTravel(a: number, b: number): boolean {
   if (a === b) return true;
   if (S.move.key === "gates") return gated(a) && gated(b);
   if (S.move.key === "drives") return dist(systems[a], systems[b]) <= galaxyRange();
-  var seen: Record<number, number> = {}, q = [a];                      // проходы складываются в сеть
+  const seen: Record<number, number> = {}, q = [a];                      // проходы складываются в сеть
   seen[a] = 1;
   while (q.length) {
-    var i = q.shift();
+    const i = q.shift();
     if (i === b) return true;
-    for (var j = 0; j < systems.length; j++) {
+    for (let j = 0; j < systems.length; j++) {
       if (!seen[j] && routeOpen(i, j)) { seen[j] = 1; q.push(j); }
     }
   }
@@ -49,8 +49,8 @@ export function travelExtra(a: number, b: number): { drive: number; } {
   return (a !== b && S.move.key === "drives") ? { drive:1 } : null;
 }
 export function needWith(vt: VType, extra: Record<string, number>): Record<string, number> {
-  var n = JSON.parse(JSON.stringify(vt.need));
-  if (extra) Object.keys(extra).forEach(function (k) { n[k] = (n[k] || 0) + extra[k]; });
+  const n = JSON.parse(JSON.stringify(vt.need));
+  if (extra) Object.keys(extra).forEach((k) => { n[k] = (n[k] || 0) + extra[k]; });
   return n;
 }
 
