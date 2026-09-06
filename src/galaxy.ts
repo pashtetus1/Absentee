@@ -12,7 +12,7 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
   // belt и gate дописываются ниже: belt тянет случайное число, и перенос его
   // в литерал сдвинул бы весь поток — партии перестали бы воспроизводиться
   const s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
-            bodies:[], rocks:[], ventures:[], ships:[], yards:[], stations:[], mines:0 } as unknown as Sys;
+            bodies:[], rocks:[], ventures:[], ships:[], stations:[], mines:0 } as unknown as Sys;
   const np = i === 0 ? 4 : 2 + Math.floor(rnd() * 4);      // до пяти планет
   const base = rnd6();
   for (let k = 0; k < np; k++) {

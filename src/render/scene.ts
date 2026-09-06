@@ -9,6 +9,8 @@ import { CH, CW, advanceFrame, cx, glow, last, setUiz, uiz } from "./canvas";
 import { advance, caption, dockLines, flame, grow, posOf, rock, ship, tiny, windowLines } from "./models";
 import type { Rock, Sys } from "../types";
 
+import { yardAt } from "../shipyard";
+
 export function drawSystem(s: Sys): void {
   const mx = CW / 2, my = CH / 2;
   setUiz(1);                     // в системе зума нет, экранные размеры как есть
@@ -83,9 +85,11 @@ export function drawSystem(s: Sys): void {
     hits.push({ x:x, y:y, r:9, kind:"vent", data:st.vent });
   });
 
-  const op = posOf(s.bodies[0], mx, my);
-  s.yards.forEach((yd, i) => {
-    const a = -1.5708 + i * 1.05, off = s.bodies[0].rad + 24;
+  // верфь у своей планеты; рисуется голова очереди (шаг 4 плана сделает красиво)
+  const yardHere = yardAt(s.id);
+  const op = yardHere ? posOf(yardHere.world.body, mx, my) : { x: mx, y: my };
+  (yardHere ? yardHere.queue.slice(0, 1) : []).forEach((yd, i) => {
+    const a = -1.5708 + i * 1.05, off = yardHere.world.body.rad + 24;
     const x = op.x + Math.cos(a) * off, y = op.y + Math.sin(a) * off;
     const done = 1 - yd.left / yd.total;
     cx.beginPath(); cx.arc(x, y, 10, 0, 6.2832);
@@ -172,7 +176,7 @@ export function drawSystem(s: Sys): void {
     if (leg === null) return;
     const x = a.x + (b.x - a.x) * leg, y = a.y + (b.y - a.y) * leg;
     const rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
-    const isJump = v.kind === "jump" || v.kind === "opener";
+    const isJump = v.kind === "jump" || v.kind === "opener" || v.kind === "reloc";
     // вылет — растёт из точки у планеты, прилёт — сжимается в точку у цели;
     // со стороны края системы корабль не анимируется: он там просто уходит
     const sz = 6.5 * (s.id === fromSys ? grow(leg, 0.45, 0) : grow(leg, 0, 0.45));

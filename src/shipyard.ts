@@ -15,11 +15,10 @@
 // Деньги за стройку получает планета: верфь не строится верфью, её строит
 // планета, и её казне за это платят.
 
-import { S, L, corps, proposals, say, shipyards, systems } from "./state";
 import { rnd } from "./rng";
+import { L, S, corps, proposals, say, shipyards, systems } from "./state";
 import { canTravel } from "./travel";
 import { dist } from "./util";
-
 import type { Corp, Proposal, Shipyard, World } from "./types";
 
 export const PROPOSAL_LIFE = 24;            // месяцев висит, ожидая игрока
@@ -28,7 +27,18 @@ export const SHARE_START = 0.4;             // доля компаний в пе
 export const SHARE_STEP = 0.1;              // на сколько растёт с каждым отказом
 export const SHARE_CAP = 0.7;               // больше компании не дадут
 export const YARD_PARTS: Record<string, number> = { hull: 3, life: 1 };
-export const YARD_BUILD = 36;               // месяцев стройки; шаг 2 переведёт в человеко-месяцы
+export const YARD_BUILD = 36;               // месяцев стройки самой верфи
+export const QUEUE_MAX = 3;                 // очередь длиннее — повод строить ещё одну верфь
+// Рабочие руки. Верфь просит долю YARD_SHARE промышленных рук планеты (не
+// меньше YARD_MIN, не больше YARD_MAX мест) наравне с цехами филиалов и
+// получает ту же долю людей, что и они (kp в labour). Сборка стоит
+// vt.build × YARD_WORK человеко-месяцев. Команда растёт с планетой: на
+// родине с тридцатью рабочими верфь строит вчетверо быстрее прежних
+// календарных сроков, на молодой колонии с двумя — вдвое медленнее. Потолок
+// в шесть человек держал очередь в полсотни сборок при полной верфи.
+export const YARD_SHARE = 0.35;
+export const YARD_MIN = 2, YARD_MAX = 14;
+export const YARD_WORK = 3;
 
 let seq = 0;
 
@@ -37,17 +47,27 @@ export function yardCost(w: World): number {
   return Math.round(400 * (1 + systems[w.sys].depth * 0.3));
 }
 
-/** Ближайшая верфь, куда компания может довезти детали; null — строить негде. */
+/** Верфь, куда компании выгоднее всего встать; null — строить негде.
+ *
+ *  Сначала по длине очереди, расстоянием только разрешаем ничью. Длина рейса
+ *  здесь от расстояния почти не зависит (140-190 месяцев плюс случай), а
+ *  место в очереди стоит десятки месяцев. Пока выбирали ближайшую, все вставали
+ *  в домашнюю, а новые верфи стояли пустыми. */
 export function nearestYard(sys: number, c: Corp | null): Shipyard | null {
-  let best: Shipyard = null, bd = 1e9;
+  let best: Shipyard = null, bq = 1e9, bd = 1e9;
   shipyards.forEach((y) => {
     if (y.owner >= 0 && (!c || y.owner !== c.id)) return;   // частная — только хозяину
     const ys = y.world.sys;
     if (ys !== sys && !canTravel(ys, sys)) return;
-    const d = ys === sys ? 0 : dist(systems[ys], systems[sys]);
-    if (d < bd) { bd = d; best = y; }
+    const q = y.queue.length, d = ys === sys ? 0 : dist(systems[ys], systems[sys]);
+    if (q < bq || (q === bq && d < bd)) { bq = q; bd = d; best = y; }
   });
   return best;
+}
+
+/** Верфь в этой системе, если есть. */
+export function yardAt(sys: number): Shipyard | null {
+  return shipyards.find((y) => y.world.sys === sys) || null;
 }
 
 function activeAt(w: World): Proposal | undefined {
@@ -60,13 +80,21 @@ function activeAt(w: World): Proposal | undefined {
 // не больше одного предложения; на одну планету — не больше одного.
 export function reviewProposals(): void {
   corps.forEach((c) => {
-    if (!c.order || c.pirate || c.cash < 200) return;
+    // повод — заказ, который негде собрать: либо уже сделанный, либо тот, что
+    // компания хотела сделать, но не нашла верфи (needYard)
+    if (!(c.order || c.needYard) || c.pirate || c.cash < 200) return;
     if (proposals.some((p) => p.lead === c.id && p.state !== "done")) return;
-    if (nearestYard(c.order.sys, c)) return;
+    const homeSys = c.branches.length ? c.branches[0].world.sys : 0;
+    // Есть верфь, и очередь в ней короткая — незачем строить ещё. Длинная
+    // очередь — тот самый повод: без него в партии навсегда оставалась одна
+    // верфь на родине, и экспансия упиралась в её дальность.
+    const near = nearestYard(c.order ? c.order.sys : homeSys, c);
+    if (near && near.queue.length < QUEUE_MAX) return;
     let w: World = null, top = -1;
     c.branches.forEach((b) => {
       const x = b.world;
       if (x.yard || activeAt(x) || (x.yardRetryAt || 0) > S.tick) return;
+      if (x.pop.prod < 2) return;                 // без рабочих рук верфь стояла бы вечно
       if (x.pop.prod > top) { top = x.pop.prod; w = x; }
     });
     if (!w) return;

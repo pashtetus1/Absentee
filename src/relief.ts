@@ -107,7 +107,8 @@ export function piracy(): void {
     const ps = systems[p.home.sys];
     for (let i = voyages.length - 1; i >= 0; i--) {
       const v = voyages[i];
-      if (v.kind === "jump" || v.kind === "opener") continue;
+      // прыжковый не перехватить — ни в прыжке, ни на перегоне к точке старта
+      if (v.kind === "jump" || v.kind === "opener" || v.kind === "reloc") continue;
       const owner = v.kind === "parts" ? v.forCorp
                 : v.kind === "ferry" ? v.corp
                 : (v.relief !== undefined ? v.relief : -1);

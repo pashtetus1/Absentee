@@ -1,5 +1,6 @@
 // ===================== рынок труда на каждом мире =====================
 
+import { YARD_MAX, YARD_MIN, YARD_SHARE } from "./shipyard";
 import { L, corps } from "./state";
 import { devCap, devMult } from "./tech";
 import { clamp } from "./util";
@@ -37,6 +38,9 @@ export function labour(w: World): void {
   w.wage.farm = w.type.farm > 0 ? w.food.price * 2.4 : 0;
 
   let jp = 0, js = 0;
+  // верфь с работой в очереди просит людей наравне с цехами
+  const yardJobs = (w.yard && w.yard.queue.some((b) => b.left > 0)) ? clamp(p.prod * YARD_SHARE, YARD_MIN, YARD_MAX) : 0;
+  jp += yardJobs;
   w.branches.forEach((b) => {
     const c = corps[b.corp], n = Math.max(1, c.branches.length);
     b.jobs.prod = clamp(c.cash / (180 * n), 0.3, 8) * (rough ? 0.35 : 1);   // цехов ещё нет
@@ -47,6 +51,7 @@ export function labour(w: World): void {
   w.wage.sci = 4.2 * squeeze(js, p.sci);
   const kp = jp > 0 ? Math.min(1, p.prod / jp) : 0, ks = js > 0 ? Math.min(1, p.sci / js) : 0;
   w.branches.forEach((b) => { b.emp.prod = b.jobs.prod * kp; b.emp.sci = b.jobs.sci * ks; });
+  if (w.yard) w.yard.crew = yardJobs * kp;
 
   const outP = Math.max(0, p.prod - jp) * 0.05, outS = Math.max(0, p.sci - js) * 0.05;
   p.prod -= outP; p.sci -= outS; p.free += outP + outS;

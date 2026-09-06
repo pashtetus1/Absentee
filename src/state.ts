@@ -18,9 +18,12 @@ import type { Chosen, Corp, Dock, Hit, MarketRow, Move, Patent, Planet, Project,
 
 import type { ApproveMode, Proposal, Shipyard } from "./types";
 
+import type { Staged } from "./types";
+
 export const corps: Corp[] = [], systems: Sys[] = [], voyages: Voyage[] = [];
 export const worlds: World[] = [], projects: Project[] = [], docks: Dock[] = [];
 export const shipyards: Shipyard[] = [], proposals: Proposal[] = [];
+export const staged: Staged[] = [];              // прыжковые у точки старта, ждут топлива
 export const feed: { d: string; t: string }[] = [];
 export const hits: Hit[] = [];                   // куда можно ткнуть на текущем кадре
 export const market: Record<string, MarketRow> = {};

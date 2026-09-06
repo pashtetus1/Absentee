@@ -1,7 +1,7 @@
 
 import { COLTECH, COMPS, MOVES, TEMPLATE, makeMarks, moveOf } from "./data";
 import { makeGalaxy } from "./galaxy";
-import { S, U, clear, corps, docks, feed, fill, flash, market, patents, projects, proposals, routes, say, shipyards, systems, voyages, worlds } from "./state";
+import { S, U, clear, corps, docks, feed, fill, flash, market, patents, projects, proposals, routes, say, shipyards, staged, systems, voyages, worlds } from "./state";
 import { DEVS, allTech, ensureDev } from "./tech";
 import { makeWorld, openBranch } from "./world";
 import type { Corp } from "./types";
@@ -34,7 +34,7 @@ export function build(forcedMove?: string, seed?: number): void {
   DEVS.length = 0;
   COLTECH.forEach((col) => { ensureDev(col.key, 1); });     // Mk1 каждого класса с самого начала
 
-  [worlds, projects, voyages, feed, docks, shipyards, proposals].forEach((a) => { a.length = 0; });
+  [worlds, projects, voyages, feed, docks, shipyards, proposals, staged].forEach((a) => { a.length = 0; });
   clear(flash); clear(routes); U.pick = null;
   makeGalaxy();
   S.home = makeWorld(systems[0].bodies[0], 18, -1);

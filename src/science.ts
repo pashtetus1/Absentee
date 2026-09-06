@@ -2,7 +2,7 @@
 
 import { compOf, markOf } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
-import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, systems, voyages } from "./state";
+import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
 import { allTech, devOf, engOf, ensureDev, speedOf, techOf } from "./tech";
 import type { Corp } from "./types";
 
@@ -53,7 +53,8 @@ export function pickTarget(c: Corp): string | null {
     else if (f.key === "sfuel") {
       // межзвёздное топливо дорожает в цене ровно тогда, когда есть чему лететь:
       // без него готовый прыжковый корабль стоял у стапеля девяносто лет
-      const waiting = systems.some((s) => { return s.yards.some((y) => { return y.fuelWait > 0; }); });
+      const waiting = shipyards.some((y) => { return y.queue.length > 0 && y.queue[0].fuelWait > 0; }) ||
+                      staged.some((st) => { return st.fuelWait > 0; });
       worth = waiting ? 4.5 : (galaxyRange() > 0 || anyKnows("drive") ? 3.2 : 1.2);
     }
     else if (compOf(f.key)) worth = f.key === "drive" ? 3.0 : (f.key === "drill" || f.key === "hold" ? 2.2 : 1.8);

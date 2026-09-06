@@ -10,15 +10,15 @@
 import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype } from "../data";
 import { dockValue } from "../docks";
 import { galaxyRange, within } from "../galaxy";
+import { seedOf } from "../rng";
 import { prodOf, sciOf } from "../science";
+import { yardAt } from "../shipyard";
 import { L, S, U, UPKEEP, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, voyages, worlds } from "../state";
 import { DEVS, ENGINES, techOf } from "../tech";
 import { fmt } from "../util";
 import { popOf } from "../world";
 import { seenSys } from "./scene";
 import type { Part, World } from "../types";
-
-import { seedOf } from "../rng";
 
 export type Ctl = HTMLElement & { value: any; textContent: any; disabled: boolean; checked: boolean };
 export function el(id: string): Ctl { return document.getElementById(id) as Ctl; }
@@ -254,11 +254,11 @@ export function panels(): void {
     }).join("");
   } else {
     const s = systems[U.view.sys], rows: string[] = [];
-    s.yards.forEach((yd) => {
+    shipyards.filter((y) => y.world.sys === s.id).forEach((y) => y.queue.forEach((yd) => {
       rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + yd.color + '"></i>' +
         '<span class="rname">' + corps[yd.lead].name + ' · ' + yd.vt.name + '</span>' +
         '<span class="rmeta">верфь ' + Math.round((1 - yd.left / yd.total) * 100) + '%</span></div></div>');
-    });
+    }));
     s.ventures.forEach((v) => {
       if (v.building) return;
       rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + corps[v.lead].color + '"></i>' +

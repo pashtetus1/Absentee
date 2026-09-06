@@ -71,7 +71,7 @@ export interface Sys {
   depth: number;                  // удалённость от родины, "переход N"
   pulse: number;
   bodies: Planet[]; rocks: Rock[]; ventures: Venture[];
-  ships: Ship[]; yards: Yard[]; stations: Station[];
+  ships: Ship[]; stations: Station[];
   mines: number;
   belt: boolean;                  // есть ли пояс астероидов
   gate: Gate;
@@ -134,6 +134,7 @@ export interface Corp {
   ask: Record<string, number>;           // во сколько раз просит выше ходовой цены
   pirate?: boolean;                      // ушла в разбой
   home?: World;                          // логово вольницы
+  needYard?: boolean;                    // хотела заказать, но собрать негде — повод предлагать верфь
   origin?: string;                       // какой жребий её породил
   bornAt?: World;                        // мир, на котором она возникла
   native?: string;                       // класс миров, родной отделившейся колонии
@@ -148,9 +149,11 @@ export interface Order {
   parts: Part[]; born: string;
   wait?: number;                  // месяцев ждём недостающую деталь
   fly?: Record<string, number>;   // чего уже везут, чтобы не заказать дважды
-  sys?: number;                   // где собирают
+  sys?: number;                   // где собирают (система верфи; детали едут сюда)
+  yard?: Shipyard;                // на какой именно верфи: в системе их может быть несколько
   dst?: number;                   // куда полетит готовое
   to?: number;                    // цель прыжка
+  from?: number;                  // точка старта прыжка: система с заселённой планетой
   rock?: Rock;                    // какой астероид разрабатывать
   gateAt?: number;                // в какой системе ставят ворота
 }
@@ -165,6 +168,7 @@ export interface Part { k: string; from: number; price?: number; sys?: number; }
 /** Подписка на колонию: скидываются несколько компаний. */
 export interface Project {
   lead: number; body: Planet; dst: number; sys: number;
+  yard?: Shipyard;                // где собирают модуль
   cost: number; purse: number;
   need: Record<string, number>; got: Record<string, number>; parts: Part[];
   backers: { corp: number; sum: number }[];
@@ -198,6 +202,7 @@ export interface Yard {
   parts: Part[]; left: number; total: number;
   vent?: Venture; dest?: Dest; dst?: number;
   to?: number; gateHere?: number; fuelWait?: number;
+  from?: number;                  // прыжок: откуда стартовать; не система верфи, если её нет в дальности
   body?: Planet; backers?: { corp: number; sum: number }[];
 }
 
@@ -248,6 +253,14 @@ export interface Ship {
   body?: Planet; backers?: { corp: number; sum: number }[];
 }
 
+/** Прыжковый корабль у точки старта: ждёт межзвёздного топлива, потом прыгает. */
+export interface Staged {
+  kind: string; corp: number; color: string; parts: Part[];
+  at: number;                     // где стоит
+  to: number;                     // куда прыгнет
+  fuelWait: number; captain: string; born: string;
+}
+
 /** Рейс между звёздами или между мирами.
  *
  *  Форм две, и они правда разные. Хлебовоз и переселенческий идут МЕЖДУ МИРАМИ:
@@ -279,6 +292,7 @@ export interface Voyage {
   take?: (part: Part) => void;    // что сделать по прибытии
   relief?: number;                // чья частная помощь; иначе везёт правительство
   cargo?: string;                 // что за груз у платформы или модуля
+  jumpTo?: number;                // паром везёт прыжковый к точке старта: куда прыгать оттуда
   dest?: Dest; vent?: Venture; body?: Planet;
   backers?: { corp: number; sum: number }[];
 }
@@ -333,7 +347,7 @@ export interface Snapshot {
   move: Move; routes: Record<string, boolean>;
   market: Record<string, MarketRow>; patents: Record<string, Patent>;
   voyages: Voyage[]; projects: Project[]; docks: Dock[];
-  shipyards: Shipyard[]; proposals: Proposal[];
+  shipyards: Shipyard[]; proposals: Proposal[]; staged: Staged[];
   trades: number; shipped: number; movedPops: number; refusals: number;
   dropped: number; hauled: number; burned: number; raids: number;
   feed: { d: string; t: string }[];

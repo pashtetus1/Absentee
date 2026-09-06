@@ -2,13 +2,13 @@
 
 import { vtype } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
+import { rnd } from "./rng";
+import { YARD_WORK, nearestYard, yardAt } from "./shipyard";
 import { S, anyMakes, canBuild, corps, dateStr, fill, market, projects, say, systems, voyages, worlds } from "./state";
 import { gated, reachable } from "./travel";
 import { clamp, dist } from "./util";
 import { hasBranch, openBranch, popOf } from "./world";
 import type { Corp, Order, Part, Planet, Rock, Sys, VType } from "./types";
-
-import { rnd } from "./rng";
 
 export function freeRocks(s: Sys): Rock[]{ return s.rocks.filter((r) => { return !r.taken; }); }
 // Заказ не начинают, пока нет горючего, на котором это полетит: иначе корабль
@@ -28,6 +28,10 @@ export function jumpTarget(c: Corp): { from: number; to: number } | null {
   let out: { from: number; to: number } = null, bd = 1e9;
   systems.forEach((s) => {
     if (!s.unlocked) return;
+    // Стартовать можно только там, где живут люди, и куда верфь может пригнать
+    // корабль. Голая открытая звезда — цель, а не площадка.
+    if (!s.bodies.some((b) => b.world)) return;
+    if (!nearestYard(s.id, c)) return;
     within(s.id, range).forEach((n) => {
       if (systems[n].unlocked) return;
       if (voyages.some((v) => { return v.to === n && (v.kind === "jump" || v.kind === "opener"); })) return;
@@ -105,7 +109,9 @@ export function reviewOrders(): void {
       const free = freeRocks(pickS);
       o.rock = free[Math.floor(rnd() * free.length)];
       o.rock.taken = true;
-      o.dst = pickS.id; o.sys = baseSys(c, pickS.id);   // собираем у себя, везём туда
+      const ym = nearestYard(baseSys(c, pickS.id), c);
+      if (!ym) { o.rock.taken = false; c.needYard = true; return; }
+      o.dst = pickS.id; o.sys = ym.world.sys; o.yard = ym;   // собирают на верфи, везут к астероиду
     } else if (best.key === "gate") {
       // Ворота для ЗАКРЫТОЙ системы собираются у ближайших готовых ворот и
       // уходят туда одним рейсом: свозить детали в систему, до которой ещё
@@ -122,13 +128,16 @@ export function reviewOrders(): void {
         });
         if (base === null) base = 0;
       }
-      o.sys = base;
+      const yg = nearestYard(base, c);
+      if (!yg) { systems[gt.sys].gate.building = false; c.needYard = true; return; }
+      o.sys = yg.world.sys; o.yard = yg;
     } else {
       const jt = jumpTarget(c);
       if (!jt) return;
-      o.sys = jt.from; o.to = jt.to;
+      const yj = nearestYard(jt.from, c);        // jumpTarget уже отсеял старты без верфи
+      o.sys = yj.world.sys; o.yard = yj; o.from = jt.from; o.to = jt.to;
     }
-    c.order = o;
+    c.order = o; c.needYard = false;
     say("<b>" + c.name + "</b> взялась собирать " + best.name + " в " + systems[o.sys].name + ".");
   });
 }
@@ -177,9 +186,11 @@ export function reviewProjects(): void {
       });
     });
     if (!target) return;
+    const yc = nearestYard(baseSys(c, target.s.id), c);
+    if (!yc) { c.needYard = true; return; }
     const cost = colonyCost(target.s), put = Math.min(c.cash * 0.45, cost);
     c.cash -= put; target.b.claimed = true;
-    projects.push({ lead:c.id, body:target.b, dst:target.s.id, sys:baseSys(c, target.s.id), cost:cost, purse:put,
+    projects.push({ lead:c.id, body:target.b, dst:target.s.id, sys:yc.world.sys, yard:yc, cost:cost, purse:put,
                     need:JSON.parse(JSON.stringify(vtype("colony").need)), got:{}, parts:[],
                     backers:[{ corp:c.id, sum:put }], age:0, born:dateStr() });
     say("<b>" + c.name + "</b> открыла подписку на колонию " + target.b.name +
@@ -220,16 +231,18 @@ export function full(need: Record<string, number>, got: Record<string, number>):
 export function assemble(): void {
   corps.forEach((c) => {
     if (!c.order || !full(c.order.need, c.order.got)) return;
-    const vt = vtype(c.order.type), o = c.order, s = systems[o.sys];
+    const vt = vtype(c.order.type), o = c.order;
+    const yard = o.yard;
+    if (!yard || yard.owner >= 0 && yard.owner !== c.id) return;   // верфь ушла из-под заказа (отделение); ждём
     if (vt.key === "gate") {
-      s.yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, gateHere:o.gateAt,
-                     parts:o.parts.slice(), left:vt.build, total:vt.build });
+      yard.queue.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, gateHere:o.gateAt,
+                     parts:o.parts.slice(), left:vt.build * YARD_WORK, total:vt.build * YARD_WORK });
     } else if (vt.key === "jump" || vt.key === "opener") {
       // цель могла открыться, пока свозили детали — тогда летим к другой
       let to = o.to;
       if (systems[to].unlocked) { const jt = jumpTarget(c); if (!jt) { releaseOrder(o); c.order = null; return; } to = jt.to; }
-      s.yards.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:to,
-                     parts:o.parts.slice(), left:vt.build, total:vt.build });
+      yard.queue.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:to, from:o.from,
+                     parts:o.parts.slice(), left:vt.build * YARD_WORK, total:vt.build * YARD_WORK });
     } else {
       // предприятие числится в системе АСТЕРОИДА, а не сборки
       const r = o.rock, ds = systems[o.dst];
@@ -237,8 +250,8 @@ export function assemble(): void {
                 left:vt.term, yield:vt.yield, born:dateStr(), dest:{ kind:"rock", ref:r, label:r.name },
                 live:false, building:true };
       ds.ventures.push(v);
-      s.yards.push({ vt:vt, vent:v, lead:c.id, color:c.color, glyph:vt.glyph, dest:v.dest,
-                     dst:o.dst, parts:v.parts, left:vt.build, total:vt.build });
+      yard.queue.push({ vt:vt, vent:v, lead:c.id, color:c.color, glyph:vt.glyph, dest:v.dest,
+                     dst:o.dst, parts:v.parts, left:vt.build * YARD_WORK, total:vt.build * YARD_WORK });
     }
     const from: Record<number, number> = {};
     c.order.parts.forEach((p) => { from[p.from] = 1; });
@@ -252,9 +265,11 @@ export function assemble(): void {
   projects.forEach((pr) => {
     pr.age++;
     if (!full(pr.need, pr.got)) return;
-    systems[pr.sys].yards.push({ vt:vtype("colony"), lead:pr.lead, color:corps[pr.lead].color, glyph:"cir",
+    const yp = pr.yard;
+    if (!yp) return;
+    yp.queue.push({ vt:vtype("colony"), lead:pr.lead, color:corps[pr.lead].color, glyph:"cir",
                                  body:pr.body, dst:pr.dst, backers:pr.backers.slice(), parts:pr.parts.slice(),
-                                 left:vtype("colony").build, total:vtype("colony").build });
+                                 left:vtype("colony").build * YARD_WORK, total:vtype("colony").build * YARD_WORK });
     say("<b>" + corps[pr.lead].name + "</b> заложила колониальный модуль для " + pr.body.name +
         " (вкладчиков " + pr.backers.length + ").");
     pr.done = true;
