@@ -8,7 +8,7 @@ import { popOf, reserveOf } from "./world";
 import type { Pop, Wage, World } from "./types";
 
 export const PULL = 0.03;      // на сколько в месяц цена еды тянется к резерву (при пустом складе)
-export const CUT = 0.20;       // сколько казна оставляет себе с хлеба при полном амбаре
+export const CUT = 0.12;       // сколько казна оставляет себе с хлеба при полном амбаре
 
 export function squeeze(jobs: number, workers: number): number { return clamp(1 + 0.5 * (jobs - workers) / Math.max(1.2, workers), 0.55, 2.2); }
 
