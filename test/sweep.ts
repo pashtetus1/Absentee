@@ -25,11 +25,13 @@ import { load } from "./harness.ts";
 import type { ApproveMode } from "../src/types.ts";
 
 interface Game { seed: number; worlds: number; pop: number; hungry: number; food: number; crossed: number;
-                 queue: number; queueMax: number; jam: number; }
+                 queue: number; queueMax: number; jam: number;
+                 govHome: number; govCol: number; starved: number; farmers: number; }
 interface Tally {
   games: number; worlds: number; pop: number; hungry: number;
   food: number; crossed: number; pairs: string[]; each: Game[];
   queue: number; queueMax: number; jam: number;
+  govHome: number; govCol: number; starved: number; farmers: number;
 }
 
 const YEARS = 300;
@@ -37,12 +39,12 @@ const YEARS = 300;
 // ---- работник: свои сиды, ответ одной строкой JSON ------------------------
 function work(file: string, seeds: number[], approve?: ApproveMode): Tally {
   const t: Tally = { games: seeds.length, worlds: 0, pop: 0, hungry: 0, food: 0, crossed: 0, pairs: [], each: [],
-                     queue: 0, queueMax: 0, jam: 0 };
+                     queue: 0, queueMax: 0, jam: 0, govHome: 0, govCol: 0, starved: 0, farmers: 0 };
   for (const seed of seeds) {
     const sim = load(file, { seed });
     if (approve) sim.setApproval(approve);
     const seen = new Set<any>(), crossed = new Set<any>();
-    let qsum = 0, qmax = 0, jam = 0, months = 0;
+    let qsum = 0, qmax = 0, jam = 0, months = 0, colM = 0, colHungry = 0;
     for (let i = 0; i < YEARS * 12; i++) {
       sim.step();
       // очереди верфей: средняя за партию, самая длинная и сколько месяцев
@@ -54,6 +56,9 @@ function work(file: string, seeds: number[], approve?: ApproveMode): Tally {
         qsum += sum / ys.length; qmax = Math.max(qmax, mx); if (mx > 5) jam++;
       }
       months++;
+      // голод меряем в колоние-месяцах, а не по срезу на 300 году: журнал
+      // считает баланс еды именно так (п. 5, «36% колоние-месяцев»)
+      sim.state().worlds.forEach((w) => { if (w.founder >= 0) { colM++; if (w.food.short > 0) colHungry++; } });
       const food = sim.state().voyages.filter((v) => v.kind === "food");
       food.forEach((v) => seen.add(v));
       for (const a of food) for (const b of food) {
@@ -64,16 +69,26 @@ function work(file: string, seeds: number[], approve?: ApproveMode): Tally {
       }
     }
     const st = sim.state();
+    // казна миров: родина отдельно от колоний — у них разные порядки и разная
+    // судьба, среднее по всем мирам сразу ничего не сказало бы
+    const home = st.worlds.filter((w) => w.founder < 0)[0];
+    const cols = st.worlds.filter((w) => w.founder >= 0);
+    const people = st.worlds.reduce((a, w) => a + w.pop.farm + w.pop.prod + w.pop.sci + w.pop.free, 0);
     const g: Game = {
       seed, worlds: st.worlds.length,
       hungry: st.worlds.filter((w) => w.food.short > 2).length,
-      pop: st.worlds.reduce((a, w) => a + w.pop.farm + w.pop.prod + w.pop.sci + w.pop.free, 0),
+      pop: people,
       food: seen.size, crossed: crossed.size,
-      queue: qsum / Math.max(1, months), queueMax: qmax, jam: jam
+      queue: qsum / Math.max(1, months), queueMax: qmax, jam: jam,
+      govHome: home ? home.gov.cash : 0,
+      govCol: cols.length ? cols.reduce((a, w) => a + w.gov.cash, 0) / cols.length : 0,
+      starved: colM ? colHungry / colM : 0,
+      farmers: people > 0 ? st.worlds.reduce((a, w) => a + w.pop.farm, 0) / people : 0
     };
     t.each.push(g);
     t.worlds += g.worlds; t.hungry += g.hungry; t.pop += g.pop; t.food += g.food; t.crossed += g.crossed;
     t.queue += g.queue; t.queueMax = Math.max(t.queueMax, g.queueMax); t.jam += g.jam;
+    t.govHome += g.govHome; t.govCol += g.govCol; t.starved += g.starved; t.farmers += g.farmers;
   }
   return t;
 }
@@ -110,16 +125,21 @@ async function main(): Promise<void> {
   console.log("");
   // при малом числе партий — каждая строкой: так виден разброс, а не только среднее
   if (n <= 16) {
-    console.log("  сид  планет   людей   голодают   хлебовозов   из них навстречу");
+    console.log("  сид  планет   людей   голодают   хлебовозов   навстречу   казна дома   казна колоний");
     each.forEach((g) => console.log(
       "  " + String(g.seed).padStart(3) + String(g.worlds).padStart(8) + String(Math.round(g.pop)).padStart(8) +
-      String(g.hungry).padStart(11) + String(g.food).padStart(13) + String(g.crossed).padStart(19)));
+      String(g.hungry).padStart(11) + String(g.food).padStart(13) + String(g.crossed).padStart(12) +
+      String(Math.round(g.govHome)).padStart(13) + String(Math.round(g.govCol)).padStart(15)));
     console.log("");
   }
   console.log("  в среднем на партию: планет " + (sum("worlds") / n).toFixed(1) +
               ", людей " + (sum("pop") / n).toFixed(0) +
               ", голодают " + (sum("hungry") / n).toFixed(1) +
               ", хлебовозов " + (food / n).toFixed(0));
+  console.log("  казна мира: родина " + (sum("govHome") / n).toFixed(0) +
+              ", колония в среднем " + (sum("govCol") / n).toFixed(0) +
+              " · в поле " + (100 * sum("farmers") / n).toFixed(0) + "% людей" +
+              " · голодных колоние-месяцев " + (100 * sum("starved") / n).toFixed(1) + "%");
   console.log("  очередь верфи: в среднем " + (sum("queue") / n).toFixed(1) +
               ", самая длинная " + Math.max(...parts.map((p) => p.queueMax)) +
               ", месяцев затора (>5 в очереди) " + (sum("jam") / n).toFixed(0) + " из " + (YEARS * 12));
