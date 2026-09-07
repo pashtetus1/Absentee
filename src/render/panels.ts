@@ -10,6 +10,7 @@
 import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype } from "../data";
 import { dockValue } from "../docks";
 import { galaxyRange, within } from "../galaxy";
+import { buyPrice, harvestOf } from "../labour";
 import { seedOf } from "../rng";
 import { prodOf, sciOf } from "../science";
 import { yardAt } from "../shipyard";
@@ -39,6 +40,14 @@ export function partsList(parts: Part[], ownerId: number): string {
 
 export function worldCard(w: World): string {
   const p = w.pop, total = popOf(w);
+  // Урожай спрашиваем у harvestOf — у той же функции, по которой мир кормится
+  // на самом деле. Здесь стояла своя оценка (p.farm * w.type.farm), четвёртая
+  // по счёту: она завышала урожай в разруху и в неурожай, занижала на
+  // освоенных мирах, и панель писала «кормится сама» голодающему.
+  // Итог по хлебу берём готовым (w.food.gain): он считается по складу ДО еды,
+  // а панель видит склад уже после — восстановить это число она может только
+  // неверно, и это была бы та же ошибка, что и с урожаем.
+  const grown = harvestOf(w), buy = buyPrice(w);
   return '<div class="card"><h3>' + w.body.name + ' · ' + w.type.name + '</h3>' +
     '<div class="sub">' + fmt(total) + ' из ' + w.cap + ' человечков · ' +
     (w.founder >= 0 ? "основана " + corps[w.founder].name + ", " + w.born : "родина") + '</div>' +
@@ -46,11 +55,13 @@ export function worldCard(w: World): string {
     '<div class="part"><span class="pn">в цехах</span><span class="pw">' + fmt(p.prod) + ' · ' + w.wage.prod.toFixed(2) + '</span></div>' +
     '<div class="part"><span class="pn">в лабораториях</span><span class="pw">' + fmt(p.sci) + ' · ' + w.wage.sci.toFixed(2) + '</span></div>' +
     '<div class="part"><span class="pn">без работы</span><span class="pw">' + fmt(p.free) + '</span></div>' +
-    '<div class="sub" style="margin:7px 0 3px">Еда: своя ' + (p.farm * w.type.farm).toFixed(1) +
+    '<div class="sub" style="margin:7px 0 3px">Еда: своя ' + grown.toFixed(1) +
     ', надо ' + total.toFixed(1) + ', склад ' + w.food.stock.toFixed(1) +
     (w.food.short > 2 ? ' · <span style="color:var(--bad)">голод</span>' : '') + '</div>' +
     (w.rough > 0 ? '<div class="sub" style="margin:0 0 3px;color:var(--bad)">Разруха: ещё ' + Math.ceil(w.rough / 12) + ' лет</div>' : '') +
     (w.blight > 0 ? '<div class="sub" style="margin:0 0 3px;color:var(--bad)">Неурожай: ещё ' + w.blight + ' мес.</div>' : '') +
+    '<div class="sub" style="margin:0 0 3px">Хлеб: закуп ' + buy.toFixed(2) + ', продажа ' + w.food.price.toFixed(2) +
+    ' · казне ' + w.food.gain.toFixed(1) + '/мес</div>' +
     '<div class="sub" style="margin:0 0 3px">Казна мира ' + Math.round(w.gov.cash) +
     ' · содержание ' + (popOf(w) * UPKEEP).toFixed(1) + '/мес' +
     ' · уехать хотят ' + w.wantOut.toFixed(1) + ' · ' + w.flow + '</div>' +
@@ -271,7 +282,7 @@ export function panels(): void {
     const total = popOf(w), fill = Math.round(total / w.cap * 100);
     const dots = w.branches.map((b) => { return '<i class="pip" style="background:' + corps[b.corp].color + '"></i>'; }).join("");
     const food = w.food.short > 2 ? '<span style="color:var(--bad)">голод</span>'
-             : (w.pop.farm * w.type.farm >= total ? "кормится сама" : "живёт на привозном");
+             : (harvestOf(w) >= total ? "кормится сама" : "живёт на привозном");
     return '<div class="row clickrow" data-world="' + i + '"><div class="srow">' +
            '<span class="rname">' + w.body.name + '</span>' + dots +
            '<span class="rmeta">' + systems[w.sys].name + ' · ' + w.type.name + '</span></div>' +

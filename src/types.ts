@@ -85,7 +85,13 @@ export interface Sys {
 
 export interface Pop { farm: number; prod: number; sci: number; free: number; }
 export interface Wage { farm: number; prod: number; sci: number; }
-export interface Food { stock: number; price: number; short: number; }
+export interface Food {
+  stock: number; price: number; short: number;
+  /** Что казна мира получила с хлеба в ПРОШЕДШЕМ месяце: продала едокам минус
+   *  закупила у фермеров. Считается в labour() по складу ДО еды, поэтому
+   *  панель не может восстановить это число сама — только соврать. */
+  gain: number;
+}
 
 /** Филиал компании на мире: её люди и её рабочие места здесь. */
 export interface Branch {

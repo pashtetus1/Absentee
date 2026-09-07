@@ -8,6 +8,7 @@ import { popOf, reserveOf } from "./world";
 import type { Pop, Wage, World } from "./types";
 
 export const PULL = 0.03;      // на сколько в месяц цена еды тянется к резерву (при пустом складе)
+export const CUT = 0.20;       // сколько казна оставляет себе с хлеба при полном амбаре
 
 export function squeeze(jobs: number, workers: number): number { return clamp(1 + 0.5 * (jobs - workers) / Math.max(1.2, workers), 0.55, 2.2); }
 
@@ -17,11 +18,27 @@ export function squeeze(jobs: number, workers: number): number { return clamp(1 
 // урожайность типа, relief — то же плюс освоение, orders — снова без освоения.
 // Три оценки одного числа расходились с настоящим тем сильнее, чем лучше был
 // освоен мир, и именно из-за этого освоенные миры записывались в нахлебники.
-export function harvestOf(w: World): number {
-  return w.pop.farm * w.type.farm *
+//
+// Урожай разложен на ВЫРАБОТКУ ОДНОГО ФЕРМЕРА и число фермеров, потому что по
+// выработке считается ещё и заработок в поле: фермер получает за то, что
+// вырастил. Прежние price * 2.4 платили одинаково всюду — фермеру на голой
+// планете, где он кормит десятую долю человека, столько же, сколько на
+// джунглях, и людей тянуло в заведомо бесплодное поле.
+export function yieldPerFarmer(w: World): number {
+  return w.type.farm *
          (w.rough > 0 ? 0.55 : 1) *          // разруха первых десяти лет
          (w.blight > 0 ? 0.5 : 1) *          // неурожай
          devMult(w);                          // освоение класса миров
+}
+export function harvestOf(w: World): number { return w.pop.farm * yieldPerFarmer(w); }
+
+// Закупочная цена: сколько казна мира платит фермеру за единицу. Полный амбар
+// сбивает закуп — зерно некуда девать; пустой поднимает его вплотную к цене
+// для едоков, и в голод казна на хлебе не зарабатывает ничего. Разница между
+// этой ценой и food.price и есть заработок казны, и она рыночная: её двигает
+// предложение (амбар), тогда как продажную цену двигает спрос.
+export function buyPrice(w: World): number {
+  return w.food.price * (1 - CUT * clamp(w.food.stock / Math.max(1, reserveOf(w)), 0, 1));
 }
 
 export function labour(w: World): void {
@@ -32,10 +49,24 @@ export function labour(w: World): void {
   const rough = w.rough > 0;
   if (w.blight > 0) w.blight--;
   const grown = harvestOf(w);   // разруха, неурожай, освоение
+  const buy = buyPrice(w);      // по амбару ДО еды: в него казна и докупает
+  // Съедено — не то же, что нужно: в голодный месяц съедают склад плюс урожай,
+  // а не полную потребность. Раньше эта величина терялась (склад просто
+  // обрезался по нулю), а теперь на неё выписан счёт.
+  const eaten = Math.min(total, w.food.stock + grown);
   w.food.stock += grown - total;
   const hungry = w.food.stock < 0;
   if (hungry) w.food.stock = 0;
   w.food.short = hungry ? w.food.short + 1 : 0;
+  // Казна мира скупает у фермеров весь урожай и продаёт съеденное едокам. До
+  // этого еда на своём мире доставалась даром, а зарплату в поле не платил
+  // никто — она считалась, показывалась и двигала людей, оставаясь при этом
+  // ничьим обещанием. Чистый итог маленький и меняет знак: сытый мир копит,
+  // мир, набивающий закрома, платит за них, а проедающий запас превращает
+  // амбар в деньги — на них и покупается хлебовоз. Пол на нуле обязателен:
+  // весь код покупок опирается на то, что gov.cash не бывает отрицательной.
+  w.food.gain = eaten * w.food.price - grown * buy;
+  w.gov.cash = Math.max(0, w.gov.cash + w.food.gain);
   // Цена еды — память мира о голоде, и до сих пор она помнила только ЭТОТ
   // месяц: есть дефицит — дорожает, нет — дешевеет. Склад в ней не участвовал,
   // и мир проедал резерв молча: на родине люди уходили из поля в цеха при
@@ -46,7 +77,7 @@ export function labour(w: World): void {
   // поле, пока есть что есть, а не когда уже нечего.
   const lack = clamp(1 - w.food.stock / Math.max(1, reserveOf(w)), 0, 1);
   w.food.price = clamp(w.food.price * (1 + 0.04 * (total - grown) / Math.max(1, total) + PULL * lack), 0.2, 6);
-  w.wage.farm = w.type.farm > 0 ? w.food.price * 2.4 : 0;
+  w.wage.farm = w.type.farm > 0 ? yieldPerFarmer(w) * buy : 0;
 
   let jp = 0, js = 0;
   // верфь с работой в очереди просит людей наравне с цехами
