@@ -65,11 +65,15 @@ export function rollType(): PType {
   return PTYPES[0];
 }
 
+// Рецепт: по одной детали каждого вида, и корпус ровно один. Корпус — это и
+// есть сам корабль, второго у него быть не может; удвоений нет и у остальных
+// деталей. Отличаются корабли теперь НАБОРОМ деталей, а не их числом: бур
+// делает платформу платформой, двигатель — прыжковым, товары — колонией.
 export const VTYPES: VType[] = [
-  { key:"mine",   name:"разработка астероидов", need:{ drill:2, hold:1, hull:1 }, build:14, yield:3.1, term:1800, glyph:"mine" },
-  { key:"colony", name:"колония",               need:{ hull:2, life:1, goods:1 }, build:22, glyph:"colony" },
-  { key:"jump",   name:"межзвёздный прыжок",    need:{ drive:2, hull:1, life:1 }, build:30, glyph:"jump" },
-  { key:"gate",   name:"портальный корабль",   need:{ hull:2, drive:2, life:1 }, build:38, glyph:"jump" },
+  { key:"mine",   name:"разработка астероидов", need:{ drill:1, hold:1, hull:1 }, build:14, yield:3.1, term:1800, glyph:"mine" },
+  { key:"colony", name:"колония",               need:{ hull:1, life:1, goods:1 }, build:22, glyph:"colony" },
+  { key:"jump",   name:"межзвёздный прыжок",    need:{ drive:1, hull:1, life:1 }, build:30, glyph:"jump" },
+  { key:"gate",   name:"портальный корабль",   need:{ hull:1, drive:1, life:1 }, build:38, glyph:"jump" },
   { key:"cargo",  name:"грузовик",              need:{ hull:1, hold:1 },          build:8,  glyph:"cargo" },
   { key:"liner",  name:"переселенческий",       need:{ hull:1, life:1 },          build:10, glyph:"cargo" }
 ];
