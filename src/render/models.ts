@@ -8,7 +8,7 @@ import { vis } from "../clock";
 import { compOf } from "../data";
 import { dockValue } from "../docks";
 import { corps, systems } from "../state";
-import { Dock, Part, Ship, Shipyard, Sys, Voyage } from "../types";
+import { Build, Dock, Part, Ship, Shipyard, Sys, Voyage } from "../types";
 import { clamp } from "../util";
 import { CH, CW, cx, getCx, glow, setCx, uiz } from "./canvas";
 
@@ -151,17 +151,61 @@ export function yardPos(y: Shipyard, mx: number, my: number): { x: number; y: nu
   return { x: p.x + Math.cos(a) * off, y: p.y + Math.sin(a) * off };
 }
 
-/** Строки окошка верфи: кто хозяин, кто на стапеле, сколько ждёт следом. */
+/** Кому и куда пойдёт эта сборка. Одна фраза на все виды кораблей: в очереди
+ *  из пяти позиций «Артель · грузовик» ничего не отвечает на главный вопрос —
+ *  зачем он строится. У транспорта это хозяин (компания или казна мира), у
+ *  остальных — цель, к которой он уйдёт со стапеля. */
+export function buildAim(b: Build): string {
+  if (b.vt.key === "cargo" || b.vt.key === "liner")
+    return b.forCorp !== undefined ? "для " + corps[b.forCorp].name
+         : "для казны " + (b.forWorld ? b.forWorld.body.name : "мира");
+  if (b.body) return "курс на " + b.body.name;
+  if (b.dest) return "курс на " + b.dest.label;
+  if (b.to !== undefined) return "курс на " + systems[b.to].name;
+  if (b.dst !== undefined) return "перегон в " + systems[b.dst].name;
+  return "";
+}
+
+/** Готовность позиции, 0..1. Держится в одном месте потому, что её считают
+ *  трижды: в окошке у верфи, в панели и в списке дел системы. */
+export function buildDone(b: Build): number { return clamp(1 - Math.max(0, b.left) / Math.max(1, b.total), 0, 1); }
+
+/** Что с позицией происходит прямо сейчас. Готовый корабль без топлива стоит
+ *  у стапеля и НЕ держит очередь (motion), и по одной готовности этого не
+ *  видно: 100% и «уже улетел» выглядят одинаково. */
+export function buildState(b: Build, first: boolean): string {
+  if (b.left > 0) return first ? "на стапеле" : "ждёт очереди";
+  return b.fuelWait ? "готов, без топлива " + b.fuelWait + " мес." : "готов";
+}
+
+/** Через сколько месяцев сойдёт со стапеля каждая позиция очереди. Руки идут
+ *  ПЕРВОЙ недостроенной сборке, поэтому третья ждёт ещё и первые две — без
+ *  этой суммы «в очереди четыре» не отличает пять лет от пятидесяти.
+ *  null — рук на стапеле нет вовсе, и очередь не двигается. */
+export function queueEta(y: Shipyard): (number | null)[] {
+  let acc = 0;
+  return y.queue.map((b) => {
+    acc += Math.max(0, b.left);
+    return y.crew > 0 ? Math.ceil(acc / y.crew) : null;
+  });
+}
+
+/** Строки окошка верфи: кто хозяин, руки, и вся очередь по порядку. Раньше
+ *  показывалась только голова и число «ждут следом», то есть посмотреть
+ *  очередь было нельзя нигде: кто стоит вторым и когда дойдёт — не узнать. */
 export function yardLines(y: Shipyard): string[] {
   const out = [y.owner >= 0 ? "верфь «" + corps[y.owner].name + "»" : "верфь, общая"];
   out.push("людей на стапеле " + y.crew.toFixed(1));
-  const head = y.queue.find((b) => b.left > 0) || y.queue[0];
-  if (!head) out.push("очередь пуста");
-  else {
-    out.push(corps[head.lead].name + " · " + head.vt.name + " · " +
-             Math.round((1 - Math.max(0, head.left) / head.total) * 100) + "%");
-    if (y.queue.length > 1) out.push("ждут следом: " + (y.queue.length - 1));
-  }
+  if (!y.queue.length) { out.push("очередь пуста"); return out; }
+  const eta = queueEta(y);
+  // В окошко на сцене лезет немного строк, поэтому здесь первые четыре, а
+  // полная очередь с составом деталей — в панели справа.
+  y.queue.slice(0, 4).forEach((b, i) => {
+    out.push((i + 1) + ". " + corps[b.lead].name + " · " + b.vt.name + " · " +
+             Math.round(buildDone(b) * 100) + "%" +
+             (eta[i] === null ? "" : " · " + eta[i] + " мес."));
+  });
+  if (y.queue.length > 4) out.push("и ещё " + (y.queue.length - 4) + " в очереди");
   return out;
 }
 
@@ -208,6 +252,20 @@ export function ship(kind: string, x: number, y: number, s: number, rot: number,
     cx.fillStyle = "#0b1120"; poly([-1.6,-3.4, 1.6,-3.4, 1.6,-1.4, -1.6,-1.4]);
   }
   cx.restore();
+}
+// Пятиконечная звёздочка — знак столицы, и больше ничей. Форма отвечает на
+// «что это» (см. журнал), поэтому звезда нужна ровно одна на всю галактику: та
+// планета, с которой всё началось, и та система, где она лежит. Рисуется через
+// две окружности вершин — внешнюю и внутреннюю, — чтобы луч не зависел от
+// размера и читался и на 4 пикселях в системе, и на карте под зумом.
+export function star(x: number, y: number, rad: number, col: string): void {
+  cx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -1.5708 + i * 0.6283, rr = rad * (i % 2 ? 0.42 : 1);
+    const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+    i ? cx.lineTo(px, py) : cx.moveTo(px, py);
+  }
+  cx.closePath(); cx.fillStyle = col; cx.fill();
 }
 export function rock(x: number, y: number, rad: number, seed: number, col: string): void {
   cx.beginPath();

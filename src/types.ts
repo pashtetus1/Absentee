@@ -105,6 +105,7 @@ export interface Branch {
 export interface World {
   body: Planet; sys: number; type: PType;
   cap: number; cap0: number;
+  capTop?: number;                // жёсткий потолок: выше него не поднимает даже освоение
   pop: Pop; wage: Wage; food: Food;
   gov: { cash: number };
   slots: number;

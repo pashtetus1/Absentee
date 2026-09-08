@@ -1,8 +1,8 @@
 {
-  "name": "porog",
+  "name": "absentee",
   "version": "0.0.0",
   "private": true,
-  "description": "Порог — прототип игры про космическую империю, которой нельзя управлять напрямую",
+  "description": "Absentee — прототип игры про космическую империю, которой нельзя управлять напрямую",
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",

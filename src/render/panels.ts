@@ -19,7 +19,7 @@ import { DEVS, ENGINES, techOf } from "../tech";
 import { fuelCost } from "../travel";
 import { fmt } from "../util";
 import { popOf } from "../world";
-import { cargoName } from "./models";
+import { buildAim, buildDone, buildState, cargoName, queueEta } from "./models";
 import { seenSys } from "./scene";
 import type { Build, Part, World } from "../types";
 
@@ -38,6 +38,34 @@ export function partsList(parts: Part[], ownerId: number): string {
   }).join("");
 }
 
+// Очередь верфи целиком: позиция за позицией, по порядку, в котором к ним
+// пойдут руки. Раньше посмотреть очередь было нельзя нигде — панель писала
+// голову и сухое «ждут следом: Артель · грузовик», а верфь при этом главное
+// узкое место партии: пока она занята, не летит НИЧЕГО. Здесь у каждой
+// позиции видно, кто заказал, зачем, насколько готово, когда дойдёт очередь и
+// из чего собирают то, что уже на стапеле.
+export function yardQueue(y: { queue: Build[]; crew: number }): string {
+  if (!y.queue.length) return '<div class="empty">Очередь пуста.</div>';
+  const eta = queueEta(y as Parameters<typeof queueEta>[0]);
+  const first = y.queue.findIndex((b) => b.left > 0);
+  return y.queue.map((b, i) => {
+    const done = buildDone(b), aim = buildAim(b);
+    const when = eta[i] === null ? "рук нет"
+               : eta[i] === 0 ? "сходит" : "через " + eta[i] + " мес.";
+    return '<div class="row"><div class="rhead">' +
+      '<i class="dot" style="background:' + b.color + '"></i>' +
+      '<span class="rname">' + (i + 1) + '. ' + corps[b.lead].name + ' · ' + b.vt.name + '</span>' +
+      '<span class="rmeta">' + Math.round(done * 100) + '%</span></div>' +
+      '<div class="bar"><i style="width:' + (done * 100) + '%;background:' + b.color + '"></i></div>' +
+      '<div class="rmeta">' + buildState(b, i === first) +
+      (aim ? ' · ' + aim : '') + ' · ' + when + '</div>' +
+      // Состав показываем только у того, что на стапеле: у пяти позиций пять
+      // списков деталей превращают панель в простыню, а интересно это ровно
+      // про тот корабль, который вот-вот сойдёт.
+      (i === first ? partsList(b.parts, b.lead) : '') + '</div>';
+  }).join("");
+}
+
 export function worldCard(w: World): string {
   const p = w.pop, total = popOf(w);
   // Урожай спрашиваем у harvestOf — у той же функции, по которой мир кормится
@@ -48,9 +76,10 @@ export function worldCard(w: World): string {
   // а панель видит склад уже после — восстановить это число она может только
   // неверно, и это была бы та же ошибка, что и с урожаем.
   const grown = harvestOf(w), buy = buyPrice(w);
-  return '<div class="card"><h3>' + w.body.name + ' · ' + w.type.name + '</h3>' +
+  // Звёздочка у имени — тот же знак столицы, что на карте и на диске планеты.
+  return '<div class="card"><h3>' + (w === S.home ? '★ ' : '') + w.body.name + ' · ' + w.type.name + '</h3>' +
     '<div class="sub">' + fmt(total) + ' из ' + w.cap + ' человечков · ' +
-    (w.founder >= 0 ? "основана " + corps[w.founder].name + ", " + w.born : "родина") + '</div>' +
+    (w.founder >= 0 ? "основана " + corps[w.founder].name + ", " + w.born : "столица") + '</div>' +
     '<div class="part"><span class="pn">в поле</span><span class="pw">' + fmt(p.farm) + ' · ' + w.wage.farm.toFixed(2) + '</span></div>' +
     '<div class="part"><span class="pn">в цехах</span><span class="pw">' + fmt(p.prod) + ' · ' + w.wage.prod.toFixed(2) + '</span></div>' +
     '<div class="part"><span class="pn">в лабораториях</span><span class="pw">' + fmt(p.sci) + ' · ' + w.wage.sci.toFixed(2) + '</span></div>' +
@@ -166,19 +195,10 @@ export function inspector(): void {
   // (d.vt.name у Shipyard нет) — а inspector зовётся из step(), так что один
   // клик по кранам останавливал партию насмерть, а не только ломал окно.
   if (U.pick.kind === "yard") {
-    const head: Build = d.queue.find((b: Build) => b.left > 0) || d.queue[0];
     box.innerHTML = '<div class="card"><h3>Верфь у ' + d.world.body.name + '</h3>' +
       '<div class="sub">' + (d.owner >= 0 ? "хозяин " + corps[d.owner].name : "общая") +
       ' · людей на стапеле ' + d.crew.toFixed(1) + ' · в очереди ' + d.queue.length + '</div>' +
-      (head ? '<div class="sub" style="margin:0 0 4px">' + corps[head.lead].name + ' · ' + head.vt.name +
-              ' · готовность ' + Math.round((1 - Math.max(0, head.left) / head.total) * 100) + '%' +
-              (d.crew > 0 ? ' · до спуска ' + Math.ceil(Math.max(0, head.left) / d.crew) + ' мес.'
-                          : ' · рук на стапеле нет') + '</div>' +
-              partsList(head.parts, head.lead) +
-              (d.queue.length > 1 ? '<div class="sub" style="margin:6px 0 0">Ждут следом: ' +
-                d.queue.filter((b: Build) => b !== head).map((b: Build) => corps[b.lead].name + " · " + b.vt.name).join(", ") +
-                '</div>' : '')
-            : '<div class="empty">Очередь пуста.</div>') + '</div>';
+      yardQueue(d) + '</div>';
     return;
   }
   box.innerHTML = '<div class="empty">—</div>';
@@ -284,7 +304,7 @@ export function panels(): void {
     const food = w.food.short > 2 ? '<span style="color:var(--bad)">голод</span>'
              : (harvestOf(w) >= total ? "кормится сама" : "живёт на привозном");
     return '<div class="row clickrow" data-world="' + i + '"><div class="srow">' +
-           '<span class="rname">' + w.body.name + '</span>' + dots +
+           '<span class="rname">' + (w === S.home ? '★ ' : '') + w.body.name + '</span>' + dots +
            '<span class="rmeta">' + systems[w.sys].name + ' · ' + w.type.name + '</span></div>' +
            '<div class="rmeta">' + fmt(total) + '/' + w.cap + ' (' + fill + '%) · ' + food +
            ' · уехать хотят ' + w.wantOut.toFixed(1) + '</div></div>';
@@ -309,11 +329,19 @@ export function panels(): void {
     }).join("");
   } else {
     const s = systems[U.view.sys], rows: string[] = [];
-    shipyards.filter((y) => y.world.sys === s.id).forEach((y) => y.queue.forEach((yd) => {
-      rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + yd.color + '"></i>' +
-        '<span class="rname">' + corps[yd.lead].name + ' · ' + yd.vt.name + '</span>' +
-        '<span class="rmeta">верфь ' + Math.round((1 - yd.left / yd.total) * 100) + '%</span></div></div>');
-    }));
+    // Очередь верфи в списке дел системы: с номером, состоянием и сроком, тем
+    // же, что в окошке у самой верфи. Прежняя строка давала одну готовность и
+    // молчала о порядке — по ней нельзя было понять, кто ждёт кого.
+    shipyards.filter((y) => y.world.sys === s.id).forEach((y) => {
+      const eta = queueEta(y), first = y.queue.findIndex((b) => b.left > 0);
+      y.queue.forEach((yd, i) => {
+        rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + yd.color + '"></i>' +
+          '<span class="rname">' + (i + 1) + '. ' + corps[yd.lead].name + ' · ' + yd.vt.name + '</span>' +
+          '<span class="rmeta">' + Math.round(buildDone(yd) * 100) + '%</span></div>' +
+          '<div class="rmeta">верфь у ' + y.world.body.name + ' · ' + buildState(yd, i === first) +
+          (eta[i] === null ? '' : ' · через ' + eta[i] + ' мес.') + '</div></div>');
+      });
+    });
     s.ventures.forEach((v) => {
       if (v.building) return;
       rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + corps[v.lead].color + '"></i>' +

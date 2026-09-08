@@ -8,7 +8,7 @@ import { gatesAt, inNet, otherEnd, spread } from "../travel";
 import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
 import { CH, CW, advanceFrame, cx, glow, last, setSysK, setUiz, uiz } from "./canvas";
-import { advance, caption, dockLines, flame, grow, posOf, rock, ship, tiny, windowLines, yardLines, yardPos } from "./models";
+import { advance, caption, dockLines, flame, grow, posOf, rock, ship, star, tiny, windowLines, yardLines, yardPos } from "./models";
 import type { Rock, Sys } from "../types";
 
 // Куда смотрит створ: на ту звезду, к которой ведёт. Поэтому два маршрута из
@@ -69,6 +69,15 @@ export function drawSystem(s: Sys): void {
         cx.fillStyle = corps[br.corp].color;
         cx.fillRect(p.x + Math.cos(a) * (b.rad + 11) - 2.5, p.y + Math.sin(a) * (b.rad + 11) - 2.5, 5, 5);
       });
+    }
+    // Столица помечена звёздочкой прямо на диске — тем же знаком, что и её
+    // система на карте. Без него родина отличалась от колонии только тем, что
+    // на неё смотрят с первого кадра, а к сотому году это уже не помнится.
+    if (w && w === S.home) {
+      cx.globalAlpha = 0.35;
+      star(p.x, p.y, Math.min(9, b.rad * 0.62), "#fff3d0");
+      cx.globalAlpha = 1;
+      star(p.x, p.y, Math.min(6.5, b.rad * 0.45), "#ffe6a8");
     }
     hits.push({ x:p.x, y:p.y, r:b.rad + 12, kind:"body", data:b });
     cx.font = "500 10.5px system-ui, sans-serif"; cx.fillStyle = w ? "#c9d2e4" : "#6a7590";
@@ -380,7 +389,11 @@ export function drawMap(): void {
     const g = cx.createRadialGradient(s.x, s.y, uiz, s.x, s.y, r + 9 * uiz);
     g.addColorStop(0, "#fff3d0"); g.addColorStop(0.45, "rgba(242,179,61,0.55)"); g.addColorStop(1, "rgba(242,179,61,0)");
     cx.beginPath(); cx.arc(s.x, s.y, r + 9 * uiz, 0, 6.2832); cx.fillStyle = g; cx.fill();
-    cx.beginPath(); cx.arc(s.x, s.y, r * 0.5, 0, 6.2832); cx.fillStyle = "#fff6dd"; cx.fill();
+    // Ядро звезды: у столичной системы — звёздочка, у прочих кружок. Знак тот
+    // же, что на диске самой столицы в виде системы, и место у него то же —
+    // центр узла, куда не заезжают ни пипки филиалов (r+13), ни подписи.
+    if (S.home && S.home.sys === s.id) star(s.x, s.y, r * 1.15, "#fff6dd");
+    else { cx.beginPath(); cx.arc(s.x, s.y, r * 0.5, 0, 6.2832); cx.fillStyle = "#fff6dd"; cx.fill(); }
     const ws = s.bodies.filter((b) => { return b.world; }), here: Record<number, number> = {};
     ws.forEach((b) => { b.world.branches.forEach((br) => { here[br.corp] = 1; }); });
     const ids = Object.keys(here);
@@ -390,8 +403,9 @@ export function drawMap(): void {
       cx.fillStyle = corps[+id].color; cx.fill();
     });
     hits.push({ x:s.x, y:s.y, r:26 * uiz, kind:"sys", data:s });
-    cx.font = (s.id === 0 ? "600 " : "500 ") + (10 * uiz) + "px system-ui, sans-serif";
-    cx.fillStyle = s.id === 0 ? "#e4e9f4" : "#9aa5bd";
+    const capital = S.home && S.home.sys === s.id;
+    cx.font = (capital ? "600 " : "500 ") + (10 * uiz) + "px system-ui, sans-serif";
+    cx.fillStyle = capital ? "#e4e9f4" : "#9aa5bd";
     cx.textAlign = "center"; cx.textBaseline = "top";
     cx.fillText(s.name, s.x, s.y + r + 13 * uiz);
     const popHere = ws.reduce((a2, b) => { return a2 + popOf(b.world); }, 0);

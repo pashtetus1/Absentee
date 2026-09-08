@@ -23,6 +23,10 @@ import type { Core } from "../src/types.ts";
 export interface Harnessed extends Core {
   /** Прокрутить один кадр руками: сам он в заглушках не крутится. */
   __frame(): void;
+  /** Что панель написала в этот блок. Разметка панелей — тоже поведение: она
+   *  уже врала числами (урожай, состав корабля), и поймать это можно только
+   *  прочитав то, что она выдала. Пусто, если блока нет или он не заполнялся. */
+  __html(id: string): string;
 }
 
 interface Options {
@@ -75,8 +79,8 @@ export function load(file: string, { withDom = false, seed = null }: Options = {
       return s / 4294967296;
     };
   }
+  let nodes: Record<string, any> = {};
   if (withDom) {
-    const nodes: Record<string, any> = {};
     sandbox.document = {
       getElementById(id: string) { return nodes[id] || (nodes[id] = stubElement()); },
       // значки в легенде рисуются теми же модельками, что и сцена, поэтому
@@ -129,5 +133,6 @@ export function load(file: string, { withDom = false, seed = null }: Options = {
     let ts = 0;
     api.__frame = () => { const fn = sandbox.__frame; sandbox.__frame = null; if (fn) fn(ts += 16); };
   }
+  api.__html = (id: string): string => String((nodes[id] && nodes[id].innerHTML) || "");
   return api;
 }
