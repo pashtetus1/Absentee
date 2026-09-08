@@ -14,6 +14,13 @@ export const COMPS: Comp[] = [
   { key:"hull",  name:"Корпус",              short:"корпус",    diff:1750, work:5, base:40,  glyph:"tri" },
   { key:"life",  name:"Жизнеобеспечение",    short:"жизнь",     diff:2200, work:6, base:58,  glyph:"cir" },
   { key:"drive", name:"Прыжковый двигатель", short:"двигатель", diff:4600, work:9, base:110, glyph:"tri" },
+  // Портальный набор — сами ворота, сложенные в трюм: корабль довозит их до
+  // соседней звезды и там оставляет. Это самая дорогая вещь в игре, и так и
+  // задумано. Под воротами межзвёздный двигатель не нужен ВООБЩЕ — ни одному
+  // кораблю, включая портальный: он идёт на ходовом, как все. Поэтому цена
+  // способа собрана здесь целиком, в одной детали: платишь один раз за
+  // маршрут, зато потом по нему летает кто угодно и даром.
+  { key:"gkit",  name:"Портальный набор",     short:"набор",     diff:6400, work:14, base:260, glyph:"dia" },
   // Топливо — первый РАСХОДНИК в этой экономике: всё остальное покупается раз
   // и стоит вечно, а его жгут каждым рейсом. Отсюда постоянный спрос, а не
   // разовые всплески. Местное и межзвёздное — разные вещества: на местном
@@ -102,7 +109,7 @@ export const VTYPES: VType[] = [
   { key:"mine",   name:"разработка астероидов", need:{ drill:1, hold:1, hull:1 }, build:14, yield:3.1, term:1800, glyph:"mine" },
   { key:"colony", name:"колония",               need:{ hull:1, life:1, goods:1 }, build:22, glyph:"colony" },
   { key:"jump",   name:"межзвёздный прыжок",    need:{ drive:1, hull:1, life:1 }, build:30, glyph:"jump" },
-  { key:"gate",   name:"портальный корабль",   need:{ hull:1, drive:1, life:1 }, build:38, glyph:"jump" },
+  { key:"gate",   name:"портальный корабль",   need:{ hull:1, gkit:1, life:1 }, build:38, glyph:"jump" },
   { key:"cargo",  name:"грузовик",              need:{ hull:1, hold:1 },          build:8,  glyph:"cargo" },
   { key:"liner",  name:"переселенческий",       need:{ hull:1, life:1 },          build:10, glyph:"cargo" }
 ];
@@ -135,10 +142,10 @@ export function shipNeed(vt: VType, eng: string | null,
 // Третьего способа — порталооткрывателей, прожигавших постоянный проход, —
 // больше нет: ворота на маршруте делают ровно то же самое, только их видно.
 export const MOVES: Move[] = [
-  { key:"drives", name:"портальные движки", vt:"jump",
+  { key:"drives", name:"портальные движки", vt:"jump", comp:"drive",
     hint:"Двигатель на каждом корабле: экспансия по одному кораблю, перевозки между звёздами дороги навсегда." },
-  { key:"gates",  name:"звёздные ворота", vt:"gate",
-    hint:"Портальный корабль ставит ворота на маршрут: дорого за каждый, зато потом по нему летают без двигателя." }
+  { key:"gates",  name:"звёздные ворота", vt:"gate", comp:"gkit",
+    hint:"Портальный корабль везёт ворота и оставляет их на маршруте: очень дорого за каждый, зато потом по нему летают даром." }
 ];
 export function moveOf(k: string): Move{ for (let i=0;i<MOVES.length;i++) if (MOVES[i].key===k) return MOVES[i]; }
 
@@ -171,19 +178,19 @@ export function moveName(): string{ return S.moveKnown ? S.move.name : "спос
 // aptOf() (science.ts).
 export const TEMPLATE = [
   { name:"Тайко Дриллинг",   color:"#6fd39b", craft:"буры",      nerve:0.9,
-    apt:{ drill:1.9, hull:0.7, hold:0.6, drive:0.4, life:0.4, goods:0.35, eng:0.5,
+    apt:{ drill:1.9, hull:0.7, hold:0.6, drive:0.4, gkit:0.4, life:0.4, goods:0.35, eng:0.5,
           temperate:0.7, cold:1.2, dry:0.8, hot:1.4, gas:0.5 } },
   { name:"Ново-Кеплер Авиа", color:"#ff8b5e", craft:"самолёты",  nerve:1.25,
-    apt:{ hull:1.9, drive:0.85, hold:0.7, life:0.5, drill:0.4, goods:0.35, eng:1.6,
+    apt:{ hull:1.9, drive:0.85, gkit:0.9, hold:0.7, life:0.5, drill:0.4, goods:0.35, eng:1.6,
           temperate:0.9, cold:0.7, dry:0.8, hot:0.6, gas:1.5 } },
   { name:"Дом чая Ланьхуа",  color:"#dd7ec6", craft:"чай",       nerve:0.6,
-    apt:{ goods:2.0, hold:0.9, life:0.7, hull:0.35, drill:0.3, drive:0.3, eng:0.35,
+    apt:{ goods:2.0, hold:0.9, life:0.7, hull:0.35, drill:0.3, drive:0.3, gkit:0.3, eng:0.35,
           temperate:1.7, cold:0.5, dry:0.9, hot:0.3, gas:0.4 } },
   { name:"Гелиос-Прайм",     color:"#4ec4e6", craft:"механика",  nerve:1.05,
-    apt:{ drive:1.55, life:1.25, hull:0.8, hold:0.5, drill:0.5, goods:0.35, eng:1.7,
+    apt:{ drive:1.55, gkit:1.6, life:1.25, hull:0.8, hold:0.5, drill:0.5, goods:0.35, eng:1.7,
           temperate:0.8, cold:1.0, dry:0.7, hot:1.2, gas:1.1 } },
   { name:"Синдикат Веги",    color:"#f2b33d", craft:"перевозки", nerve:0.85,
-    apt:{ hold:1.85, life:0.85, goods:0.8, hull:0.6, drill:0.55, drive:0.45, eng:1.2,
+    apt:{ hold:1.85, life:0.85, goods:0.8, hull:0.6, drill:0.55, drive:0.45, gkit:0.5, eng:1.2,
           temperate:1.0, cold:0.9, dry:1.5, hot:0.6, gas:0.7 } }
 ];
 

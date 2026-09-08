@@ -70,9 +70,17 @@ export function pickTarget(c: Corp): string | null {
       // без него готовый прыжковый корабль стоял у стапеля девяносто лет
       const waiting = shipyards.some((y) => { return y.queue.length > 0 && y.queue[0].fuelWait > 0; }) ||
                       staged.some((st) => { return st.fuelWait > 0; });
-      worth = waiting ? 4.5 : (galaxyRange() > 0 || anyKnows("drive") ? 3.2 : 1.2);
+      worth = waiting ? 4.5 : (galaxyRange() > 0 || anyKnows(S.move.comp) ? 3.2 : 1.2);
     }
-    else if (compOf(f.key)) worth = f.key === "drive" ? 3.0 : (f.key === "drill" || f.key === "hold" ? 2.2 : 1.8);
+    else if (f.key === "drive" || f.key === "gkit") {
+      // Межзвёздная деталь у каждого способа СВОЯ: прыжковый двигатель под
+      // движками, портальный набор под воротами. Чужая в этой партии не полетит
+      // никогда, и вкладываться в неё — выкинуть деньги. Раньше двигатель стоил
+      // 3.0 при любом способе, и под воротами компании годами доводили деталь,
+      // которую некуда поставить.
+      worth = f.key === S.move.comp ? 3.0 : 0.15;
+    }
+    else if (compOf(f.key)) worth = f.key === "drill" || f.key === "hold" ? 2.2 : 1.8;
     else {
       let free = 0;
       systems.forEach((s) => {
