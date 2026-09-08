@@ -38,7 +38,7 @@ export interface Dev extends Tech { cls: string; mark: number; }
 export interface PType {
   key: string; name: string; cap: number; farm: number;
   cls: string;                    // класс: по нему идут марки освоения
-  tech: string | null;            // технология колонизации ЭТОГО типа; null — умеренные, их заселяют без науки
+  tech: string;                   // технология колонизации ЭТОГО типа
   col: string; w: number;
 }
 /** Класс миров: имя для марок освоения. Правом колонизировать больше не

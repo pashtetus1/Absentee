@@ -191,7 +191,7 @@ export function reviewProjects(): void {
         // claimed держится от начала подписки до посадки модуля. Без него
         // вторая компания открывала подписку на ту же планету, пока первый
         // модуль был в пути, и на одной планете вырастало по десять колоний.
-        if (b.world || b.claimed || (b.type.tech && !canBuild(c, b.type.tech))) return;
+        if (b.world || b.claimed || !canBuild(c, b.type.tech)) return;
         const score = (b.type.cap + b.type.farm * 3) / (1 + s.depth * 0.4);
         if (score > top) { top = score; target = { b:b, s:s }; }
       });
