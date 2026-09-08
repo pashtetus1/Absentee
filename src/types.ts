@@ -93,6 +93,7 @@ export interface Sys {
   ships: Ship[]; stations: Station[];
   mines: number;
   belt: boolean;                  // есть ли пояс астероидов
+  gateR: number;                  // радиус последней орбиты — на ней стоят створы
 }
 
 // ---- мир --------------------------------------------------------------

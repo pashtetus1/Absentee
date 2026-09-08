@@ -1,7 +1,7 @@
 
 import { vis } from "../clock";
 import { MARKRANGE } from "../data";
-import { GATE_R, galaxyRange, within } from "../galaxy";
+import { galaxyRange, within } from "../galaxy";
 import { yardAt } from "../shipyard";
 import { S, U, cam, corps, docks, gates, hits, shipyards, systems, voyages } from "../state";
 import { gatesAt, inNet, otherEnd, spread } from "../travel";
@@ -25,13 +25,13 @@ export function drawSystem(s: Sys): void {
 
   // Подгоняем систему под холст: берём самое дальнее, что в ней есть, и ужимаем
   // так, чтобы оно поместилось с полем. Раньше масштаба не было вовсе, и всё
-  // дальше 340 (внешние планеты, а с недавних пор и ворота на 420) рисовалось
-  // за краем экрана. Подписи и значки при этом НЕ ужимаются: uiz гасит масштаб,
-  // тот же приём, что на карте.
+  // дальше 340 рисовалось за краем экрана. Подписи и значки при этом НЕ
+  // ужимаются: uiz гасит масштаб, тот же приём, что на карте. Створы стоят
+  // на последней орбите и масштаб не двигают: место под них отведено при
+  // расстановке планет (см. makeSystem).
   let far = 0;
   s.bodies.forEach((o) => { far = Math.max(far, o.r + o.rad); });
   s.rocks.forEach((o) => { far = Math.max(far, o.r + o.s); });
-  if (gatesAt(s.id).length) far = Math.max(far, GATE_R + 18);
   const k = Math.min(1, (Math.min(CW, CH) / 2 - 28) / Math.max(1, far));
   setSysK(k); setUiz(1 / k);
   cx.save(); cx.translate(mx, my); cx.scale(k, k); cx.translate(-mx, -my);
@@ -92,7 +92,7 @@ export function drawSystem(s: Sys): void {
   // месте края и не отвечали на главный вопрос — КУДА отсюда можно.
   gatesAt(s.id).forEach((g) => {
     const to = otherEnd(g, s.id);
-    const jp = posOf({ r:GATE_R, ang:gateAng(s.id, to) }, mx, my), jr = 11 + Math.sin(glow * 1.6) * 1.8;
+    const jp = posOf({ r:s.gateR, ang:gateAng(s.id, to) }, mx, my), jr = 11 + Math.sin(glow * 1.6) * 1.8;
     const col = g.built ? "#9aa8ff" : "#3a4460";
     // Кольцо с четырьмя засечками, развёрнутое от звезды: это створ, в который
     // уходят, а не ещё одна планета на орбите.
@@ -224,7 +224,7 @@ export function drawSystem(s: Sys): void {
   const edge = (to: number): { x: number; y: number } => {
     const via = net.via[to];
     const a = gateAng(s.id, via === undefined ? to : via);
-    return { x:mx + Math.cos(a) * GATE_R, y:my + Math.sin(a) * GATE_R };
+    return { x:mx + Math.cos(a) * s.gateR, y:my + Math.sin(a) * s.gateR };
   };
   const LEG = 0.15;
   voyages.forEach((v) => {

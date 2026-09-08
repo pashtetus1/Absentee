@@ -472,6 +472,35 @@ test("астероиды раскиданы по системе, а не по к
   assert(avg > 60, "разброс радиусов всего " + avg.toFixed(0) + ": камни выстроились в кольцо");
 });
 
+test("камни не ложатся под планеты, а места створов свободны", () => {
+  // Створ встаёт на последней орбите на луче к соседу, до которого достаёт
+  // лучшая марка (130). Раньше камень мог лечь прямо под планету — подписи
+  // накрывали друг друга — а ворота стояли за краем на своём кольце 420.
+  const REACH = 130;
+  for (let seed = 1; seed <= 12; seed++) {
+    const sys = load("dist/index.html", { seed }).state().systems;
+    sys.forEach((s) => {
+      const at = (o: { r: number; ang: number }) => ({ x: Math.cos(o.ang) * o.r, y: Math.sin(o.ang) * o.r });
+      const outer = Math.max.apply(null, s.bodies.map((b) => b.r));
+      assert(Math.abs(s.gateR - outer) < 1e-9, s.name + ": ворота не на последней орбите");
+      const gates = sys.filter((o) => o !== s && Math.hypot(o.x - s.x, o.y - s.y) <= REACH)
+        .map((o) => { const a = Math.atan2(o.y - s.y, o.x - s.x); return { x: Math.cos(a) * s.gateR, y: Math.sin(a) * s.gateR }; });
+      s.rocks.forEach((r) => {
+        const p = at(r);
+        s.bodies.forEach((b) => {
+          const q = at(b);
+          assert(Math.hypot(p.x - q.x, p.y - q.y) > b.rad + 40, s.name + ": камень " + r.name + " под планетой " + b.name);
+        });
+        gates.forEach((g) => { assert(Math.hypot(p.x - g.x, p.y - g.y) > 30, s.name + ": камень " + r.name + " на месте створа"); });
+      });
+      s.bodies.forEach((b) => {
+        const q = at(b);
+        gates.forEach((g) => { assert(Math.hypot(q.x - g.x, q.y - g.y) > b.rad + 30, s.name + ": планета " + b.name + " на месте створа"); });
+      });
+    });
+  }
+});
+
 // ── зависшие подписки ───────────────────────────────────────────────────────
 // Уже ломалось: подписка на колонию висела вечно, деньги были собраны, а
 // корпус никто не продавал — и планета всё это время числилась занятой, так

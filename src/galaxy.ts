@@ -1,44 +1,74 @@
 // ===================== галактика =====================
 
-import { BODYNAMES, MARKS, ROCKNAMES, SYSNAMES, ptypeOf, rollType } from "./data";
+import { BODYNAMES, MARKRANGE, MARKS, ROCKNAMES, SYSNAMES, ptypeOf, rollType } from "./data";
 import { CH, CW } from "./render/canvas";
 import { rnd } from "./rng";
 import { canBuild, corps, fill, systems } from "./state";
 import { dist, rnd6 } from "./util";
-import type { Corp, Mark, Sys } from "./types";
+import type { Corp, Mark, PType, Sys } from "./types";
 
-export function makeSystem(i: number, name: string, x: number, y: number, pool: string[]): Sys {
+// pts — координаты ВСЕХ звёзд: направления на соседей, до которых когда-нибудь
+// дотянется портал, резервируются под ворота ещё при расстановке планет.
+export function makeSystem(i: number, name: string, x: number, y: number, pool: string[], pts: { x: number; y: number }[]): Sys {
   // belt и gate дописываются ниже: belt тянет случайное число, и перенос его
   // в литерал сдвинул бы весь поток — партии перестали бы воспроизводиться
   const s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
             bodies:[], rocks:[], ventures:[], ships:[], stations:[], mines:0 } as unknown as Sys;
   const np = i === 0 ? 4 : 2 + Math.floor(rnd() * 4);      // до пяти планет
-  const base = rnd6();
+  const types: PType[] = [], rs: number[] = [];
   for (let k = 0; k < np; k++) {
-    const t = (i === 0 && k === 0) ? ptypeOf("terran") : rollType();
+    types.push((i === 0 && k === 0) ? ptypeOf("terran") : rollType());
+    rs.push(150 + k*52 + rnd()*16);
+  }
+  // Ворота стоят на ПОСЛЕДНЕЙ орбите системы, а не на своём кольце за краем:
+  // прежний фиксированный радиус 420 у системы из двух планет уводил створы
+  // в пустоту и заставлял ужимать всю сцену ради них. Створов ещё нет, но
+  // где они встанут — известно: на луче к каждой звезде, до которой вообще
+  // достаёт лучшая марка. Эти места держатся свободными от планет и камней.
+  s.gateR = rs[np - 1];
+  const reach = MARKRANGE[MARKRANGE.length - 1];
+  const gatePts = pts.filter((p, j) => { return j !== i && dist(p, s) <= reach; })
+    .map((p) => { const a = Math.atan2(p.y - y, p.x - x); return { x:Math.cos(a) * s.gateR, y:Math.sin(a) * s.gateR }; });
+  const away = (px: number, py: number, m: number): boolean => {
+    return gatePts.every((g) => { return Math.hypot(g.x - px, g.y - py) > m; });
+  };
+  // Углы планет перебираются, пока ни одна не ляжет на место створа: подпись
+  // планеты — две строки вниз, кольцо створа — ещё 18, отсюда запас.
+  let angs: number[] = [], tries = 0;
+  do {
+    const base = rnd6();
+    angs = [];
+    for (let k = 0; k < np; k++) angs.push(base + k * (1.5 + rnd()*0.8));
+  } while (++tries < 300 && !angs.every((a, k) => { return away(Math.cos(a) * rs[k], Math.sin(a) * rs[k], 8 + types[k].cap * 0.7 + 44); }));
+  for (let k = 0; k < np; k++) {
+    const t = types[k];
     // пятьдесят систем по пять планет — имён в пуле меньше, дальше идут
     // номера: "Кадм II", а не "Безымянная"
     const nm = pool.pop() || (BODYNAMES[(i * 5 + k) % BODYNAMES.length] + " " + ROMAN[1 + Math.floor((i * 5 + k) / BODYNAMES.length) % 4]);
-    s.bodies.push({ name: nm, type:t, r:150 + k*52 + rnd()*16,
-                    ang: base + k * (1.5 + rnd()*0.8), rad:8 + t.cap * 0.7,
+    s.bodies.push({ name: nm, type:t, r:rs[k], ang:angs[k], rad:8 + t.cap * 0.7,
                     kind:"planet", sys:i, world:null });
   }
   // Астероиды раскиданы по всей системе, а не выстроены в кольцо: пояс
   // читался как ещё одна орбита, хотя это просто камни, у каждого из которых
   // своё место. Держим их подальше от планет и друг от друга, чтобы подписи
-  // не слипались.
+  // не слипались. Меряем ОБЫЧНОЕ расстояние между точками: прежняя прикидка
+  // «радиусы разные ИЛИ углы разные» сравнивала разность углов не с тем
+  // знаком и пропускала почти всё — камень ложился прямо под планету, и её
+  // подпись накрывала его имя.
   s.belt = i === 0 || rnd() < 0.75;
   if (s.belt) {
     let n = 5 + Math.floor(rnd()*4), guard = 0,
         names = ROCKNAMES.slice().sort(() => { return rnd() - 0.5; });
     while (s.rocks.length < n && guard++ < 400) {
       const rr = 78 + rnd() * 244, aa = rnd6();
+      const x = Math.cos(aa) * rr, y = Math.sin(aa) * rr;
+      // под планетой две строки подписи (до rad+32), под камнем — одна
       const far = s.bodies.every((b) => {
-        return Math.abs(b.r - rr) > b.rad + 16 || Math.abs(((b.ang - aa + 9.42) % 6.2832) - 3.1416) < 2.5;
+        return Math.hypot(Math.cos(b.ang) * b.r - x, Math.sin(b.ang) * b.r - y) > b.rad + 48;
       });
-      if (!far) continue;
+      if (!far || !away(x, y, 40)) continue;
       const clear = s.rocks.every((o) => {
-        return Math.abs(o.r - rr) > 22 || Math.abs(((o.ang - aa + 9.42) % 6.2832) - 3.1416) < 2.9;
+        return Math.hypot(Math.cos(o.ang) * o.r - x, Math.sin(o.ang) * o.r - y) > 34;
       });
       if (!clear) continue;
       s.rocks.push({ name:names[s.rocks.length], r:rr, ang:aa,
@@ -53,9 +83,6 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
 // пропасть: до соседа в пятом кольце вчетверо дальше, чем в первом.
 // Всё в экранных единицах, чтобы дальности портала и расстояния меряли
 // одним и тем же — иначе баланс дальностей невозможно держать в голове.
-// Ворота стоят на КРАЮ системы, за последней орбитой (планеты доходят до
-// 150 + 4*52 + 16 = 374), и смотрят на ту звезду, к которой ведут.
-export const GATE_R = 420;
 
 export const RINGS = [{ r:0, n:1 }, { r:38, n:7 }, { r:86, n:10 }, { r:145, n:12 }, { r:216, n:12 }, { r:300, n:8 }];
 export const ROMAN = ["", "II", "III", "IV", "V"];
@@ -88,7 +115,7 @@ export function makeGalaxy(): void {
     pts.push(p);
   }
   fill(systems, pts.map((p, i) => {
-    const s = makeSystem(i, i < names.length ? names[i] : sysName(i), p.x, p.y, pool);
+    const s = makeSystem(i, i < names.length ? names[i] : sysName(i), p.x, p.y, pool, pts);
     s.depth = Math.round(dist(p, pts[0]) / 62);      // "переход N" — теперь по удалённости
     return s;
   }));
