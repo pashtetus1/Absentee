@@ -46,7 +46,7 @@ export const S = {
 };
 
 export const L = {
-  tax: 0.18, subKey: "drive", subYear: 90, tradeFee: 0.06, dole: 0.6, patTerm: 25, speed: 1,
+  tax: 0.18, subKey: "hull", subYear: 90, tradeFee: 0.06, dole: 0.6, patTerm: 25, speed: 1,
   approve: "manual" as ApproveMode         // не рычаг игрока: политика стенда, в браузере всегда manual
 };
 

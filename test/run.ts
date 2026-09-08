@@ -412,7 +412,7 @@ test("под движками межзвёздный транспорт везё
       if (v.kind !== "food" && v.kind !== "pops") return;
       if (v.from.sys === v.to.sys) return;
       checked++;
-      assert(v.parts.some((p) => p.k === "drive"), "межзвёздный рейс без двигателя на борту");
+      assert(v.parts.some((p) => /^drive\d$/.test(p.k)), "межзвёздный рейс без двигателя на борту");
     });
   });
 });
@@ -527,7 +527,8 @@ test("створы ведут ко всем соседям в конусе, а �
       assert(g.mark >= 1, "у маршрута " + k + " нет марки");
       [[g.a, g.b], [g.b, g.a]].forEach(([i, j]) => {
         const s = st.systems[i], o = st.systems[j], ray = Math.atan2(o.y - s.y, o.x - s.x);
-        const p = s.portals.find((p) => diff(p.ang, ray) <= CONE);
+        // ближайший к лучу створ в конусе — тот же выбор, что у portalFor в коде
+        const p = s.portals.filter((p) => diff(p.ang, ray) <= CONE).sort((a, b) => diff(a.ang, ray) - diff(b.ang, ray))[0];
         assert(p, s.name + ": маршрут к " + o.name + " есть, а створа в ту сторону нет");
         assert(p.mark >= g.mark, s.name + ": марка маршрута старше марки створа");
       });
@@ -549,7 +550,7 @@ test("марки берутся по порядку, без патентов, и
     const sim = load("dist/index.html", { seed });
     const ladders = (st: Snapshot): string[][] => {
       const eng = ["eng1", "eng2", "eng3", "eng4"];
-      const move = Object.keys(st.patents).filter((k) => /^(drives|gates)d$/.test(k)).sort();
+      const move = Object.keys(st.patents).filter((k) => /^(drive|gkit)\d$/.test(k)).sort();
       const devs: Record<string, string[]> = {};
       Object.keys(st.patents).filter((k) => /^dev_/.test(k)).forEach((k) => {
         const cls = k.split("_")[1]; (devs[cls] = devs[cls] || []).push(k);

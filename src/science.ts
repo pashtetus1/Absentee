@@ -12,7 +12,7 @@ import { rnd } from "./rng";
  *  всю линейку (apt.eng): «умеет делать двигатели» — свойство ремесла, а не
  *  отдельной модели. */
 export function aptOf(c: Corp, k: string): number {
-  return (isEngine(k) ? c.apt["eng"] : c.apt[k]) || 0.5;
+  return (isEngine(k) ? c.apt["eng"] : markOf(k) ? c.apt[S.move.comp] : c.apt[k]) || 0.5;
 }
 
 export function sciOf(c: Corp): number{ return c.branches.reduce((a, b) => { return a + b.emp.sci; }, 0); }
@@ -73,15 +73,7 @@ export function pickTarget(c: Corp): string | null {
       // без него готовый прыжковый корабль стоял у стапеля девяносто лет
       const waiting = shipyards.some((y) => { return y.queue.length > 0 && y.queue[0].fuelWait > 0; }) ||
                       staged.some((st) => { return st.fuelWait > 0; });
-      worth = waiting ? 4.5 : (galaxyRange() > 0 || anyKnows(S.move.comp) ? 3.2 : 1.2);
-    }
-    else if (f.key === "drive" || f.key === "gkit") {
-      // Межзвёздная деталь у каждого способа СВОЯ: прыжковый двигатель под
-      // движками, портальный набор под воротами. Чужая в этой партии не полетит
-      // никогда, и вкладываться в неё — выкинуть деньги. Раньше двигатель стоил
-      // 3.0 при любом способе, и под воротами компании годами доводили деталь,
-      // которую некуда поставить.
-      worth = f.key === S.move.comp ? 3.0 : 0.15;
+      worth = waiting ? 4.5 : (galaxyRange() > 0 ? 3.2 : 1.2);
     }
     else if (compOf(f.key)) worth = f.key === "drill" || f.key === "hold" ? 2.2 : 1.8;
     else {

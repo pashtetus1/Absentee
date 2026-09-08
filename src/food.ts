@@ -100,7 +100,7 @@ export function dispatch(from: World, to: World, kind: string, qty: number, part
             // освоенная в галактике).
             t:0, dur: from.sys === to.sys
                       ? (54 + rnd() * 18) / engMult(parts)
-                      : (150 + rnd() * 60) / routeSpeed(from.sys, to.sys, parts.length ? parts[0].from : -1),
+                      : (150 + rnd() * 60) / routeSpeed(from.sys, to.sys, parts.length ? parts[0].from : -1, parts),
             born:dateStr(), captain:pickCaptain() } as Voyage;
   voyages.push(v);
   return v;

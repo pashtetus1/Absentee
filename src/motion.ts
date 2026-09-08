@@ -13,6 +13,7 @@
 import { engMult, pickCaptain } from "./data";
 import { dockShip } from "./docks";
 import { markLevelOf, markSpeedOf } from "./galaxy";
+import { partMark } from "./data";
 import { takeFuel } from "./market";
 import { rnd } from "./rng";
 import { yardAt } from "./shipyard";
@@ -21,6 +22,13 @@ import { ensurePortal, fuelCost, newGate, routeKey, syncRoutes, useRoute } from 
 import { rnd6 } from "./util";
 import { makeWorld, openBranch } from "./world";
 import type { Gate, Ship, Sys, Voyage, Yard } from "./types";
+
+/** Скорость межзвёздного корабля: по марке детали на борту; нет детали (под
+ *  воротами у портального корабля набор, а не двигатель) — по марке хозяина. */
+function shipMark(parts: { k: string }[], corp: number): number {
+  const m = partMark(parts);
+  return m && S.move.key === "drives" ? m.speed : markSpeedOf(corp);
+}
 
 export function ferry(yd: Yard, s: Sys, kind: string): void {
   const lead = corps[yd.lead];
@@ -44,7 +52,7 @@ export function moveShips(): void {
     }
     staged.splice(i, 1);
     voyages.push({ kind:st.kind, sysFrom:st.at, to:st.to, corp:st.corp, color:st.color, parts:st.parts, upgrade:st.upgrade,
-                   t:0, dur:(220 + rnd()*80) / markSpeedOf(st.corp), born:dateStr(), captain:st.captain });
+                   t:0, dur:(220 + rnd()*80) / shipMark(st.parts, st.corp), born:dateStr(), captain:st.captain });
     say("<b>" + c.name + "</b>: " + what + " заправился в " + systems[st.at].name + " и вышел к " + systems[st.to].name + ".");
   }
 
@@ -107,7 +115,7 @@ export function moveShips(): void {
           continue;
         }
         voyages.push({ kind:yd.vt.key, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color, upgrade:yd.upgrade,
-                       parts:yd.parts, t:0, dur:(220 + rnd()*80) / markSpeedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
+                       parts:yd.parts, t:0, dur:(220 + rnd()*80) / shipMark(yd.parts, yd.lead), born:dateStr(), captain:pickCaptain() });
         say("<b>" + lead.name + "</b> вывела " + yd.vt.name + " с верфи " + s.name + ".");
       } else if (yd.vt.key === "colony") {
         if (far) { ferry(yd, s, "colony"); continue; }
@@ -179,14 +187,16 @@ export function arriveVoyage(v: Voyage): void {
       // возникали в системе сами, никуда не летя, и маршрута за ними не
       // стояло вовсе — сеть без рёбер.
       const key = routeKey(v.sysFrom, v.to);
-      const lvl = Math.max(1, markLevelOf(corps[v.corp]));
+      // марка створов — марка ПРИВЕЗЁННОГО набора, а не знаний хозяина
+      const kit = partMark(v.parts);
+      const lvl = kit ? kit.mark : Math.max(1, markLevelOf(corps[v.corp]));
       const g: Gate = gates[key] || (gates[key] = newGate(v.sysFrom, v.to, v.corp, lvl));
       // Комплект встаёт створами на ОБОИХ концах: в сторону друга друга. Створ,
       // который уже смотрит туда, получает марку не ниже привезённой.
       const was = g.built ? g.mark || 1 : 0;
       ensurePortal(v.sysFrom, v.to, v.corp, lvl);
       ensurePortal(v.to, v.sysFrom, v.corp, lvl);
-      if (!g.built) { g.built = true; g.building = false; g.owner = v.corp; g.born = dateStr(); }
+      if (!g.built) { g.built = true; g.building = false; g.owner = v.corp; g.born = dateStr(); g.mark = lvl; }
       g.upgrading = false;
       syncRoutes();                 // соседи в конусах створов тоже могли соединиться
       systems[v.sysFrom].pulse = 1;

@@ -1,6 +1,6 @@
 // ===================== данные =====================
 
-import { S, fill } from "./state";
+import { S, canBuild, corps, fill } from "./state";
 import type { ColTech, Comp, Mark, Move, PType, Tech, VType } from "./types";
 
 import { rnd } from "./rng";
@@ -13,14 +13,13 @@ export const COMPS: Comp[] = [
   { key:"drill", name:"Буровая установка",   short:"бур",       diff:880,  work:3, base:24,  glyph:"dia" },
   { key:"hull",  name:"Корпус",              short:"корпус",    diff:1750, work:5, base:40,  glyph:"tri" },
   { key:"life",  name:"Жизнеобеспечение",    short:"жизнь",     diff:2200, work:6, base:58,  glyph:"cir" },
-  { key:"drive", name:"Прыжковый двигатель", short:"двигатель", diff:4600, work:9, base:110, glyph:"tri" },
-  // Портальный набор — сами ворота, сложенные в трюм: корабль довозит их до
-  // соседней звезды и там оставляет. Это самая дорогая вещь в игре, и так и
-  // задумано. Под воротами межзвёздный двигатель не нужен ВООБЩЕ — ни одному
-  // кораблю, включая портальный: он идёт на ходовом, как все. Поэтому цена
-  // способа собрана здесь целиком, в одной детали: платишь один раз за
-  // маршрут, зато потом по нему летает кто угодно и даром.
-  { key:"gkit",  name:"Портальный набор",     short:"набор",     diff:6400, work:14, base:260, glyph:"dia" },
+  // Межзвёздной детали здесь НЕТ: прыжковый двигатель (под движками) и
+  // портальный набор (под воротами) — это и есть марки перехода, Mk1..Mk4, и
+  // они дописываются в COMPS при выборе способа (makeMarks). Портальный набор —
+  // сами ворота, сложенные в трюм: корабль довозит их до соседней звезды и
+  // там оставляет. Это самая дорогая вещь в игре, и так и задумано. Под
+  // воротами межзвёздный двигатель не нужен ВООБЩЕ — ни одному кораблю,
+  // включая портальный: он идёт на ходовом, как все.
   // Топливо — первый РАСХОДНИК в этой экономике: всё остальное покупается раз
   // и стоит вечно, а его жгут каждым рейсом. Отсюда постоянный спрос, а не
   // разовые всплески. Местное и межзвёздное — разные вещества: на местном
@@ -110,8 +109,10 @@ export function rollType(): PType {
 export const VTYPES: VType[] = [
   { key:"mine",   name:"разработка астероидов", need:{ drill:1, hold:1, hull:1 }, build:14, yield:3.1, term:1800, glyph:"mine" },
   { key:"colony", name:"колония",               need:{ hull:1, life:1, goods:1 }, build:22, glyph:"colony" },
-  { key:"jump",   name:"межзвёздный прыжок",    need:{ drive:1, hull:1, life:1 }, build:30, glyph:"jump" },
-  { key:"gate",   name:"портальный корабль",   need:{ hull:1, gkit:1, life:1 }, build:38, glyph:"jump" },
+  // межзвёздная деталь (двигатель или набор нужной марки) добавляется в
+  // shipNeed, как и ходовой: какая марка встанет — решается при закладке
+  { key:"jump",   name:"межзвёздный прыжок",    need:{ hull:1, life:1 }, build:30, glyph:"jump" },
+  { key:"gate",   name:"портальный корабль",   need:{ hull:1, life:1 }, build:38, glyph:"jump" },
   { key:"cargo",  name:"грузовик",              need:{ hull:1, hold:1 },          build:8,  glyph:"cargo" },
   { key:"liner",  name:"переселенческий",       need:{ hull:1, life:1 },          build:10, glyph:"cargo" }
 ];
@@ -126,6 +127,13 @@ export function shipNeed(vt: VType, eng: string | null,
   if (!eng) return null;
   const n: Record<string, number> = { ...vt.need };
   n[eng] = (n[eng] || 0) + 1;
+  // прыжковый и портальный несут межзвёздную деталь лучшей марки, какую в
+  // галактике вообще делают; никто не делает — корабля не будет
+  if (vt.key === S.move.vt) {
+    const mk = bestMarkMade();
+    if (!mk) return null;
+    n[mk] = (n[mk] || 0) + 1;
+  }
   if (extra) Object.keys(extra).forEach((k) => { n[k] = (n[k] || 0) + extra[k]; });
   return n;
 }
@@ -166,16 +174,44 @@ export const MARKDIFF  = [1300, 2900, 6400, 14000];
 // бьёт дальше, но и доводит корабль быстрее. Внутри системы марка не значит
 // ничего — там считает ходовой двигатель.
 export const MARKSPEED = [1, 1.25, 1.5, 1.8];
+// Марка — это ДЕТАЛЬ: прыжковый двигатель Mk1..Mk4 или портальный набор
+// Mk1..Mk4, смотря какой способ выпал. Её исследуют, делают, продают и ставят
+// на корабль, как ходовой двигатель; корабль летит с дальностью и скоростью
+// той марки, что на нём стоит. Отдельной бестелесной «технологии перехода»
+// больше нет — раньше марка и деталь жили порознь, и деталь была одна на все
+// марки, что не сходилось ни с ходовыми, ни со здравым смыслом.
+export const MARKWORK = [9, 11, 13, 16];
+export const MARKBASE = { drive:[110, 150, 200, 260], gkit:[260, 340, 440, 560] } as Record<string, number[]>;
 export const MARKS: Mark[] = [];
 export function makeMarks(): void {
+  // деталь прежнего способа — вон из COMPS: партия перестраивается заново
+  for (let i = COMPS.length - 1; i >= 0; i--) if (/^(drive|gkit)\d$/.test(COMPS[i].key)) COMPS.splice(i, 1);
+  const base = S.move.comp === "drive" ? "Прыжковый двигатель" : "Портальный набор";
+  const sh = S.move.comp === "drive" ? "двиг" : "набор";
   fill(MARKS, MARKRANGE.map((r, i) => {
-    return { key: S.move.key + (i + 1), short: "Mk" + (i + 1), range: r, mark: i + 1,
-             name: S.move.name + " Mk" + (i + 1), diff: MARKDIFF[i], speed: MARKSPEED[i] };
+    return { key: S.move.comp + (i + 1), short: sh + " Mk" + (i + 1), range: r, mark: i + 1,
+             name: base + " Mk" + (i + 1), diff: MARKDIFF[i], speed: MARKSPEED[i],
+             work: MARKWORK[i], base: MARKBASE[S.move.comp][i], glyph: S.move.comp === "drive" ? "tri" : "dia" };
   }));
+  MARKS.forEach((m) => { COMPS.push(m); });
+}
+export function isMark(k: string): boolean{ return !!markOf(k); }
+/** Марка, что стоит на корабле (по деталям); нет — null. */
+export function partMark(parts: { k: string }[]): Mark | null {
+  let best: Mark = null;
+  (parts || []).forEach((p) => { const m = markOf(p.k); if (m && (!best || m.mark > best.mark)) best = m; });
+  return best;
+}
+/** Лучшая марка, которую в галактике хоть кто-то умеет делать: её и поставят
+ *  на новый корабль. null — межзвёздной детали пока нет ни у кого. */
+export function bestMarkMade(): string | null {
+  let out: string | null = null;
+  MARKS.forEach((m) => { if (corps.some((c) => { return canBuild(c, m.key); })) out = m.key; });
+  return out;
 }
 export function markOf(k: string): Mark{ for (let i=0;i<MARKS.length;i++) if (MARKS[i].key===k) return MARKS[i]; }
 // пока способ не выяснен, марки называются обезличенно
-export function markName(m: Tech): string{ return S.moveKnown ? m.name : "Межзвёздный переход " + m.short; }
+export function markName(m: Tech): string{ return S.moveKnown ? m.name : "Межзвёздный переход Mk" + (m as Mark).mark; }
 export function moveName(): string{ return S.moveKnown ? S.move.name : "способ пока неизвестен"; }
 
 // apt.eng — склонность ко ВСЕЙ линейке ходовых двигателей разом, а не к

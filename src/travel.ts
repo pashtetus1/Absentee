@@ -1,7 +1,7 @@
 // ---- правила перемещения между звёздами ------------------------------
 
 import { galaxyRange, markSpeedOf } from "./galaxy";
-import { MARKRANGE, MARKSPEED } from "./data";
+import { MARKRANGE, MARKSPEED, bestMarkMade, partMark } from "./data";
 import { S, dateStr, gates, say, systems } from "./state";
 import { dist } from "./util";
 import type { Gate, Portal, VType } from "./types";
@@ -80,10 +80,12 @@ export function syncRoutes(): void {
       const pi = portalFor(i, j), pj = pi && portalFor(j, i);
       if (!pj) continue;
       const mark = Math.min(pi.mark, pj.mark);
-      if (dist(systems[i], systems[j]) > MARKRANGE[Math.min(MARKRANGE.length, mark) - 1]) continue;
       const key = routeKey(i, j);
       let g = gates[key];
+      // проложенный маршрут остаётся, даже если марка створов до него уже не
+      // достаёт (комплект оказался младше, чем знал хозяин при заказе)
       if (g && g.built) { g.mark = mark; continue; }
+      if (dist(systems[i], systems[j]) > MARKRANGE[Math.min(MARKRANGE.length, mark) - 1]) continue;
       if (g) { g.built = true; g.building = false; g.mark = mark; g.born = g.born || dateStr(); continue; }
       gates[key] = { a:i, b:j, built:true, building:false, owner:pj.owner, born:dateStr(), mark:mark, trips:0 };
       say("Створы " + systems[i].name + " и " + systems[j].name + " смотрят друг на друга: маршрут открыт.");
@@ -108,8 +110,10 @@ export function gatesOn(a: number, b: number): Gate[] {
 // створ, и скорость задаёт САМЫЙ СТАРЫЙ комплект на пути. Отсюда и смысл
 // переделывать створы: пока стоит Mk1, по маршруту всё ползёт как в первый
 // год, сколько бы марок ни открыли потом.
-export function routeSpeed(a: number, b: number, corpId: number): number {
-  if (a === b || S.move.key === "drives") return markSpeedOf(corpId);
+export function routeSpeed(a: number, b: number, corpId: number, parts?: { k: string }[]): number {
+  // под движками корабль идёт на ТОМ двигателе, что на нём стоит
+  const own = partMark(parts);
+  if (a === b || S.move.key === "drives") return own ? own.speed : markSpeedOf(corpId);
   const gs = gatesOn(a, b).filter((g) => { return g && g.built; });
   if (!gs.length) return markSpeedOf(corpId);
   let slow = 1e9;
@@ -164,8 +168,11 @@ export function fuelCost(a: number, b: number): number {
 }
 
 // Что должен нести межзвёздный транспорт сверх обычного набора.
-export function travelExtra(a: number, b: number): { drive: number; } {
-  return (a !== b && S.move.key === "drives") ? { drive:1 } : null;
+export function travelExtra(a: number, b: number): Record<string, number> {
+  if (a === b || S.move.key !== "drives") return null;
+  const mk = bestMarkMade();
+  if (!mk) return null;                   // двигателя нет ни у кого — рейс всё равно не соберётся
+  const out: Record<string, number> = {}; out[mk] = 1; return out;
 }
 export function needWith(vt: VType, extra: Record<string, number>): Record<string, number> {
   const n = JSON.parse(JSON.stringify(vt.need));

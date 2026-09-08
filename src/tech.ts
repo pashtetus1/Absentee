@@ -131,5 +131,6 @@ export function prevStep(k: string): string | null {
 // что и раньше — от него зависит, что компания выберет при равных прочих.
 // ENGINES сюда НЕ добавляются: это те же записи, что уже пришли в COMPS, и
 // вторым вхождением компания вкладывалась бы в один двигатель дважды.
-export function allTech(): Tech[] { return ([] as Tech[]).concat(COMPS, COLTECH, MARKS, DEVS); }
+// MARKS сюда тоже НЕ добавляются: с тех пор как марка — деталь, она уже в COMPS.
+export function allTech(): Tech[] { return ([] as Tech[]).concat(COMPS, COLTECH, DEVS); }
 export function techOf(k: string): ColTech{ return compOf(k) || colOf(k) || markOf(k) || engOf(k) || devOf(k); }
