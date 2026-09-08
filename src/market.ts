@@ -4,9 +4,9 @@
 // торге, но сама по себе она никого ни к чему не обязывает.
 
 import { COMPS, compOf, pickCaptain } from "./data";
+import { markSpeedOf } from "./galaxy";
 import { freeRocks, releaseOrder } from "./orders";
 import { L, S, corps, dateStr, market, patLive, patents, projects, proposals, say, shipyards, systems, tickCache, voyages, worlds } from "./state";
-import { speedOf } from "./tech";
 import { canTravel, fuelCost } from "./travel";
 import { clamp } from "./util";
 import { addStock, firstStockSys, stockAt, totalStock } from "./world";
@@ -79,8 +79,13 @@ export function takeFuel(c: Corp, sys: number, k: string, direct?: boolean, n?: 
 // есть ли в системе мира продавец топлива, и хватит ли казне — проверяется
 // ДО покупки корабля, чтобы не остаться с оплаченным корпусом без горючего
 export function govFuelAvail(payer: World, at: World, k: string, n?: number): boolean {
-  const want = n || 1, price = market[k].price * (1 + L.tradeFee) * want;
-  return payer.gov.cash >= price + 10 && corps.some((s) => { return stockAt(s, at.sys, k) >= want; });
+  const want = n || 1;
+  return payer.gov.cash >= fuelBill(k, want) + 10 && corps.some((s) => { return stockAt(s, at.sys, k) >= want; });
+}
+/** Во что обойдётся заправка: цена с наценкой за все баки. Считается в одном
+ *  месте, потому что по этому счёту и проверяют кассу, и списывают с неё. */
+export function fuelBill(k: string, n?: number): number {
+  return market[k].price * (1 + L.tradeFee) * (n || 1);
 }
 // правительство мира жжёт своё топливо так же, только платит из своей казны
 export function govFuel(payer: World, at: World, k: string, n?: number): boolean {
@@ -300,7 +305,7 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
                    if (acct && acct.fly) acct.fly[part.k] = Math.max(0, (acct.fly[part.k] || 0) - 1);
                    take(part);
                  },
-                 t:0, dur:(140 + rnd() * 50) / speedOf(seller.id), born:dateStr(), captain:pickCaptain() });
+                 t:0, dur:(140 + rnd() * 50) / markSpeedOf(seller.id), born:dateStr(), captain:pickCaptain() });
   S.hauled++;
   return true;
 }

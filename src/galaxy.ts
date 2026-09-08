@@ -108,6 +108,19 @@ export function rangeOf(c: Corp): number {
   MARKS.forEach((m) => { if (canBuild(c, m.key)) best = Math.max(best, m.range); });
   return best;
 }
+/** Во сколько раз быстрее идёт МЕЖЗВЁЗДНЫЙ рейс этой компании: по лучшей
+ *  марке, которую она умеет. Внутри системы марка не значит ничего.
+ *
+ *  Отрицательный номер — рейс государства (хлебовоз, переселенческий): казна
+ *  своих марок не держит и пользуется тем, что освоено в галактике. */
+export function markSpeedOf(corpId: number): number {
+  const c = corps[corpId];
+  let best = 1;
+  MARKS.forEach((m) => {
+    if (c ? canBuild(c, m.key) : corps.some((o) => canBuild(o, m.key))) best = Math.max(best, m.speed);
+  });
+  return best;
+}
 export function galaxyRange(): number {
   let best = 0;
   corps.forEach((c) => { best = Math.max(best, rangeOf(c)); });

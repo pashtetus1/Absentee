@@ -17,14 +17,15 @@
 // под оба условия сразу. Зазор разводит их вдвое: между "могу отдать" и "надо
 // просить" лежит пустая полоса, в которой мир не делает ничего.
 
-import { pickCaptain, vtype } from "./data";
+import { engMult, pickCaptain, shipNeed, vtype } from "./data";
 import { takeDock } from "./docks";
+import { markSpeedOf } from "./galaxy";
 import { harvestOf } from "./labour";
-import { askPrice, govFuel, govFuelAvail } from "./market";
+import { askPrice, fuelBill, govFuel, govFuelAvail } from "./market";
 import { rnd } from "./rng";
 import { onOrder, orderTransport } from "./shipyard";
-import { L, S, corps, dateStr, say, voyages, worlds } from "./state";
-import { speedOf } from "./tech";
+import { L, S, corps, dateStr, docks, say, voyages, worlds } from "./state";
+import { bestEngineAt } from "./tech";
 import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
 import { addStock, popOf, reserveOf, stockAt } from "./world";
 import type { Corp, Part, Voyage, World } from "./types";
@@ -93,8 +94,14 @@ export function govBuyShip(payer: World, at: World, need: Record<string, number>
 export function dispatch(from: World, to: World, kind: string, qty: number, parts: Part[]): Voyage {
   const v = { kind:kind, from:from, to:to, qty:qty, parts:parts,
             color: parts.length ? corps[parts[0].from].color : "#8894ae",
-            // корабль летит на двигателях того, кто его построил
-            t:0, dur: (from.sys === to.sys ? 54 + rnd() * 18 : 150 + rnd() * 60) / speedOf(parts.length ? parts[0].from : -1),
+            // Внутри системы корабль идёт на СВОЁМ ходовом двигателе — том,
+            // что на нём стоит. Между звёздами ходовой ни при чём: там считает
+            // марка межзвёздного перехода, и берётся она у того, кто корабль
+            // собрал (у государственного рейса своей марки нет — годится любая
+            // освоенная в галактике).
+            t:0, dur: from.sys === to.sys
+                      ? (54 + rnd() * 18) / engMult(parts)
+                      : (150 + rnd() * 60) / markSpeedOf(parts.length ? parts[0].from : -1),
             born:dateStr(), captain:pickCaptain() } as Voyage;
   voyages.push(v);
   return v;
@@ -135,12 +142,22 @@ export function foodRun(): void {
       // сойдёт со стапеля: без этого голодная планета заказывала бы каждые
       // полгода, и верфь забивалась хлебовозами, которых никто не дождётся.
       if (!onOrder("cargo", w, null)) {
-        const bought = govBuyShip(w, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
+        // Двигатель ставят тот, что лежит в системе поставщика: правительство
+        // деталей не возит, и лучшей модели галактики ему тут никто не подаст.
+        const buy = shipNeed(vtype("cargo"), bestEngineAt(src.sys), travelExtra(src.sys, w.sys));
+        const bought = buy && govBuyShip(w, src, buy);
         if (bought) orderTransport("cargo", bought, src.sys, w, null);
       }
       return;
     }
     const parts = dk.parts;
+    // Корабль со стоянки бывает чужим, и тогда его УЖЕ оплатили — между первой
+    // проверкой кассы и оплатой еды она успела похудеть. Поэтому считаем заново
+    // и разом: еда плюс заправка. Не хватило — корабль возвращается на стоянку,
+    // а мир ждёт следующего месяца. Пока этой проверки не было, касса мира
+    // уходила в минус, а на неотрицательность её кассы опирается весь код
+    // покупок.
+    if (w.gov.cash < price + fuelBill(fk, tanks) + 10) { docks.push(dk); return; }
     govFuel(w, src, fk, tanks);
     w.gov.cash -= price; src.gov.cash += price; src.food.stock -= qty;
     // вывоз дорожит еду у поставщика: фермеру платят больше, в поле идут
