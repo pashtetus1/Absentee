@@ -1,13 +1,13 @@
 
 import { PIRATES, pirateName } from "./colony";
-import { compOf, vtype } from "./data";
+import { compOf, shipNeed, vtype } from "./data";
 import { corpBuyShip, takeDock } from "./docks";
 import { dispatch, surplusWorld } from "./food";
 import { takeFuel, unfly } from "./market";
 import { rnd } from "./rng";
 import { onOrder, orderTransport } from "./shipyard";
 import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
-import { devMult } from "./tech";
+import { bestEngineAt, devMult } from "./tech";
 import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
 import { clamp } from "./util";
 import { addStock, popOf } from "./world";
@@ -34,12 +34,16 @@ export function corpRelief(): void {
     const dk = takeDock(payer, null, src.sys, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
     if (!dk) {
       if (!onOrder("cargo", null, payer)) {
-        const bought = corpBuyShip(payer, src, needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
+        const buy = shipNeed(vtype("cargo"), bestEngineAt(src.sys), travelExtra(src.sys, w.sys));
+        const bought = buy && corpBuyShip(payer, src, buy);
         if (bought) orderTransport("cargo", bought, src.sys, null, payer);
       }
       return;
     }
     const parts = dk.parts;
+    // Та же дыра, что и у правительства: чужой корабль со стоянки уже оплачен,
+    // и на еду денег может не остаться. Проверяем по тому, что в кассе сейчас.
+    if (payer.cash < price + 60) { docks.push(dk); return; }
     if (!takeFuel(payer, src.sys, fk, true, fuelCost(src.sys, w.sys))) {   // нет горючего — вернуть детали
       if (dk) docks.push(dk); else parts.forEach((p) => { addStock(corps[p.from], src.sys, p.k, 1); });
       return;

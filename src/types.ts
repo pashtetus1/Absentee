@@ -14,13 +14,22 @@
 // имя и сложность. Отсюда общий Tech и allTech() поверх пяти таблиц.
 export interface Tech { key: string; name: string; short: string; diff: number; }
 
-/** Деталь: её производят, продают и возят. */
-export interface Comp extends Tech { work: number; base: number; glyph: string; }
+/** Деталь: её производят, продают и возят.
+ *
+ *  mult есть ТОЛЬКО у ходовых двигателей: их четыре модели, и различаются они
+ *  ровно этим числом — во сколько раз быстрее идёт корабль, на котором стоит
+ *  такой двигатель. У остальных деталей множителя нет, и его отсутствие
+ *  означает «это не двигатель», а не «забыли заполнить». */
+export interface Comp extends Tech { work: number; base: number; glyph: string; mult?: number; }
 /** Класс миров: право колонизировать такие планеты. */
 export interface ColTech extends Tech {}
-/** Марка межзвёздного перехода: чем выше, тем дальше бьёт. */
-export interface Mark extends Tech { range: number; mark: number; }
-/** Ходовой двигатель: множитель скорости рейсов. */
+/** Марка межзвёздного перехода: чем выше, тем дальше бьёт и тем быстрее идёт
+ *  межзвёздный рейс. Марка отвечает за дорогу МЕЖДУ звёздами — и за дальность,
+ *  и за скорость; внутри системы её нет вовсе, там правит ходовой двигатель. */
+export interface Mark extends Tech { range: number; mark: number; speed: number; }
+/** Ходовой двигатель: множитель скорости ВНУТРИ системы. Это деталь (см. Comp
+ *  с mult), а не отдельная таблица: моделей четыре, и корабль несёт одну из
+ *  них — ту, что на него поставили при сборке. */
 export interface Engine extends Tech { mult: number; }
 /** Освоение класса миров, Mk1 и до бесконечности. */
 export interface Dev extends Tech { cls: string; mark: number; }

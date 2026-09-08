@@ -1,10 +1,11 @@
 // ===================== заказы, консорциумы, филиалы =====================
 
-import { vtype } from "./data";
+import { shipNeed, vtype } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
 import { rnd } from "./rng";
 import { YARD_WORK, nearestYard, yardAt } from "./shipyard";
 import { S, anyMakes, canBuild, corps, dateStr, fill, gates, market, projects, say, systems, voyages, worlds } from "./state";
+import { bestEngineMade } from "./tech";
 import { gateOf, reachable, routeKey } from "./travel";
 import { clamp, dist } from "./util";
 import { addStock, hasBranch, openBranch, popOf } from "./world";
@@ -16,6 +17,7 @@ export function freeRocks(s: Sys): Rock[]{ return s.rocks.filter((r) => { return
 export function buildable(vt: VType): boolean {
   const fuelKey = (vt.key === "mine" || vt.key === "colony") ? "fuel" : "sfuel";
   if (!anyMakes(fuelKey)) return false;
+  if (!bestEngineMade()) return false;     // без ходового двигателя корабль не тронется с места
   return Object.keys(vt.need).every((k) => { return anyMakes(k); });
 }
 export function anyRock(): boolean{ return systems.some((s) => { return s.unlocked && reachable(s.id) && freeRocks(s).length; }); }
@@ -50,8 +52,9 @@ export function jumpTarget(c: Corp): { from: number; to: number } | null {
 // или портальный, который на этом маршруте останется воротами.
 export function expandTarget(c: Corp): { from: number; to: number } | null{ return jumpTarget(c); }
 export function orderCost(vt: VType): number {
+  const need = shipNeed(vt, bestEngineMade()) || vt.need;
   let sum = 0;
-  Object.keys(vt.need).forEach((k) => { sum += market[k].price * vt.need[k]; });
+  Object.keys(need).forEach((k) => { sum += market[k].price * need[k]; });
   return sum;
 }
 // Наружу выходят те, у кого есть филиал хоть в одной колонии — не только
@@ -63,20 +66,25 @@ export function reviewOrders(): void {
   corps.forEach((c) => {
     if (c.order || c.cool > 0) return;
     let best: VType = null, top = -1;
+    // Модель двигателя выбирается ОДИН раз на заказ, до выбора типа корабля:
+    // ставят лучшую, какую в галактике вообще умеют делать — деталь всё равно
+    // привезут, а лишний месяц в пути дешевле, чем вечно медленный корабль.
+    const eng = bestEngineMade();
     [vtype("mine"), vtype(S.move.vt)].forEach((vt) => {
       if (!buildable(vt)) return;
       if (vt.key === "mine" && !anyRock()) return;
       if (vt.key !== "mine" && (!hasColonyAnywhere(c) || !expandTarget(c))) return;
       let score = vt.key !== "mine" ? 46 : (vt.yield * 0.55 * vt.term) / Math.max(20, orderCost(vt));
       let own = 0, all = 0;
-      Object.keys(vt.need).forEach((k) => { all += vt.need[k]; if (canBuild(c, k)) own += vt.need[k]; });
+      const need = shipNeed(vt, eng);
+      Object.keys(need).forEach((k) => { all += need[k]; if (canBuild(c, k)) own += need[k]; });
       score *= 1 + own / all * 0.6;
       if (score > top) { top = score; best = vt; }
     });
     if (!best || rnd() > clamp(0.55 / c.nerve, 0.2, 0.9)) return;
     // Место назначения выбирается СЕЙЧАС, а не когда комплект собран: детали
     // надо свозить в конкретную систему, и заранее должно быть ясно, в какую.
-    const o = { type:best.key, need:JSON.parse(JSON.stringify(best.need)), got:{}, parts:[] as Part[], born:dateStr() } as Order;
+    const o = { type:best.key, need:shipNeed(best, eng), got:{}, parts:[] as Part[], born:dateStr() } as Order;
     if (best.key === "mine") {
       let pickS: Sys = null, top2 = -1;
       systems.forEach((s) => {
@@ -140,6 +148,8 @@ export function reviewProjects(): void {
   corps.forEach((c) => {
     if (projects.some((p) => { return p.lead === c.id; })) return;
     if (c.cash < 200 || !anyMakes("fuel")) return;      // модулю нечем взлететь
+    const eng = bestEngineMade();
+    if (!eng) return;                                   // и не на чем: двигателя нет ни у кого
     let target: { b: Planet; s: Sys } = null, top = -1;
     systems.forEach((s) => {
       if (!s.unlocked || !reachable(s.id)) return;
@@ -158,7 +168,7 @@ export function reviewProjects(): void {
     const cost = colonyCost(target.s), put = Math.min(c.cash * 0.45, cost);
     c.cash -= put; target.b.claimed = true;
     projects.push({ lead:c.id, body:target.b, dst:target.s.id, sys:yc.world.sys, yard:yc, cost:cost, purse:put,
-                    need:JSON.parse(JSON.stringify(vtype("colony").need)), got:{}, parts:[],
+                    need:shipNeed(vtype("colony"), eng), got:{}, parts:[],
                     backers:[{ corp:c.id, sum:put }], age:0, born:dateStr() });
     say("<b>" + c.name + "</b> открыла подписку на колонию " + target.b.name +
         " (" + target.b.type.name + "), нужно " + cost + ".");

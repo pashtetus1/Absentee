@@ -1,26 +1,64 @@
-// Ходовые двигатели: пять марок, каждая быстрее. Патентуются как всё
+// Ходовые двигатели: четыре модели, каждая быстрее. Патентуются как всё
 // остальное — держатель Mk3 какое-то время летает вдвое быстрее соседей.
 // Базовые рейсы нарочно медленные: ускорение должно ощущаться как награда,
 // а не как возврат к норме.
+//
+// Отдельной таблицы у них больше нет: двигатель — это ДЕТАЛЬ, она лежит в
+// COMPS рядом с корпусом, её исследуют, делают и продают тем же кодом. Здесь
+// остался только взгляд на те же записи под другим углом (ENGINES) и правила,
+// которые к ним прилагаются. Пока таблица была своя, множитель скорости висел
+// на компании и на корабле его не было видно: два одинаковых грузовика летели
+// с разной скоростью, и объяснить это, глядя на корабль, было нечем.
 
-import { COLTECH, COMPS, MARKS, colOf, compOf, markOf } from "./data";
-import { canBuild, corps, patents, tickCache } from "./state";
+import { COLTECH, COMPS, ENGKEYS, MARKS, colOf, compOf, isEngine, markOf } from "./data";
+import { anyMakes, canBuild, corps, patents, tickCache } from "./state";
+import { stockAt } from "./world";
 import type { ColTech, Corp, Dev, Engine, Tech, World } from "./types";
 
-export const ENGINES: Engine[] = [
-  { key:"eng1", name:"Ходовые двигатели Mk1", short:"ход Mk1", diff:700,  mult:1.3 },
-  { key:"eng2", name:"Ходовые двигатели Mk2", short:"ход Mk2", diff:1500, mult:1.6 },
-  { key:"eng3", name:"Ходовые двигатели Mk3", short:"ход Mk3", diff:2600, mult:2.0 },
-  { key:"eng4", name:"Ходовые двигатели Mk4", short:"ход Mk4", diff:4000, mult:2.5 },
-  { key:"eng5", name:"Ходовые двигатели Mk5", short:"ход Mk5", diff:5600, mult:3.1 }
-];
-export function engOf(k: string): Engine{ for (let i=0;i<ENGINES.length;i++) if (ENGINES[i].key===k) return ENGINES[i]; }
-// во сколько раз корабли этой компании быстрее базы (по лучшей доступной марке)
+/** Модели ходового двигателя как технологии: те же записи COMPS, отобранные
+ *  по mult. Порядок — от слабой к сильной, как в ENGKEYS. */
+export const ENGINES: Engine[] = ENGKEYS.map((k) => compOf(k) as unknown as Engine);
+export function engOf(k: string): Engine{ return isEngine(k) ? compOf(k) as unknown as Engine : undefined; }
+// во сколько раз корабли этой компании быстрее базы (по лучшей модели, какую
+// она умеет делать). Это НЕ скорость её кораблей: корабль идёт на том
+// двигателе, который на нём стоит (engMult), а эта величина говорит лишь, что
+// компания способна поставить на новый корабль.
 export function speedOf(corpId: number): number {
   let c = corps[corpId], best = 1;
   if (!c) return 1;
   ENGINES.forEach((e) => { if (canBuild(c, e.key)) best = Math.max(best, e.mult); });
   return best;
+}
+/** Множитель лучшей модели, которую компания умеет делать САМА; 0 — не умеет
+ *  ни одной.
+ *
+ *  Отличается от speedOf ровно нулём, и этот ноль важен: speedOf возвращает
+ *  единицу и тому, у кого двигателя нет вовсе, а множитель Mk1 — тоже единица.
+ *  Пока наука сравнивала модель со speedOf, Mk1 отсеивалась как «эту скорость
+ *  уже имеем», и самая дешёвая ступень лестницы была недостижима в принципе:
+ *  партия ждала Mk2 за 1500, чтобы взлетел первый корабль. */
+export function ownEngine(c: Corp): number {
+  let best = 0;
+  ENGINES.forEach((e) => { if (canBuild(c, e.key)) best = Math.max(best, e.mult); });
+  return best;
+}
+/** Лучшая модель, которую в галактике хоть кто-то умеет делать: её и закажет
+ *  компания, потому что деталь ей привезут откуда угодно. */
+export function bestEngineMade(): string | null {
+  let out: string | null = null;
+  ENGKEYS.forEach((k) => { if (anyMakes(k)) out = k; });
+  return out;
+}
+/** Лучшая модель, которая ПРЯМО СЕЙЧАС лежит на складе в этой системе.
+ *
+ *  Правительство мира и частная помощь покупают только из местного склада —
+ *  возить детали ради хлебовоза они не умеют. Спрашивать у них лучшую модель
+ *  галактики значило бы обрекать окраину на вечное ожидание двигателя, какого
+ *  тут отродясь не было. */
+export function bestEngineAt(sys: number): string | null {
+  let out: string | null = null;
+  ENGKEYS.forEach((k) => { if (corps.some((c) => stockAt(c, sys, k) > 0)) out = k; });
+  return out;
 }
 // Освоение миров по классам, Mk1 и до бесконечности: каждая марка даёт +12%
 // урожая и +1 к пределу населения на мирах этого класса — там, где у
@@ -62,7 +100,9 @@ export function devLevel(w: World): number {
 }
 export function devMult(w: World): number{ return 1 + 0.12 * devLevel(w); }
 export function devCap(w: World): number{ return devLevel(w); }
-// Пять таблиц в одном списке: всё, во что можно вкладываться. Порядок тот же,
+// Четыре таблицы в одном списке: всё, во что можно вкладываться. Порядок тот же,
 // что и раньше — от него зависит, что компания выберет при равных прочих.
-export function allTech(): Tech[] { return ([] as Tech[]).concat(COMPS, COLTECH, MARKS, ENGINES, DEVS); }
+// ENGINES сюда НЕ добавляются: это те же записи, что уже пришли в COMPS, и
+// вторым вхождением компания вкладывалась бы в один двигатель дважды.
+export function allTech(): Tech[] { return ([] as Tech[]).concat(COMPS, COLTECH, MARKS, DEVS); }
 export function techOf(k: string): ColTech{ return compOf(k) || colOf(k) || markOf(k) || engOf(k) || devOf(k); }

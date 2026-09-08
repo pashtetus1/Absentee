@@ -1,12 +1,19 @@
 // ===================== наука =====================
 
-import { compOf, markOf } from "./data";
+import { compOf, isEngine, markOf } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
 import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
-import { allTech, devOf, engOf, ensureDev, speedOf, techOf } from "./tech";
+import { allTech, bestEngineMade, devOf, engOf, ensureDev, ownEngine, techOf } from "./tech";
 import type { Corp } from "./types";
 
 import { rnd } from "./rng";
+
+/** Склонность компании к технологии. У ходовых двигателей склонность одна на
+ *  всю линейку (apt.eng): «умеет делать двигатели» — свойство ремесла, а не
+ *  отдельной модели. */
+export function aptOf(c: Corp, k: string): number {
+  return (isEngine(k) ? c.apt["eng"] : c.apt[k]) || 0.5;
+}
 
 export function sciOf(c: Corp): number{ return c.branches.reduce((a, b) => { return a + b.emp.sci; }, 0); }
 export function prodOf(c: Corp): number{ return c.branches.reduce((a, b) => { return a + b.emp.prod; }, 0); }
@@ -43,11 +50,19 @@ export function pickTarget(c: Corp): string | null {
       if (c.native === d.cls) worth *= 4;                 // им нужно только это
     }
     else if (engOf(f.key)) {
-      // ходовые двигатели ценны ровно настолько, насколько много всего летает
       const e = engOf(f.key);
-      if (e.mult <= speedOf(c.id)) return;               // эту скорость уже имеем
-      const traffic = voyages.length + systems.reduce((a, s) => { return a + s.ships.length; }, 0);
-      worth = 1.1 + Math.min(10, traffic) * 0.22;
+      if (e.mult <= ownEngine(c)) return;                // эту скорость уже имеем сами
+      // Первый двигатель — не ускорение, а условие полёта: пока его никто не
+      // делает, корабль собрать не из чего, и цена ему как топливу. Без этой
+      // оговорки партия вставала намертво: двигатель ценили по тому, сколько
+      // всего летает, а летало ноль именно потому, что двигателя не было.
+      if (!bestEngineMade()) worth = 3.4;
+      // дальше — обычная лестница: старшая модель ценна ровно настолько,
+      // насколько много всего летает
+      else {
+        const traffic = voyages.length + systems.reduce((a, s) => { return a + s.ships.length; }, 0);
+        worth = 1.1 + Math.min(10, traffic) * 0.22;
+      }
     }
     else if (f.key === "fuel") worth = 2.8;                              // без него не взлетает ничего
     else if (f.key === "sfuel") {
@@ -68,7 +83,7 @@ export function pickTarget(c: Corp): string | null {
     }
     if (patLive(f.key)) worth *= markOf(f.key) ? 0.75 : 0.45;   // чужая марка летать не даёт, своя нужна всё равно
     else if (anyKnows(f.key)) worth *= 0.7;
-    let ev = worth * Math.pow(c.apt[f.key] || 0.5, 1.6) / (f.diff / 2200);
+    let ev = worth * Math.pow(aptOf(c, f.key), 1.6) / (f.diff / 2200);
     ev *= 1 + c.spent[f.key] / f.diff * 0.9;
     if (ev > top) { top = ev; best = f.key; }
   });
@@ -80,13 +95,13 @@ export function research(): void {
     if (!c.target || knows(c, c.target)) c.target = pickTarget(c);
     if (!c.target) return;
     const f = techOf(c.target);
-    c.spent[c.target] += sciOf(c) * (0.8 + (c.apt[c.target] || 0.5) * 1.1) * 6;
+    c.spent[c.target] += sciOf(c) * (0.8 + aptOf(c, c.target) * 1.1) * 6;
     if (c.target === L.subKey && L.subYear > 0 && S.treasury > L.subYear / 12) {
       c.spent[c.target] += L.subYear / 12; S.treasury -= L.subYear / 12;
     }
     if (c.spent[c.target] < f.diff * 0.55) return;
     const over = (c.spent[c.target] - f.diff * 0.55) / f.diff;
-    if (rnd() < Math.min(0.06, over * (c.apt[c.target] || 0.5) * 0.05)) {
+    if (rnd() < Math.min(0.06, over * aptOf(c, c.target) * 0.05)) {
       c.known[c.target] = true; flash[c.target] = 1;
       // освоение бесконечно: за взятой маркой сразу появляется следующая
       if (devOf(c.target)) ensureDev(devOf(c.target).cls, devOf(c.target).mark + 1);

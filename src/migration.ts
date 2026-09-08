@@ -1,10 +1,11 @@
 
-import { vtype } from "./data";
+import { shipNeed, vtype } from "./data";
 import { takeDock } from "./docks";
 import { dispatch, govBuyShip } from "./food";
 import { govFuel, govFuelAvail } from "./market";
 import { onOrder, orderTransport } from "./shipyard";
 import { S, say, voyages, worlds } from "./state";
+import { bestEngineAt } from "./tech";
 import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
 import type { World } from "./types";
 
@@ -26,7 +27,8 @@ export function migrationRun(): void {
     const dkl = takeDock(null, w, w.sys, "liner", needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
     if (!dkl) {
       if (!onOrder("liner", w, null)) {
-        const bought = govBuyShip(w, w, needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
+        const buy = shipNeed(vtype("liner"), bestEngineAt(w.sys), travelExtra(src.sys, w.sys));
+        const bought = buy && govBuyShip(w, w, buy);
         if (bought) orderTransport("liner", bought, w.sys, w, null);
       }
       return;

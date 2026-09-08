@@ -249,7 +249,8 @@ export function panels(): void {
       });
       const meta = holders.length
         ? (patLive(m.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm) + " · " : "") +
-          "дальность " + m.range + " · достаёт звёзд " + opens
+          "дальность " + m.range + " · достаёт звёзд " + opens +
+          (m.speed > 1 ? " · межзвёздные рейсы ×" + m.speed.toFixed(2) : "")
         : "лучший продвинулся на " + Math.round(Math.max.apply(null, corps.map((c) => { return c.spent[m.key]; }))) +
           " из " + m.diff + " · дальность " + m.range;
       return '<div class="row"><div class="rhead"><span class="rname">' + (S.moveKnown ? m.short : markName(m)) +
@@ -260,11 +261,14 @@ export function panels(): void {
   el("engines").innerHTML = ENGINES.map((e) => {
     const p = patents[e.key], holders = makersOf(e.key);
     const dots = holders.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+    // Ходовой ускоряет ход ВНУТРИ системы и только его: между звёздами считает
+    // марка перехода. Mk1 — не ускорение, а сама возможность лететь, и писать
+    // про него "в 1.0 раза быстрее" было бы издевательством.
+    const gain = e.mult > 1 ? "внутри системы ×" + e.mult.toFixed(1) : "базовый ход, без него корабль не летает";
     const meta = holders.length
-      ? (patLive(e.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm) + " · " : "") +
-        "рейсы в " + e.mult.toFixed(1) + " раза быстрее"
+      ? (patLive(e.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm) + " · " : "") + gain
       : "лучший на " + Math.round(Math.max.apply(null, corps.map((c) => { return c.spent[e.key]; }))) +
-        " из " + e.diff + " · даст ×" + e.mult.toFixed(1);
+        " из " + e.diff + " · " + gain;
     return '<div class="row"><div class="rhead"><span class="rname">' + e.short + '</span>' + dots + '</div>' +
            '<div class="rmeta">' + meta + '</div></div>';
   }).join("");
