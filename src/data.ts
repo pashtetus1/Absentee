@@ -1,7 +1,7 @@
 // ===================== данные =====================
 
 import { S, canBuild, corps, fill } from "./state";
-import type { ColTech, Comp, Mark, Move, PType, Tech, VType } from "./types";
+import type { ColTech, Comp, Mark, Move, PType, Tech, VType, WorldClass } from "./types";
 
 import { rnd } from "./rng";
 
@@ -57,39 +57,52 @@ export function compOf(k: string): Comp{ for (let i=0;i<COMPS.length;i++) if (CO
 
 // Классы миров и технологии на них. Умеренные дешевле всех, газовый гигант
 // дороже двигателя: жить в облаках сложнее, чем летать между звёздами.
-export const COLTECH: ColTech[] = [
-  { key:"temperate", name:"Умеренные миры",  short:"умеренные", diff:1500 },
+// Классы миров — для марок освоения (Mk1..Mk5 на класс). diff — цена
+// колонизационной технологии типов этого класса. Умеренные без технологии:
+// туда летят сразу, это дом.
+export const CLASSES: WorldClass[] = [
+  { key:"temperate", name:"Умеренные миры",  short:"умеренные", diff:0 },
   { key:"cold",      name:"Холодные миры",   short:"холодные",  diff:2300 },
   { key:"dry",       name:"Сухие миры",      short:"сухие",     diff:2500 },
   { key:"hot",       name:"Мёртвые миры",    short:"мёртвые",   diff:3400 },
   { key:"gas",       name:"Газовые гиганты", short:"гиганты",   diff:4600 }
 ];
-export function colOf(k: string): ColTech{ for (let i=0;i<COLTECH.length;i++) if (COLTECH[i].key===k) return COLTECH[i]; }
+export function clsOf(k: string): WorldClass{ for (let i=0;i<CLASSES.length;i++) if (CLASSES[i].key===k) return CLASSES[i]; }
 
 // cap — предел населения, farm — урожай с фермера. Гигант не кормит вообще:
-// всё, что там живёт, живёт на привозном.
-export const PTYPES: PType[] = [
-  { key:"terran", name:"терран",         cap:11, farm:2.4,  tech:"temperate", col:"#5b8f6a", w:10 },
-  { key:"ocean",  name:"океан",          cap:9,  farm:2.2,  tech:"temperate", col:"#3f6f96", w:9 },
-  { key:"jungle", name:"джунгли",        cap:10, farm:2.6,  tech:"temperate", col:"#4f7a3f", w:8 },
-  { key:"tundra", name:"тундра",         cap:7,  farm:1.3,  tech:"cold",      col:"#6f7f8f", w:11 },
-  { key:"arctic", name:"ледяная",        cap:5,  farm:0.6,  tech:"cold",      col:"#8fa6bd", w:12 },
-  { key:"arid",   name:"сухая",          cap:7,  farm:1.1,  tech:"dry",       col:"#a08050", w:11 },
-  { key:"desert", name:"пустыня",        cap:6,  farm:0.7,  tech:"dry",       col:"#c09a5a", w:12 },
-  { key:"lava",   name:"вулканическая",  cap:4,  farm:0.15, tech:"hot",       col:"#8a4a3a", w:11 },
-  { key:"barren", name:"голая",          cap:4,  farm:0.1,  tech:"hot",       col:"#7a7266", w:13 },
-  { key:"gas",    name:"газовый гигант", cap:6,  farm:0,    tech:"gas",       col:"#9a7fb0", w:10 },
+// всё, что там живёт, живёт на привозном. tech дописывается ниже: у каждого
+// типа своя технология колонизации, у умеренных — никакой.
+export const PTYPES: PType[] = ([
+  { key:"terran", name:"терран",         cap:11, farm:2.4,  cls:"temperate", col:"#5b8f6a", w:10 },
+  { key:"ocean",  name:"океан",          cap:9,  farm:2.2,  cls:"temperate", col:"#3f6f96", w:9 },
+  { key:"jungle", name:"джунгли",        cap:10, farm:2.6,  cls:"temperate", col:"#4f7a3f", w:8 },
+  { key:"tundra", name:"тундра",         cap:7,  farm:1.3,  cls:"cold",      col:"#6f7f8f", w:11 },
+  { key:"arctic", name:"ледяная",        cap:5,  farm:0.6,  cls:"cold",      col:"#8fa6bd", w:12 },
+  { key:"arid",   name:"сухая",          cap:7,  farm:1.1,  cls:"dry",       col:"#a08050", w:11 },
+  { key:"desert", name:"пустыня",        cap:6,  farm:0.7,  cls:"dry",       col:"#c09a5a", w:12 },
+  { key:"lava",   name:"вулканическая",  cap:4,  farm:0.15, cls:"hot",       col:"#8a4a3a", w:11 },
+  { key:"barren", name:"голая",          cap:4,  farm:0.1,  cls:"hot",       col:"#7a7266", w:13 },
+  { key:"gas",    name:"газовый гигант", cap:6,  farm:0,    cls:"gas",       col:"#9a7fb0", w:10 },
   // вторая волна типов: те же пять классов, но разные лица у планет
-  { key:"savanna",name:"саванна",        cap:9,  farm:2.0,  tech:"temperate", col:"#8a9a4a", w:8 },
-  { key:"mangrove",name:"мангровая",     cap:8,  farm:2.3,  tech:"temperate", col:"#3f7a6a", w:6 },
-  { key:"snow",   name:"снежная",        cap:6,  farm:0.9,  tech:"cold",      col:"#b9c6d6", w:8 },
-  { key:"glacier",name:"ледник",         cap:4,  farm:0.3,  tech:"cold",      col:"#9fb8cf", w:7 },
-  { key:"steppe", name:"степь",          cap:8,  farm:1.5,  tech:"dry",       col:"#b39a5a", w:8 },
-  { key:"salt",   name:"солончак",       cap:5,  farm:0.4,  tech:"dry",       col:"#d8cfa8", w:7 },
-  { key:"ash",    name:"пепельная",      cap:4,  farm:0.2,  tech:"hot",       col:"#6b6270", w:8 },
-  { key:"radio",  name:"радиоактивная",  cap:3,  farm:0.05, tech:"hot",       col:"#7fa04a", w:6 },
-  { key:"icegiant",name:"ледяной гигант",cap:5,  farm:0,    tech:"gas",       col:"#6f8fb8", w:7 }
-];
+  { key:"savanna",name:"саванна",        cap:9,  farm:2.0,  cls:"temperate", col:"#8a9a4a", w:8 },
+  { key:"mangrove",name:"мангровая",     cap:8,  farm:2.3,  cls:"temperate", col:"#3f7a6a", w:6 },
+  { key:"snow",   name:"снежная",        cap:6,  farm:0.9,  cls:"cold",      col:"#b9c6d6", w:8 },
+  { key:"glacier",name:"ледник",         cap:4,  farm:0.3,  cls:"cold",      col:"#9fb8cf", w:7 },
+  { key:"steppe", name:"степь",          cap:8,  farm:1.5,  cls:"dry",       col:"#b39a5a", w:8 },
+  { key:"salt",   name:"солончак",       cap:5,  farm:0.4,  cls:"dry",       col:"#d8cfa8", w:7 },
+  { key:"ash",    name:"пепельная",      cap:4,  farm:0.2,  cls:"hot",       col:"#6b6270", w:8 },
+  { key:"radio",  name:"радиоактивная",  cap:3,  farm:0.05, cls:"hot",       col:"#7fa04a", w:6 },
+  { key:"icegiant",name:"ледяной гигант",cap:5,  farm:0,    cls:"gas",       col:"#6f8fb8", w:7 }
+] as Omit<PType, "tech">[]).map((p) => { return { ...p, tech: p.cls === "temperate" ? null : "col_" + p.key }; });
+
+// Технология колонизации — на КАЖДЫЙ тип планеты, а не на класс: умение жить
+// в тундре не даёт умения жить на леднике. Цена — по классу. Умеренные типы
+// технологии не требуют вовсе, их в списке нет.
+export const COLTECH: ColTech[] = PTYPES.filter((p) => { return p.tech; }).map((p) => {
+  return { key:p.tech, name:"Колонизация: " + p.name, short:p.name, diff:clsOf(p.cls).diff };
+});
+export function colOf(k: string): ColTech{ for (let i=0;i<COLTECH.length;i++) if (COLTECH[i].key===k) return COLTECH[i]; }
+
 export function ptypeOf(k: string): PType{ for (let i=0;i<PTYPES.length;i++) if (PTYPES[i].key===k) return PTYPES[i]; }
 export function rollType(): PType {
   let tot = PTYPES.reduce((a, p) => { return a + p.w; }, 0), r = rnd() * tot;

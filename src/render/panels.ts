@@ -107,10 +107,10 @@ export function inspector(): void {
   if (U.pick.kind === "body") {
     if (d.world) { box.innerHTML = worldCard(d.world); return; }
     const pr = projects.filter((p) => { return p.body === d; })[0];
-    const who = corps.filter((c) => { return canBuild(c, d.type.tech); }).map((c) => { return c.name; });
+    const who = corps.filter((c) => { return !d.type.tech || canBuild(c, d.type.tech); }).map((c) => { return c.name; });
     box.innerHTML = '<div class="card"><h3>' + d.name + ' · ' + d.type.name + '</h3>' +
       '<div class="sub">не заселена · предел ' + d.type.cap + ' · урожай с фермера ' + d.type.farm + '</div>' +
-      '<div class="part"><span class="pn">нужна технология</span><span class="pw">' + colOf(d.type.tech).name + '</span></div>' +
+      '<div class="part"><span class="pn">нужна технология</span><span class="pw">' + (d.type.tech ? colOf(d.type.tech).name : "не нужна: умеренный мир") + '</span></div>' +
       '<div class="part"><span class="pn">умеют колонизировать</span><span class="pw">' + (who.length ? who.join(", ") : "никто") + '</span></div>' +
       (pr ? '<div class="sub" style="margin-top:7px">Подписка ' + corps[pr.lead].name + ': ' + Math.round(pr.purse) +
             ' из ' + pr.cost + ', вкладчиков ' + pr.backers.length + '</div>' : '') + '</div>';

@@ -1,5 +1,5 @@
 
-import { COLTECH, COMPS, MOVES, TEMPLATE, makeMarks, moveOf } from "./data";
+import { CLASSES, COMPS, MOVES, TEMPLATE, makeMarks, moveOf } from "./data";
 import { makeGalaxy } from "./galaxy";
 import { foundYard } from "./shipyard";
 import { S, U, clear, corps, docks, feed, fill, flash, gates, market, patents, projects, proposals, say, shipyards, staged, systems, voyages, worlds } from "./state";
@@ -33,7 +33,7 @@ export function build(forcedMove?: string, seed?: number): void {
   COMPS.forEach((f) => { market[f.key] = { price:f.base, last:f.base, want:0, stock:0 }; });
   allTech().forEach((f) => { patents[f.key] = { owner:-1, since:0, told:false }; });
   DEVS.length = 0;
-  COLTECH.forEach((col) => { ensureDev(col.key, 1); });     // Mk1 каждого класса с самого начала
+  CLASSES.forEach((col) => { ensureDev(col.key, 1); });     // Mk1 каждого класса с самого начала
 
   [worlds, projects, voyages, feed, docks, shipyards, proposals, staged].forEach((a) => { a.length = 0; });
   clear(flash); clear(gates); U.pick = null;

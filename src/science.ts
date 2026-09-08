@@ -1,6 +1,6 @@
 // ===================== наука =====================
 
-import { compOf, isEngine, markOf } from "./data";
+import { PTYPES, colOf, compOf, isEngine, markOf } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
 import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
 import { allTech, bestEngineMade, devOf, engOf, ensureDev, markStep, ownEngine, prevStep, stepKey, techOf } from "./tech";
@@ -12,6 +12,9 @@ import { rnd } from "./rng";
  *  всю линейку (apt.eng): «умеет делать двигатели» — свойство ремесла, а не
  *  отдельной модели. */
 export function aptOf(c: Corp, k: string): number {
+  // колонизация типа — склонность к его КЛАССУ: холодные миры понимают целиком
+  const col = colOf(k);
+  if (col) { const p = PTYPES.find((t) => { return t.tech === k; }); return (p && c.apt[p.cls]) || 0.5; }
   return (isEngine(k) ? c.apt["eng"] : markOf(k) ? c.apt[S.move.comp] : c.apt[k]) || 0.5;
 }
 
@@ -45,7 +48,7 @@ export function pickTarget(c: Corp): string | null {
       // особенно если они голодают; отделившейся колонии это всё, что нужно
       let d = devOf(f.key), mine = 0, starving = 0;
       c.branches.forEach((b) => {
-        if (b.world.type.tech !== d.cls) return;
+        if (b.world.type.cls !== d.cls) return;
         mine++; if (b.world.food.short > 6) starving++;
       });
       if (!mine) return;

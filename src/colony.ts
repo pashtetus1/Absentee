@@ -46,9 +46,9 @@ export function spawnCorp(w: World, name: string, origin: string): Corp {
             color:EXTRA[(corps.length - TEMPLATE.length) % EXTRA.length], craft:"выживание",
             nerve:1.3, apt:{}, cash:Math.max(60, w.gov.cash * 0.8), known:{}, spent:{}, stock:{},
             target:null, order:null, branches:[], sold:0, bought:0, cool:0, embargo:{}, ask:{},
-            native:w.type.tech, home:w, origin:origin || "государство", bornAt:w } as Corp;
+            native:w.type.cls, home:w, origin:origin || "государство", bornAt:w } as Corp;
   Object.keys(founder.apt).forEach((k) => { c.apt[k] = founder.apt[k] * 0.8; });
-  c.apt[w.type.tech] = 1.6;                        // свой мир они понимают лучше всех
+  c.apt[w.type.cls] = 1.6;                        // свой мир они понимают лучше всех
   allTech().forEach((f) => { c.spent[f.key] = 0; });
   COMPS.forEach((f) => { c.ask[f.key] = 1.05; });
   Object.keys(founder.known).forEach((k) => { c.known[k] = true; });

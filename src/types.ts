@@ -37,8 +37,13 @@ export interface Dev extends Tech { cls: string; mark: number; }
 /** Тип планеты: предел населения, урожай с фермера, каким классом осваивается. */
 export interface PType {
   key: string; name: string; cap: number; farm: number;
-  tech: string; col: string; w: number;
+  cls: string;                    // класс: по нему идут марки освоения
+  tech: string | null;            // технология колонизации ЭТОГО типа; null — умеренные, их заселяют без науки
+  col: string; w: number;
 }
+/** Класс миров: имя для марок освоения. Правом колонизировать больше не
+ *  торгует — оно у каждого типа планеты своё (COLTECH). */
+export interface WorldClass { key: string; name: string; short: string; diff: number; }
 
 /** Что можно построить: из каких деталей, сколько месяцев, что даёт. */
 export interface VType {

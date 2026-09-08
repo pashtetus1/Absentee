@@ -789,18 +789,28 @@ test("артель и вольница не выводят мир из госу�
   });
 });
 
-test("освоение миров растёт без предела", () => {
+test("освоение миров растёт до Mk5, а умеренные миры заселяют без технологии", () => {
   const sim = load("dist/index.html", { seed: 1 });
   const st = runYears(sim, 300);
   const known = Object.keys(st.patents).filter((k) => /^dev_/.test(k) && st.corps.some((c) => c.known[k]));
   assert(known.length > 0, "ни одной марки освоения за триста лет");
   const best = known.reduce((m, k) => Math.max(m, +k.split("_")[2]), 0);
   assert(best >= 2, "освоение застряло на Mk" + best);
-  // за каждой взятой маркой обязана существовать следующая
+  assert(best <= 5, "освоение перевалило за Mk5: Mk" + best);
+  // за каждой взятой маркой обязана существовать следующая — до пятой
   known.forEach((k) => {
     const p = k.split("_");
+    if (+p[2] >= 5) return;
     assert(st.patents[p[0] + "_" + p[1] + "_" + (+p[2] + 1)], "после " + k + " нет следующей марки");
   });
+  // технология колонизации — на каждый тип планеты, кроме умеренных
+  const types = sim.consts.PTYPES;
+  types.forEach((t) => {
+    if (t.cls === "temperate") assert(!t.tech, t.name + ": умеренный мир требует технологию");
+    else assert(sim.consts.COLTECH.some((f) => f.key === t.tech), t.name + ": нет своей технологии колонизации");
+  });
+  const keys = sim.consts.COLTECH.map((f) => f.key);
+  assert(new Set(keys).size === keys.length && keys.length === types.filter((t) => t.tech).length, "технологии колонизации не по одной на тип");
 });
 
 test("на карте много типов планет", () => {

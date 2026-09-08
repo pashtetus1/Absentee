@@ -10,7 +10,7 @@
 // на компании и на корабле его не было видно: два одинаковых грузовика летели
 // с разной скоростью, и объяснить это, глядя на корабль, было нечем.
 
-import { COLTECH, COMPS, ENGKEYS, MARKS, colOf, compOf, isEngine, markOf } from "./data";
+import { COLTECH, COMPS, ENGKEYS, MARKS, clsOf, colOf, compOf, isEngine, markOf } from "./data";
 import { anyMakes, canBuild, corps, patents, tickCache } from "./state";
 import { stockAt } from "./world";
 import type { ColTech, Corp, Dev, Engine, Tech, World } from "./types";
@@ -60,18 +60,19 @@ export function bestEngineAt(sys: number): string | null {
   ENGKEYS.forEach((k) => { if (corps.some((c) => stockAt(c, sys, k) > 0)) out = k; });
   return out;
 }
-// Освоение миров по классам, Mk1 и до бесконечности: каждая марка даёт +12%
+// Освоение миров по классам, Mk1..Mk5: каждая марка даёт +12%
 // урожая и +1 к пределу населения на мирах этого класса — там, где у
 // знающей компании есть филиал. Список растёт лениво: следующая марка
 // появляется, когда кто-нибудь доводит предыдущую. Отделившиеся колонии
 // вкладываются сюда в первую очередь — это единственное, что им по-настоящему
 // нужно.
 export const DEVS: Dev[] = [];
+export const DEV_MAX = 5;                 // марок освоения у класса ровно пять
 export function devOf(k: string): Dev{ for (let i=0;i<DEVS.length;i++) if (DEVS[i].key===k) return DEVS[i]; }
 export function devKey(cls: string, n: number): string{ return "dev_" + cls + "_" + n; }
 export function ensureDev(cls: string, n: number): void {
-  if (devOf(devKey(cls, n))) return;
-  const col = colOf(cls);
+  if (n > DEV_MAX || devOf(devKey(cls, n))) return;
+  const col = clsOf(cls);
   const d = { key:devKey(cls, n), cls:cls, mark:n, short:col.short + " Mk" + n,
             name:"Освоение: " + col.name.toLowerCase() + " Mk" + n,
             diff:Math.round(900 * Math.pow(1.9, n - 1)) };
@@ -94,7 +95,7 @@ export function corpDevBest(c: Corp, cls: string): number {
 export function devLevel(w: World): number {
   if (tickCache.dev.has(w)) return tickCache.dev.get(w);
   let best = 0;
-  w.branches.forEach((b) => { best = Math.max(best, corpDevBest(corps[b.corp], w.type.tech)); });
+  w.branches.forEach((b) => { best = Math.max(best, corpDevBest(corps[b.corp], w.type.cls)); });
   tickCache.dev.set(w, best);
   return best;
 }
