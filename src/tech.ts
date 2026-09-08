@@ -55,6 +55,14 @@ export function bestEngineMade(): string | null {
  *  возить детали ради хлебовоза они не умеют. Спрашивать у них лучшую модель
  *  галактики значило бы обрекать окраину на вечное ожидание двигателя, какого
  *  тут отродясь не было. */
+/** Лучшая марка перехода, что лежит на складе в этой системе: её и ставят на
+ *  грузовик, который собирают на месте. Спрашивать лучшую марку галактики
+ *  бессмысленно — детали с другого конца сети сюда никто не привезёт. */
+export function bestMarkAt(sys: number): string | null {
+  let out: string | null = null;
+  MARKS.forEach((m) => { if (corps.some((c) => stockAt(c, sys, m.key) > 0)) out = m.key; });
+  return out;
+}
 export function bestEngineAt(sys: number): string | null {
   let out: string | null = null;
   ENGKEYS.forEach((k) => { if (corps.some((c) => stockAt(c, sys, k) > 0)) out = k; });

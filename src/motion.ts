@@ -238,7 +238,7 @@ export function arriveVoyage(v: Voyage): void {
     }
     return;
   }
-  if (v.kind === "parts") { v.take({ k:v.k, from:v.corp }); return; }
+  if (v.kind === "parts") { v.take({ k:v.k, from:v.corp }); dockShip(v); return; }
   if (v.kind === "food") { v.to.food.stock += v.qty; dockShip(v); return; }
   if (v.kind === "pops") {
     dockShip(v);

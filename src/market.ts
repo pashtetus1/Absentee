@@ -3,10 +3,12 @@
 // сделкам плюс поправка на дефицит. От неё продавец и покупатель пляшут в
 // торге, но сама по себе она никого ни к чему не обязывает.
 
-import { COMPS, compOf, pickCaptain } from "./data";
+import { COMPS, compOf, pickCaptain, shipNeed, vtype } from "./data";
+import { corpBuyShip, takeDock } from "./docks";
+import { bestEngineAt } from "./tech";
 import { freeRocks, releaseOrder } from "./orders";
-import { L, S, corps, dateStr, market, patLive, patents, projects, proposals, say, shipyards, systems, tickCache, voyages, worlds } from "./state";
-import { canTravel, fuelCost, routeSpeed } from "./travel";
+import { L, S, corps, dateStr, docks, market, patLive, patents, projects, proposals, say, shipyards, systems, tickCache, voyages, worlds } from "./state";
+import { canTravel, fuelCost, needWith, routeSpeed, travelExtra } from "./travel";
 import { clamp } from "./util";
 import { addStock, firstStockSys, stockAt, totalStock } from "./world";
 import type { Corp, Part, Voyage, World } from "./types";
@@ -291,20 +293,42 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
   addStock(seller, sysFrom, k, -1); seller.cash += price; seller.sold++;
   S.treasury += full - price; S.trades++; S.turnover += full; buyer.bought++;
   if (sysFrom === dest) { take({ k:k, from:seller.id }); return true; }
-  // грузовик заправляется там, где грузится: топливо покупается у отправителя
-  if (!takeFuel(buyer, sysFrom, "sfuel", true, fuelCost(sysFrom, dest))) {   // нечем везти
+  const undo = (): boolean => {
     addStock(seller, sysFrom, k, 1); seller.cash -= price; S.treasury -= full - price;
     S.trades--; S.turnover -= full;
     return false;
+  };
+  // Грузовик — настоящий корабль, с корпусом, трюмом и ходовым двигателем, а
+  // под движками ещё и с прыжковым: берётся со стоянки продавца в системе
+  // погрузки, а нет — собирается из деталей, что лежат тут же. Раньше деталь
+  // летела между звёздами сама по себе, без корабля и без двигателя, и была
+  // единственным рейсом в игре, у которого нечем было определить скорость.
+  const extra = travelExtra(sysFrom, dest);
+  // платит за грузовик ПОКУПАТЕЛЬ: деталь нужна ему, и корабль остаётся его —
+  // встанет на стоянку у него дома и повезёт следующую покупку
+  const dk = takeDock(buyer, null, sysFrom, "cargo", needWith(vtype("cargo"), extra));
+  let shipParts: Part[] = dk ? dk.parts : null;
+  if (!shipParts) {
+    const at = seller.branches.map((b) => { return b.world; }).find((w) => { return w.sys === sysFrom; })
+            || worlds.find((w) => { return w.sys === sysFrom; });
+    const buy = at ? shipNeed(vtype("cargo"), bestEngineAt(sysFrom), extra) : null;
+    shipParts = buy ? corpBuyShip(buyer, at, buy) : null;
+  }
+  if (!shipParts) return undo();                                          // везти нечем
+  // грузовик заправляется там, где грузится: топливо покупается у отправителя
+  if (!takeFuel(buyer, sysFrom, "sfuel", true, fuelCost(sysFrom, dest))) {   // нечем везти
+    if (dk) docks.push(dk); else shipParts.forEach((p) => { addStock(buyer, sysFrom, p.k, 1); });
+    return undo();
   }
   if (acct) { if (!acct.fly) acct.fly = {}; acct.fly[k] = (acct.fly[k] || 0) + 1; }
-  voyages.push({ kind:"parts", sysFrom:sysFrom, to:dest, k:k, qty:1, corp:seller.id,
+  voyages.push({ kind:"parts", sysFrom:sysFrom, to:dest, k:k, qty:1, corp:seller.id, parts:shipParts, shipOwner:buyer.id,
                  color:corps[seller.id].color, forCorp:buyer.id, acct:acct,
                  take:(part: Part) => {
                    if (acct && acct.fly) acct.fly[part.k] = Math.max(0, (acct.fly[part.k] || 0) - 1);
                    take(part);
                  },
-                 t:0, dur:(140 + rnd() * 50) / routeSpeed(sysFrom, dest, seller.id), born:dateStr(), captain:pickCaptain() });
+                 t:0, dur:(140 + rnd() * 50) / routeSpeed(sysFrom, dest, seller.id, shipParts), born:dateStr(),
+                 captain:dk ? dk.captain : pickCaptain() });
   S.hauled++;
   return true;
 }

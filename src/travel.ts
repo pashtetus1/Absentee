@@ -2,6 +2,7 @@
 
 import { galaxyRange, markSpeedOf } from "./galaxy";
 import { MARKRANGE, MARKSPEED, bestMarkMade, partMark } from "./data";
+import { bestMarkAt } from "./tech";
 import { S, dateStr, gates, say, systems } from "./state";
 import { dist } from "./util";
 import type { Gate, Portal, VType } from "./types";
@@ -170,8 +171,10 @@ export function fuelCost(a: number, b: number): number {
 // Что должен нести межзвёздный транспорт сверх обычного набора.
 export function travelExtra(a: number, b: number): Record<string, number> {
   if (a === b || S.move.key !== "drives") return null;
-  const mk = bestMarkMade();
-  if (!mk) return null;                   // двигателя нет ни у кого — рейс всё равно не соберётся
+  // марка — та, что лежит в системе отправления; нет ни одной — лучшая в
+  // галактике (рейс всё равно не соберётся, но заказ будет честным)
+  const mk = bestMarkAt(a) || bestMarkMade();
+  if (!mk) return null;
   const out: Record<string, number> = {}; out[mk] = 1; return out;
 }
 export function needWith(vt: VType, extra: Record<string, number>): Record<string, number> {

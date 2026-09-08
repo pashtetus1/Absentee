@@ -5,6 +5,7 @@
 // корабль покупают у хозяина за 60% от цены его деталей. Владелец — либо
 // компания (частная помощь), либо правительство мира-получателя.
 
+import { markOf } from "./data";
 import { askPrice } from "./market";
 import { L, S, corps, docks, market, systems } from "./state";
 import { canTravel } from "./travel";
@@ -13,17 +14,24 @@ import { addStock, stockAt } from "./world";
 import type { Corp, Dock, Part, Voyage, World } from "./types";
 
 export function dockShip(v: Voyage): void {
-  if (v.kind !== "food" && v.kind !== "pops") return;
-  const s = systems[v.to.sys];
+  let world: World, corp: number, gov: World | null;
+  if (v.kind === "food" || v.kind === "pops") {
+    world = v.to; corp = v.relief !== undefined ? v.relief : -1; gov = v.relief !== undefined ? null : v.to;
+  } else if (v.kind === "parts" && v.parts && v.parts.length) {
+    // грузовик покупателя остаётся на орбите первого заселённого мира системы;
+    // в системе без миров ему негде встать — списывается
+    const b = systems[v.to].bodies.find((o) => { return o.world; });
+    if (!b) return;
+    world = b.world; corp = v.shipOwner !== undefined ? v.shipOwner : v.corp; gov = null;
+  } else return;
   const d = { kind: v.kind === "pops" ? "liner" : "cargo", parts:v.parts || [], captain:v.captain,
-            sys:s.id, world:v.to, ang:rnd6(), since:S.tick,
-            corp: v.relief !== undefined ? v.relief : -1, gov: v.relief !== undefined ? null : v.to } as Dock;
+            sys:world.sys, world:world, ang:rnd6(), since:S.tick, corp:corp, gov:gov } as Dock;
   // Дорожка запоминается у корабля, а не считается от места в общем массиве:
   // иначе списание одного заставляло всех остальных прыгнуть на другую орбиту.
-  d.lane = docks.filter((x) => { return x.world === v.to; }).length % 3;
+  d.lane = docks.filter((x) => { return x.world === world; }).length % 3;
   docks.push(d);
   // на орбите одного мира больше шести не держат: старейший списывают
-  const here = docks.filter((x) => { return x.world === v.to; });
+  const here = docks.filter((x) => { return x.world === world; });
   if (here.length > 6) docks.splice(docks.indexOf(here[0]), 1);
 }
 export function dockValue(d: Dock): number {
@@ -34,8 +42,11 @@ export function dockValue(d: Dock): number {
 // без двигателя не уйти, и корабль, пришедший внутрисистемным рейсом, не годится
 export function fits(parts: Part[], need: Record<string, number>): boolean {
   const have: Record<string, number> = {};
-  parts.forEach((p) => { have[p.k] = (have[p.k] || 0) + 1; });
-  return Object.keys(need).every((k) => { return (have[k] || 0) >= need[k]; });
+  let marks = 0;
+  parts.forEach((p) => { have[p.k] = (have[p.k] || 0) + 1; if (markOf(p.k)) marks++; });
+  // прыжковый двигатель ЛЮБОЙ марки годится: между звёздами уйдёт и на Mk1,
+  // просто медленнее — корабль со стоянки не бракуют за старый двигатель
+  return Object.keys(need).every((k) => { return (markOf(k) ? marks : have[k] || 0) >= need[k]; });
 }
 export function takeDock(payerCorp: Corp | null, payerWorld: World | null, sys: number, kind: string, need: Record<string, number>): Dock {
   let own: Dock = null, other: Dock = null;

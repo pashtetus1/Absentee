@@ -26,6 +26,14 @@ import type { Build, Part, World } from "../types";
 export type Ctl = HTMLElement & { value: any; textContent: any; disabled: boolean; checked: boolean };
 export function el(id: string): Ctl { return document.getElementById(id) as Ctl; }
 
+/** Ходовой двигатель корабля и его скорость внутри системы: у каждого
+ *  корабля он есть, и по нему видно, быстрый это корабль или нет. */
+export function engLine(parts: Part[]): string {
+  const e = (parts || []).map((p) => { return compOf(p.k); }).filter((c) => { return c && c.mult; })
+    .sort((x, y) => { return y.mult - x.mult; })[0];
+  return '<div class="part"><span class="pn">ходовой двигатель</span><span class="pw">' +
+         (e ? e.short + ' · скорость ×' + e.mult.toFixed(1) : 'нет') + '</span></div>';
+}
 export function partsList(parts: Part[], ownerId: number): string {
   if (!parts || !parts.length) return '<div class="empty">Состав неизвестен.</div>';
   const by: Record<string, number> = {};
@@ -122,7 +130,7 @@ export function inspector(): void {
       '<div class="sub">на орбите ' + d.world.body.name + ' с ' + Math.floor(d.since / 12) + ' года · командир ' + d.captain + '</div>' +
       '<div class="part"><span class="pn">хозяин</span><span class="pw">' + owner + '</span></div>' +
       '<div class="part"><span class="pn">купить можно за</span><span class="pw">' + Math.round(dockValue(d)) + '</span></div>' +
-      '<div class="sub" style="margin:7px 0 2px">Из чего собран:</div>' + partsList(d.parts, d.corp) + '</div>';
+      '<div class="sub" style="margin:7px 0 2px">Из чего собран:</div>' + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
   if (U.pick.kind === "cargo" && d.kind === "parts") {
@@ -133,7 +141,8 @@ export function inspector(): void {
       '<div class="part"><i class="dot" style="background:' + sellerC.color + '"></i><span class="pn">продал</span><span class="pw">' + sellerC.name + '</span></div>' +
       '<div class="part"><i class="dot" style="background:' + buyer.color + '"></i><span class="pn">купил и везёт</span><span class="pw">' + buyer.name + '</span></div>' +
       '<div class="sub" style="margin:6px 0 0">Рейс сжёг межзвёздного топлива: ' +
-      fuelCost(d.sysFrom, d.to) + '.</div></div>';
+      fuelCost(d.sysFrom, d.to) + '.</div>' +
+      '<div class="sub" style="margin:7px 0 2px">Грузовик собран из:</div>' + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
   // Перегон готового корабля в чужую систему и уход прыжкового к точке старта.
@@ -147,7 +156,7 @@ export function inspector(): void {
       '<div class="sub" style="margin:0 0 4px">' + (d.kind === "reloc"
         ? 'Там заправится и прыгнет к ' + systems[d.jumpTo].name + '.'
         : 'По прилёте встанет на свой курс в системе.') + '</div>' +
-      partsList(d.parts, d.corp) + '</div>';
+      engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
   if (U.pick.kind === "cargo" && (d.kind === "food" || d.kind === "pops")) {
@@ -155,7 +164,7 @@ export function inspector(): void {
       '<div class="sub">везёт ' + (d.kind === "food" ? d.qty + " еды" : d.qty.toFixed(1) + " человечков") +
       ' с ' + d.from.body.name + ' на ' + d.to.body.name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
       '<div class="sub" style="margin:0 0 4px">Куплен правительством ' + d.to.body.name + ', собран из:</div>' +
-      partsList(d.parts, -1) + '</div>';
+      engLine(d.parts) + partsList(d.parts, -1) + '</div>';
     return;
   }
   if (U.pick.kind === "jumpship") {
@@ -163,7 +172,7 @@ export function inspector(): void {
       '<div class="sub">' + corps[d.corp].name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
       (d.kind === "gate" ? '<div class="sub" style="margin:0 0 4px">Дойдёт до ' + systems[d.to].name +
         (d.upgrade ? ' — и переделает створы на этом маршруте на старшую марку.' : ' — и станет воротами на этом маршруте.') + '</div>' : '') +
-      partsList(d.parts, d.corp) + '</div>';
+      engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
   if (U.pick.kind === "gate") {
@@ -184,7 +193,7 @@ export function inspector(): void {
     box.innerHTML = '<div class="card"><h3>' + (d.kind === "colony" ? "Колониальный модуль" : "Добывающая платформа") + '</h3>' +
       '<div class="sub">' + corps[d.corp].name + ' · курс на ' +
       (d.kind === "colony" ? d.body.name : d.dest.label) + ' · ' + Math.round(d.t * 100) + '%</div>' +
-      partsList(d.parts, d.corp) + '</div>';
+      engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
   if (U.pick.kind === "vent") {

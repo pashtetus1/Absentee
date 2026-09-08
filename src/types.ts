@@ -334,6 +334,7 @@ export interface Voyage {
   k?: string;                     // какая деталь
   corp?: number;                  // чей корабль
   forCorp?: number;               // для кого везут
+  shipOwner?: number;             // чей сам грузовик (у рейса с деталью — покупателя)
   acct?: FlyAcct;
   take?: (part: Part) => void;    // что сделать по прибытии
   relief?: number;                // чья частная помощь; иначе везёт правительство
