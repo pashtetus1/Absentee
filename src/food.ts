@@ -19,14 +19,13 @@
 
 import { engMult, pickCaptain, shipNeed, vtype } from "./data";
 import { takeDock } from "./docks";
-import { markSpeedOf } from "./galaxy";
 import { harvestOf } from "./labour";
 import { askPrice, fuelBill, govFuel, govFuelAvail } from "./market";
 import { rnd } from "./rng";
 import { onOrder, orderTransport } from "./shipyard";
 import { L, S, corps, dateStr, docks, say, voyages, worlds } from "./state";
 import { bestEngineAt } from "./tech";
-import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
+import { canTravel, fuelCost, needWith, routeSpeed, travelExtra } from "./travel";
 import { addStock, popOf, reserveOf, stockAt } from "./world";
 import type { Corp, Part, Voyage, World } from "./types";
 
@@ -101,7 +100,7 @@ export function dispatch(from: World, to: World, kind: string, qty: number, part
             // освоенная в галактике).
             t:0, dur: from.sys === to.sys
                       ? (54 + rnd() * 18) / engMult(parts)
-                      : (150 + rnd() * 60) / markSpeedOf(parts.length ? parts[0].from : -1),
+                      : (150 + rnd() * 60) / routeSpeed(from.sys, to.sys, parts.length ? parts[0].from : -1),
             born:dateStr(), captain:pickCaptain() } as Voyage;
   voyages.push(v);
   return v;

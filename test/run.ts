@@ -473,10 +473,11 @@ test("астероиды раскиданы по системе, а не по к
 });
 
 test("камни не ложатся под планеты, а места створов свободны", () => {
-  // Створ встаёт на последней орбите на луче к соседу, до которого достаёт
-  // лучшая марка (130). Раньше камень мог лечь прямо под планету — подписи
-  // накрывали друг друга — а ворота стояли за краем на своём кольце 420.
-  const REACH = 130;
+  // Створ встаёт на последней орбите не дальше 30° от луча к соседу, до
+  // которого достаёт лучшая марка (130). Раньше камень мог лечь прямо под
+  // планету — подписи накрывали друг друга — а ворота стояли за краем на
+  // своём кольце 420.
+  const REACH = 130, DEV = 30 * Math.PI / 180 + 1e-6;
   for (let seed = 1; seed <= 12; seed++) {
     const sys = load("dist/index.html", { seed }).state().systems;
     sys.forEach((s) => {
@@ -484,7 +485,13 @@ test("камни не ложатся под планеты, а места ств
       const outer = Math.max.apply(null, s.bodies.map((b) => b.r));
       assert(Math.abs(s.gateR - outer) < 1e-9, s.name + ": ворота не на последней орбите");
       const gates = sys.filter((o) => o !== s && Math.hypot(o.x - s.x, o.y - s.y) <= REACH)
-        .map((o) => { const a = Math.atan2(o.y - s.y, o.x - s.x); return { x: Math.cos(a) * s.gateR, y: Math.sin(a) * s.gateR }; });
+        .map((o) => {
+          const ray = Math.atan2(o.y - s.y, o.x - s.x), a = s.gateAngs[o.id];
+          assert(a !== undefined, s.name + ": нет места под створ к " + o.name);
+          const d = Math.abs(((a - ray) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
+          assert(d <= DEV, s.name + ": створ к " + o.name + " ушёл от луча на " + (d * 180 / Math.PI).toFixed(0) + "°");
+          return { x: Math.cos(a) * s.gateR, y: Math.sin(a) * s.gateR };
+        });
       s.rocks.forEach((r) => {
         const p = at(r);
         s.bodies.forEach((b) => {
@@ -496,6 +503,78 @@ test("камни не ложатся под планеты, а места ств
       s.bodies.forEach((b) => {
         const q = at(b);
         gates.forEach((g) => { assert(Math.hypot(q.x - g.x, q.y - g.y) > b.rad + 30, s.name + ": планета " + b.name + " на месте створа"); });
+      });
+    });
+  }
+});
+
+// Створ — сооружение с конусом ±40°: один ведёт ко всем соседям в конусе, и
+// маршрут открыт, когда створы двух звёзд смотрят друг на друга. Поэтому
+// створов в системе не больше, чем маршрутов, у каждого маршрута есть
+// створы с обоих концов, и марка маршрута — младшая из двух.
+test("створы ведут ко всем соседям в конусе, а маршруты складываются из створов", () => {
+  const CONE = 40 * Math.PI / 180 + 1e-6;
+  const diff = (a: number, b: number) => Math.abs(((a - b) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
+  let shared = 0, routes = 0;
+  for (const seed of [89, 97, 7]) {
+    const sim = load("dist/index.html", { seed });
+    sim.build("gates");
+    const st = runYears(sim, 300);
+    Object.keys(st.gates).forEach((k) => {
+      const g = st.gates[k];
+      if (!g.built) return;
+      routes++;
+      assert(g.mark >= 1, "у маршрута " + k + " нет марки");
+      [[g.a, g.b], [g.b, g.a]].forEach(([i, j]) => {
+        const s = st.systems[i], o = st.systems[j], ray = Math.atan2(o.y - s.y, o.x - s.x);
+        const p = s.portals.find((p) => diff(p.ang, ray) <= CONE);
+        assert(p, s.name + ": маршрут к " + o.name + " есть, а створа в ту сторону нет");
+        assert(p.mark >= g.mark, s.name + ": марка маршрута старше марки створа");
+      });
+    });
+    st.systems.forEach((s) => {
+      const mine = Object.keys(st.gates).filter((k) => st.gates[k].built && (st.gates[k].a === s.id || st.gates[k].b === s.id)).length;
+      assert(s.portals.length <= mine, s.name + ": створов больше, чем маршрутов");
+      shared += mine - s.portals.length;
+    });
+  }
+  assert(routes > 0, "за триста лет не проложено ни одного маршрута");
+  assert(shared > 0, "ни один створ не обслуживает двух маршрутов: конус не работает");
+});
+
+// Марки — лестница: следующую не берут, не освоив предыдущую, патентов на них
+// нет, а ступень становится общей, когда где-то освоены две следующие.
+test("марки берутся по порядку, без патентов, и открываются всем через две ступени", () => {
+  for (const seed of [29, 83]) {
+    const sim = load("dist/index.html", { seed });
+    const ladders = (st: Snapshot): string[][] => {
+      const eng = ["eng1", "eng2", "eng3", "eng4"];
+      const move = Object.keys(st.patents).filter((k) => /^(drives|gates)d$/.test(k)).sort();
+      const devs: Record<string, string[]> = {};
+      Object.keys(st.patents).filter((k) => /^dev_/.test(k)).forEach((k) => {
+        const cls = k.split("_")[1]; (devs[cls] = devs[cls] || []).push(k);
+      });
+      Object.keys(devs).forEach((c) => { devs[c].sort((a, b) => +a.split("_")[2] - +b.split("_")[2]); });
+      return [eng, move].concat(Object.keys(devs).map((c) => devs[c]));
+    };
+    const st = runYears(sim, 300, (st) => {
+      ladders(st).forEach((keys) => {
+        keys.forEach((k, i) => {
+          assert(st.patents[k].owner < 0, "на марку " + k + " выдан патент");
+          if (!i) return;
+          st.corps.forEach((c) => {
+            assert(!c.known[k] || c.known[keys[i - 1]], c.name + " знает " + k + ", не зная " + keys[i - 1]);
+          });
+        });
+      });
+    });
+    ladders(st).forEach((keys) => {
+      keys.forEach((k, i) => {
+        const n1 = keys[i + 1], n2 = keys[i + 2];
+        if (!n1 || !n2) return;
+        const known = (key: string) => st.corps.some((c) => c.known[key]);
+        if (known(n1) && known(n2))
+          st.corps.forEach((c) => { assert(c.known[k], c.name + " не знает " + k + ", хотя освоены " + n1 + " и " + n2); });
       });
     });
   }
@@ -1109,6 +1188,8 @@ test("панель показывает всю очередь верфи, с п�
     const busy = sim.state().shipyards.find((y) => y.world.sys === 0 && y.queue.length >= 2);
     if (!busy) continue;
     sim.step();                                  // панель рисуется в шаге
+    // за этот шаг голова очереди могла сойти со стапеля — тогда ждём дальше
+    if (!sim.state().shipyards.some((y) => y.world.sys === 0 && y.queue.length >= 2)) continue;
     html = sim.__html("ventures");
   }
   assert(html, "за триста лет в домашней верфи не собралось очереди из двух сборок");

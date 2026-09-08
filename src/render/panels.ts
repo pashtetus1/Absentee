@@ -162,7 +162,7 @@ export function inspector(): void {
     box.innerHTML = '<div class="card"><h3>' + (d.kind === "gate" ? "Портальный корабль" : "Прыжковый корабль") + '</h3>' +
       '<div class="sub">' + corps[d.corp].name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
       (d.kind === "gate" ? '<div class="sub" style="margin:0 0 4px">Дойдёт до ' + systems[d.to].name +
-        ' — и станет воротами на этом маршруте.</div>' : '') +
+        (d.upgrade ? ' — и переделает створы на этом маршруте на старшую марку.' : ' — и станет воротами на этом маршруте.') + '</div>' : '') +
       partsList(d.parts, d.corp) + '</div>';
     return;
   }
@@ -172,8 +172,11 @@ export function inspector(): void {
       '<div class="sub">маршрут ' + systems[d.a].name + ' — ' + systems[d.b].name +
       (d.born ? ' · с ' + d.born : '') + '</div>' +
       '<div class="part"><span class="pn">поставила</span><span class="pw">' + who + '</span></div>' +
+      '<div class="part"><span class="pn">марка створов</span><span class="pw">Mk' + (d.mark || 1) +
+        (d.upgrading ? ' → переделывают' : '') + '</span></div>' +
+      (d.built ? '<div class="part"><span class="pn">рейсов за последнее время</span><span class="pw">' + Math.round(d.trips || 0) + '</span></div>' : '') +
       '<div class="sub" style="margin:6px 0 0">' + (d.built
-        ? 'По этому маршруту летают без двигателя. Проход через створ жжёт бак межзвёздного топлива.'
+        ? 'По этому маршруту летают без двигателя со скоростью младшей марки створов. Проход через створ жжёт бак межзвёздного топлива.'
         : 'Портальный корабль ещё в пути.') + '</div></div>';
     return;
   }

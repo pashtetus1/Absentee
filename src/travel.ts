@@ -1,9 +1,10 @@
 // ---- правила перемещения между звёздами ------------------------------
 
-import { galaxyRange } from "./galaxy";
-import { S, gates, systems } from "./state";
+import { galaxyRange, markSpeedOf } from "./galaxy";
+import { MARKRANGE, MARKSPEED } from "./data";
+import { S, dateStr, gates, say, systems } from "./state";
 import { dist } from "./util";
-import type { Gate, VType } from "./types";
+import type { Gate, Portal, VType } from "./types";
 
 export function routeKey(a: number, b: number): string{ return Math.min(a, b) + "-" + Math.max(a, b); }
 export function gateOf(a: number, b: number): Gate{ return gates[routeKey(a, b)]; }
@@ -33,6 +34,99 @@ export function spread(a: number): { hop: number[]; via: number[] } {
     }
   }
   return { hop:hop, via:via };
+}
+
+// ---- створы -----------------------------------------------------------
+// Створ смотрит в свою сторону и ведёт ко ВСЕМ звёздам в конусе ±40° от
+// неё: один створ обслуживает несколько маршрутов, если соседи лежат кучно.
+// Маршрут открыт, когда створы на обоих концах смотрят друг на друга и
+// младшая из их марок дотягивается до другого конца. Маршруты (gates) так и
+// остаются рёбрами сети — только теперь они складываются из створов, а не
+// ставятся по одному на пару звёзд.
+export const CONE = 0.6981;                                  // 40°
+export function dirTo(a: number, b: number): number{ return Math.atan2(systems[b].y - systems[a].y, systems[b].x - systems[a].x); }
+export function angDiff(a: number, b: number): number{ const d = ((a - b) % 6.2832 + 9.4248) % 6.2832 - 3.1416; return Math.abs(d); }
+/** Створ системы a, в конус которого попадает звезда b. */
+export function portalFor(a: number, b: number): Portal | null {
+  const d = dirTo(a, b);
+  let out: Portal = null, bd = CONE;
+  systems[a].portals.forEach((p) => { const k = angDiff(p.ang, d); if (k < bd) { bd = k; out = p; } });
+  return out;
+}
+/** Куда смотрит створ к звезде b: готовый створ, иначе отведённое при
+ *  генерации место, иначе сам луч (сосед, до которого марки не доставали). */
+export function portalAng(a: number, b: number): number {
+  const p = portalFor(a, b);
+  if (p) return p.ang;
+  const slot = systems[a].gateAngs && systems[a].gateAngs[b];
+  return slot !== undefined ? slot : dirTo(a, b);
+}
+/** Портальный корабль пришёл: створ в a в сторону b либо уже есть — тогда он
+ *  получает марку не ниже привезённой, — либо ставится на отведённое место. */
+export function ensurePortal(a: number, b: number, owner: number, mark: number): Portal {
+  let p = portalFor(a, b);
+  if (p) { p.mark = Math.max(p.mark, mark); return p; }
+  p = { ang:portalAng(a, b), mark:Math.max(1, mark), owner:owner, born:dateStr() };
+  systems[a].portals.push(p);
+  return p;
+}
+/** Пересчитать маршруты по створам: пара звёзд, чьи створы смотрят друг на
+ *  друга и достают, соединена — даже если портальный корабль между ними не
+ *  летал. Марка маршрута — младшая из двух. */
+export function syncRoutes(): void {
+  for (let i = 0; i < systems.length; i++) {
+    if (!systems[i].portals.length) continue;
+    for (let j = i + 1; j < systems.length; j++) {
+      const pi = portalFor(i, j), pj = pi && portalFor(j, i);
+      if (!pj) continue;
+      const mark = Math.min(pi.mark, pj.mark);
+      if (dist(systems[i], systems[j]) > MARKRANGE[Math.min(MARKRANGE.length, mark) - 1]) continue;
+      const key = routeKey(i, j);
+      let g = gates[key];
+      if (g && g.built) { g.mark = mark; continue; }
+      if (g) { g.built = true; g.building = false; g.mark = mark; g.born = g.born || dateStr(); continue; }
+      gates[key] = { a:i, b:j, built:true, building:false, owner:pj.owner, born:dateStr(), mark:mark, trips:0 };
+      say("Створы " + systems[i].name + " и " + systems[j].name + " смотрят друг на друга: маршрут открыт.");
+    }
+  }
+}
+
+/** Створы на пути от a к b по сети, в порядке прохода; пусто, если пути нет. */
+export function gatesOn(a: number, b: number): Gate[] {
+  const out: Gate[] = [];
+  let cur = a, guard = 0;
+  while (cur !== b && guard++ < systems.length) {
+    const n = spread(cur).via[b];
+    if (n === undefined) return [];
+    out.push(gateOf(cur, n)); cur = n;
+  }
+  return out;
+}
+
+// Скорость межзвёздного рейса. Под движками решает марка компании: двигатель
+// стоит на корабле. Под воротами корабль двигателя не несёт — его ведёт
+// створ, и скорость задаёт САМЫЙ СТАРЫЙ комплект на пути. Отсюда и смысл
+// переделывать створы: пока стоит Mk1, по маршруту всё ползёт как в первый
+// год, сколько бы марок ни открыли потом.
+export function routeSpeed(a: number, b: number, corpId: number): number {
+  if (a === b || S.move.key === "drives") return markSpeedOf(corpId);
+  const gs = gatesOn(a, b).filter((g) => { return g && g.built; });
+  if (!gs.length) return markSpeedOf(corpId);
+  let slow = 1e9;
+  gs.forEach((g) => { slow = Math.min(slow, MARKSPEED[Math.max(1, Math.min(MARKSPEED.length, g.mark || 1)) - 1]); });
+  return slow;
+}
+
+/** Рейс прошёл: каждому маршруту на пути засчитывается проход. По этому
+ *  счёту компании решают, окупится ли переделка створов на старшую марку. */
+export function useRoute(a: number, b: number): void {
+  if (a === b || S.move.key === "drives") return;
+  gatesOn(a, b).forEach((g) => { if (g) g.trips = (g.trips || 0) + 1; });
+}
+
+/** Запись о маршруте, который только прокладывают. */
+export function newGate(a: number, b: number, owner: number, mark: number): Gate {
+  return { a:a, b:b, built:false, building:true, owner:owner, mark:Math.max(1, mark), trips:0 };
 }
 
 // Можно ли отправить обычный рейс (еду, людей) из системы в систему.

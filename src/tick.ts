@@ -14,7 +14,7 @@ import { panels } from "./render/panels";
 import { watchProposals } from "./render/ui";
 import { patentsExpire, research } from "./science";
 import { proposalsTick, reviewProposals } from "./shipyard";
-import { L, S, U, headless, resetTickCache, tickCache, worlds } from "./state";
+import { L, S, U, headless, resetTickCache, tickCache, worlds, gates } from "./state";
 
 export function step(): void {
   S.tick++; markTick(); S.yearNow = Math.floor(S.tick / 12);
@@ -27,6 +27,8 @@ export function step(): void {
   piracy();
   if (S.tick % 12 === 0) { reviewOrders(); reviewProjects(); reviewProposals(); branchTrade(); events(); }
   assemble(); moveShips(); ventureIncome();
+  // трафик маршрутов затухает: за пять лет счёт без новых рейсов сходит на нет
+  Object.keys(gates).forEach((k) => { gates[k].trips = (gates[k].trips || 0) * (1 - 1 / 60); });
   if (!headless) watchProposals();
   if (!headless && (L.speed <= 4 || Date.now() - U.lastPanel > 120)) { panels(); U.lastPanel = Date.now(); }
 }

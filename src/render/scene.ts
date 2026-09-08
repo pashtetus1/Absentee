@@ -4,19 +4,16 @@ import { MARKRANGE } from "../data";
 import { galaxyRange, within } from "../galaxy";
 import { yardAt } from "../shipyard";
 import { S, U, cam, corps, docks, gates, hits, shipyards, systems, voyages } from "../state";
-import { gatesAt, inNet, otherEnd, spread } from "../travel";
+import { gatesAt, inNet, otherEnd, portalAng, portalFor, spread } from "../travel";
 import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
 import { CH, CW, advanceFrame, cx, glow, last, setSysK, setUiz, uiz } from "./canvas";
-import { advance, caption, dockLines, flame, grow, posOf, rock, ship, star, tiny, windowLines, yardLines, yardPos } from "./models";
+import { advance, caption, dockLines, flame, grow, posOf, rift, rock, ship, star, tiny, warped, windowLines, yardLines, yardPos } from "./models";
 import type { Rock, Sys } from "../types";
 
-// Куда смотрит створ: на ту звезду, к которой ведёт. Поэтому два маршрута из
-// одной системы — это два разных места на краю, и по одному взгляду видно,
-// сколько дорог отсюда расходится и куда.
-function gateAng(from: number, to: number): number {
-  return Math.atan2(systems[to].y - systems[from].y, systems[to].x - systems[from].x);
-}
+// Куда смотрит створ: в сторону звёзд, к которым ведёт. Готовый створ стоит
+// там, где встал; строящийся маршрут показывается на отведённом месте.
+function gateAng(from: number, to: number): number{ return portalAng(from, to); }
 
 export function drawSystem(s: Sys): void {
   const mx = CW / 2, my = CH / 2;
@@ -87,13 +84,28 @@ export function drawSystem(s: Sys): void {
     cx.fillText(b.type.name + (w ? " · " + fmt(popOf(w)) : ""), p.x, p.y + b.rad + 21);
   });
 
-  // Створов у системы столько, сколько от неё расходится маршрутов, и каждый
-  // смотрит на свою звезду. Прежние «одни ворота на систему» висели в случайном
+  // Створ — сооружение: смотрит в свою сторону и ведёт ко всем звёздам в
+  // конусе ±40°. Подпись перечисляет, куда через него ходят. Строящийся
+  // маршрут, для которого створа ещё нет, показан пунктирным кольцом на
+  // отведённом месте. Прежние «одни ворота на систему» висели в случайном
   // месте края и не отвечали на главный вопрос — КУДА отсюда можно.
-  gatesAt(s.id).forEach((g) => {
+  const routes = gatesAt(s.id);
+  const rings: { ang: number; built: boolean; label: string; g: any }[] = [];
+  s.portals.forEach((p) => {
+    const served = routes.filter((g) => { return g.built && portalFor(s.id, otherEnd(g, s.id)) === p; });
+    rings.push({ ang:p.ang, built:true, g:served[0] || null,
+                 label:(served.length ? served.map((g) => { return systems[otherEnd(g, s.id)].name; }).join(", ") : "створ") + " · Mk" + p.mark });
+  });
+  routes.forEach((g) => {
+    if (g.built) return;
     const to = otherEnd(g, s.id);
-    const jp = posOf({ r:s.gateR, ang:gateAng(s.id, to) }, mx, my), jr = 11 + Math.sin(glow * 1.6) * 1.8;
-    const col = g.built ? "#9aa8ff" : "#3a4460";
+    if (portalFor(s.id, to)) return;         // с этого конца створ уже стоит
+    rings.push({ ang:gateAng(s.id, to), built:false, g:g, label:"строятся " + systems[to].name });
+  });
+  rings.forEach((ring) => {
+    const g = ring.g;
+    const jp = posOf({ r:s.gateR, ang:ring.ang }, mx, my), jr = 11 + Math.sin(glow * 1.6) * 1.8;
+    const col = ring.built ? "#9aa8ff" : "#3a4460";
     // Кольцо с четырьмя засечками, развёрнутое от звезды: это створ, в который
     // уходят, а не ещё одна планета на орбите.
     const face = Math.atan2(jp.y - my, jp.x - mx);
@@ -112,15 +124,15 @@ export function drawSystem(s: Sys): void {
       cx.strokeStyle = "#9aa8ff"; cx.globalAlpha = s.pulse * 0.7; cx.lineWidth = 2;
       cx.stroke(); cx.globalAlpha = 1;
     }
-    if (g.built) {
+    if (ring.built) {
       const gr = cx.createRadialGradient(jp.x, jp.y, 0, jp.x, jp.y, jr);
       gr.addColorStop(0, "rgba(154,168,255,0.55)"); gr.addColorStop(1, "rgba(154,168,255,0)");
       cx.beginPath(); cx.arc(jp.x, jp.y, jr, 0, 6.2832); cx.fillStyle = gr; cx.fill();
     }
-    cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = g.built ? "#8f9bc4" : "#4e5872";
+    cx.font = "500 10px system-ui, sans-serif"; cx.fillStyle = ring.built ? "#8f9bc4" : "#4e5872";
     cx.textAlign = "center"; cx.textBaseline = "top";
-    cx.fillText((g.built ? "" : "строятся ") + systems[to].name, jp.x, jp.y + jr + 5);
-    hits.push({ x:jp.x, y:jp.y, r:jr + 4, kind:"gate", data:g });
+    cx.fillText(ring.label, jp.x, jp.y + jr + 5);
+    if (g) hits.push({ x:jp.x, y:jp.y, r:jr + 4, kind:"gate", data:g });
   });
 
   // Вставшая платформа перестаёт быть корабликом. Она села, а не зависла над
@@ -247,12 +259,25 @@ export function drawSystem(s: Sys): void {
     const x = a.x + (b.x - a.x) * leg, y = a.y + (b.y - a.y) * leg;
     const rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
     const isJump = v.kind === "jump" || v.kind === "gate" || v.kind === "reloc";
-    // вылет — растёт из точки у планеты, прилёт — сжимается в точку у цели;
-    // со стороны края системы корабль не анимируется: он там просто уходит
-    const sz = 6.5 * (s.id === fromSys ? grow(leg, 0.45, 0) : grow(leg, 0, 0.45));
-    if (sz > 0.12) {
-      flame(x, y, sz, rot);
-      ship(isJump ? "jump" : "cargo", x, y, sz, rot, v.color);
+    const out = s.id === fromSys;
+    if (S.move.key === "drives") {
+      // Под движками у края нет створа — корабль сам рвёт пространство. На
+      // вылете перед ним раскрывается дыра, он вытягивается и уходит в неё;
+      // на прилёте дыра ещё открыта, из неё выползает искажённый корабль, и
+      // она затягивается за ним.
+      const open = out ? clamp((leg - 0.5) / 0.3, 0, 1) : 1 - clamp((leg - 0.1) / 0.35, 0, 1);
+      const pull = out ? clamp((leg - 0.62) / 0.38, 0, 1) : 1 - clamp(leg / 0.3, 0, 1);
+      rift(out ? b.x : a.x, out ? b.y : a.y, 15, open);
+      const sz = 6.5 * (out ? grow(leg, 0.45, 0.12) : grow(leg, 0.1, 0.45));
+      if (sz > 0.12) warped(isJump ? "jump" : "cargo", x, y, sz, rot, v.color, pull);
+    } else {
+      // вылет — растёт из точки у планеты, прилёт — сжимается в точку у цели;
+      // со стороны створа корабль не анимируется: он там просто уходит
+      const sz = 6.5 * (out ? grow(leg, 0.45, 0) : grow(leg, 0, 0.45));
+      if (sz > 0.12) {
+        flame(x, y, sz, rot);
+        ship(isJump ? "jump" : "cargo", x, y, sz, rot, v.color);
+      }
     }
     if (U.pick && U.pick.data === v) caption(x, y, windowLines(v, true), v.color);
     else tiny(x, y, v.captain, v.color);

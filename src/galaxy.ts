@@ -13,7 +13,7 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
   // belt и gate дописываются ниже: belt тянет случайное число, и перенос его
   // в литерал сдвинул бы весь поток — партии перестали бы воспроизводиться
   const s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
-            bodies:[], rocks:[], ventures:[], ships:[], stations:[], mines:0 } as unknown as Sys;
+            bodies:[], rocks:[], ventures:[], ships:[], stations:[], mines:0, portals:[] } as unknown as Sys;
   const np = i === 0 ? 4 : 2 + Math.floor(rnd() * 4);      // до пяти планет
   const types: PType[] = [], rs: number[] = [];
   for (let k = 0; k < np; k++) {
@@ -23,23 +23,50 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
   // Ворота стоят на ПОСЛЕДНЕЙ орбите системы, а не на своём кольце за краем:
   // прежний фиксированный радиус 420 у системы из двух планет уводил створы
   // в пустоту и заставлял ужимать всю сцену ради них. Створов ещё нет, но
-  // где они встанут — известно: на луче к каждой звезде, до которой вообще
-  // достаёт лучшая марка. Эти места держатся свободными от планет и камней.
+  // где они встанут — известно: у луча к каждой звезде, до которой вообще
+  // достаёт лучшая марка. Створу не обязательно смотреть ТОЧНО на свою
+  // звезду: допускается уход до 30° в любую сторону, и место выбирается
+  // ближайшее к лучу из тех, где нет планеты. Планеты при этом стоят где
+  // хотят; углы перебираются лишь когда какому-то створу места не нашлось.
   s.gateR = rs[np - 1];
+  s.gateAngs = {};
   const reach = MARKRANGE[MARKRANGE.length - 1];
-  const gatePts = pts.filter((p, j) => { return j !== i && dist(p, s) <= reach; })
-    .map((p) => { const a = Math.atan2(p.y - y, p.x - x); return { x:Math.cos(a) * s.gateR, y:Math.sin(a) * s.gateR }; });
-  const away = (px: number, py: number, m: number): boolean => {
-    return gatePts.every((g) => { return Math.hypot(g.x - px, g.y - py) > m; });
-  };
-  // Углы планет перебираются, пока ни одна не ляжет на место створа: подпись
-  // планеты — две строки вниз, кольцо створа — ещё 18, отсюда запас.
+  const aims: { id: number; ang: number }[] = [];
+  pts.forEach((p, j) => {
+    if (j !== i && dist(p, s) <= reach) aims.push({ id:j, ang:Math.atan2(p.y - y, p.x - x) });
+  });
+  const gatePts: { x: number; y: number }[] = [];
   let angs: number[] = [], tries = 0;
   do {
     const base = rnd6();
     angs = [];
     for (let k = 0; k < np; k++) angs.push(base + k * (1.5 + rnd()*0.8));
-  } while (++tries < 300 && !angs.every((a, k) => { return away(Math.cos(a) * rs[k], Math.sin(a) * rs[k], 8 + types[k].cap * 0.7 + 44); }));
+    gatePts.length = 0;
+    // подпись планеты — две строки вниз, кольцо створа — ещё 18, отсюда запас
+    const free = (gx: number, gy: number): boolean => {
+      return angs.every((a, k) => { return Math.hypot(Math.cos(a) * rs[k] - gx, Math.sin(a) * rs[k] - gy) > 8 + types[k].cap * 0.7 + 44; })
+          && gatePts.every((g) => { return Math.hypot(g.x - gx, g.y - gy) > 36; });
+    };
+    let ok = true;
+    aims.forEach((aim) => {
+      if (!ok) return;
+      let found = false;
+      for (let step = 0; step <= 10 && !found; step++) {          // 0, ±3°, ±6°, … ±30°
+        for (const sign of (step ? [1, -1] : [1])) {
+          const ga = aim.ang + sign * step * (Math.PI / 60);
+          const gx = Math.cos(ga) * s.gateR, gy = Math.sin(ga) * s.gateR;
+          if (!free(gx, gy)) continue;
+          s.gateAngs[aim.id] = ga; gatePts.push({ x:gx, y:gy }); found = true; break;
+        }
+      }
+      if (!found) ok = false;
+    });
+    if (ok) break;
+  } while (++tries < 300);
+  if (tries >= 300) aims.forEach((aim) => { if (s.gateAngs[aim.id] === undefined) s.gateAngs[aim.id] = aim.ang; });
+  const away = (px: number, py: number, m: number): boolean => {
+    return gatePts.every((g) => { return Math.hypot(g.x - px, g.y - py) > m; });
+  };
   for (let k = 0; k < np; k++) {
     const t = types[k];
     // пятьдесят систем по пять планет — имён в пуле меньше, дальше идут
@@ -146,6 +173,12 @@ export function markSpeedOf(corpId: number): number {
   MARKS.forEach((m) => {
     if (c ? canBuild(c, m.key) : corps.some((o) => canBuild(o, m.key))) best = Math.max(best, m.speed);
   });
+  return best;
+}
+/** Номер лучшей марки, которую компания умеет; 0 — никакой. */
+export function markLevelOf(c: Corp): number {
+  let best = 0;
+  MARKS.forEach((m) => { if (canBuild(c, m.key)) best = Math.max(best, m.mark); });
   return best;
 }
 export function galaxyRange(): number {

@@ -1,12 +1,12 @@
 // ===================== заказы, консорциумы, филиалы =====================
 
-import { shipNeed, vtype } from "./data";
-import { galaxyRange, rangeOf, within } from "./galaxy";
+import { shipNeed, vtype, MARKSPEED } from "./data";
+import { galaxyRange, rangeOf, within, markLevelOf } from "./galaxy";
 import { rnd } from "./rng";
 import { YARD_WORK, nearestYard, yardAt } from "./shipyard";
 import { S, anyMakes, canBuild, corps, dateStr, fill, gates, market, projects, say, systems, voyages, worlds } from "./state";
 import { bestEngineMade } from "./tech";
-import { gateOf, reachable, routeKey } from "./travel";
+import { gateOf, newGate, reachable, routeKey } from "./travel";
 import { clamp, dist } from "./util";
 import { addStock, hasBranch, openBranch, popOf } from "./world";
 import type { Corp, Order, Part, Planet, Rock, Sys, VType } from "./types";
@@ -24,10 +24,10 @@ export function anyRock(): boolean{ return systems.some((s) => { return s.unlock
 // Ближайшая закрытая звезда, до которой ДОТЯГИВАЕТСЯ марка этой компании.
 // Отсюда и берётся ощущение края карты: дальние звёзды видны, но пока не
 // осилена следующая марка, до них не дострелить.
-export function jumpTarget(c: Corp): { from: number; to: number } | null {
+export function jumpTarget(c: Corp): { from: number; to: number; upgrade?: boolean } | null {
   const range = c ? rangeOf(c) : galaxyRange();
   if (range <= 0) return null;
-  let out: { from: number; to: number } = null, bd = 1e9;
+  let out: { from: number; to: number; upgrade?: boolean } = null, bd = 1e9;
   systems.forEach((s) => {
     if (!s.unlocked) return;
     // Стартовать можно только там, где живут люди, и куда верфь может пригнать
@@ -50,7 +50,37 @@ export function jumpTarget(c: Corp): { from: number; to: number } | null {
 // Цель у экспансии одна на оба способа: ближайшая закрытая звезда, до которой
 // дотягивается марка. Разница только в том, ЧТО туда летит — прыжковый корабль
 // или портальный, который на этом маршруте останется воротами.
-export function expandTarget(c: Corp): { from: number; to: number } | null{ return jumpTarget(c); }
+export function expandTarget(c: Corp): { from: number; to: number; upgrade?: boolean } | null{ return jumpTarget(c); }
+
+// Переделка створов на старшую марку. Створ ведёт корабль со скоростью СВОЕГО
+// комплекта, и маршрут, проложенный Mk1 в первый год, ползёт так и через сто
+// лет. Компания, освоившая старшую марку, гонит по нему новый комплект — но
+// только если это окупается: у маршрута считается недавний трафик (g.trips,
+// затухает за ~5 лет), и выигрыш в рейсах должен перекрыть порог. Самый
+// оживлённый маршрут — первым. Комплект переделывает створы на ОБОИХ концах,
+// а с ними — все маршруты, что через эти створы идут.
+export const UPGRADE_WORTH = 0.6;
+export function upgradeTarget(c: Corp): { from: number; to: number; upgrade: boolean } | null {
+  if (S.move.key !== "gates") return null;
+  const lvl = markLevelOf(c);
+  if (lvl < 2) return null;
+  const vt = vtype("gate");
+  if (!buildable(vt) || c.cash < orderCost(vt) * 1.5) return null;
+  let out: { from: number; to: number; upgrade: boolean } = null, top = UPGRADE_WORTH;
+  Object.keys(gates).forEach((k) => {
+    const g = gates[k];
+    if (!g.built || g.upgrading || (g.mark || 1) >= lvl) return;
+    if (corps.some((o) => { return o.order && o.order.upgrade && o.order.from !== undefined &&
+                                   routeKey(o.order.from, o.order.to) === k; })) return;
+    // стартовать можно с любого конца, где есть люди и верфь под рукой
+    const ends = [g.a, g.b].filter((e) => { return systems[e].bodies.some((b) => b.world) && nearestYard(e, c); });
+    if (!ends.length) return;
+    // выигрыш: трафик × (во сколько раз быстрее пойдёт − 1), в рейсах
+    const gain = (g.trips || 0) * (MARKSPEED[lvl - 1] / MARKSPEED[(g.mark || 1) - 1] - 1);
+    if (gain > top) { top = gain; out = { from:ends[0], to:g.a === ends[0] ? g.b : g.a, upgrade:true }; }
+  });
+  return out;
+}
 export function orderCost(vt: VType): number {
   const need = shipNeed(vt, bestEngineMade()) || vt.need;
   let sum = 0;
@@ -73,7 +103,7 @@ export function reviewOrders(): void {
     [vtype("mine"), vtype(S.move.vt)].forEach((vt) => {
       if (!buildable(vt)) return;
       if (vt.key === "mine" && !anyRock()) return;
-      if (vt.key !== "mine" && (!hasColonyAnywhere(c) || !expandTarget(c))) return;
+      if (vt.key !== "mine" && (!hasColonyAnywhere(c) || !(expandTarget(c) || upgradeTarget(c)))) return;
       let score = vt.key !== "mine" ? 46 : (vt.yield * 0.55 * vt.term) / Math.max(20, orderCost(vt));
       let own = 0, all = 0;
       const need = shipNeed(vt, eng);
@@ -100,14 +130,17 @@ export function reviewOrders(): void {
       if (!ym) { o.rock.taken = false; c.needYard = true; return; }
       o.dst = pickS.id; o.sys = ym.world.sys; o.yard = ym;   // собирают на верфи, везут к астероиду
     } else {
-      const jt = jumpTarget(c);
+      const jt = jumpTarget(c) || upgradeTarget(c);
       if (!jt) return;
       const yj = nearestYard(jt.from, c);        // jumpTarget уже отсеял старты без верфи
       o.sys = yj.world.sys; o.yard = yj; o.from = jt.from; o.to = jt.to;
       // Маршрут занимается сразу, а не по прилёте: пока портальный корабль
       // собирают и ведут к старту, никто другой на этот же створ не тратится.
-      if (best.key === "gate")
-        gates[routeKey(jt.from, jt.to)] = { a:jt.from, b:jt.to, built:false, building:true, owner:c.id };
+      if (best.key === "gate") {
+        // Переделка: маршрут уже есть, корабль идёт по нему со старшим комплектом
+        if (jt.upgrade) { o.upgrade = true; gateOf(jt.from, jt.to).upgrading = true; }
+        else gates[routeKey(jt.from, jt.to)] = newGate(jt.from, jt.to, c.id, markLevelOf(c));
+      }
     }
     c.order = o; c.needYard = false;
     say("<b>" + c.name + "</b> взялась собирать " + best.name + " в " + systems[o.sys].name + ".");
@@ -135,7 +168,8 @@ export function releaseOrder(o: Order): void {
   if (o.rock) o.rock.taken = false;
   if (o.type === "gate" && o.from !== undefined) {
     const g = gateOf(o.from, o.to);
-    if (g && !g.built) delete gates[routeKey(o.from, o.to)];
+    if (o.upgrade) { if (g) g.upgrading = false; }
+    else if (g && !g.built) delete gates[routeKey(o.from, o.to)];
   }
 }
 
@@ -220,13 +254,13 @@ export function assemble(): void {
     if (vt.key === "jump" || vt.key === "gate") {
       // цель могла открыться, пока свозили детали — тогда летим к другой
       let to = o.to, from = o.from;
-      if (systems[to].unlocked) {
+      if (!o.upgrade && systems[to].unlocked) {
         const jt = jumpTarget(c);
         if (!jt) { releaseOrder(o); c.order = null; return; }
         releaseOrder(o); to = jt.to; from = jt.from;
-        if (vt.key === "gate") gates[routeKey(from, to)] = { a:from, b:to, built:false, building:true, owner:c.id };
+        if (vt.key === "gate") gates[routeKey(from, to)] = newGate(from, to, c.id, markLevelOf(c));
       }
-      yard.queue.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:to, from:from,
+      yard.queue.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:to, from:from, upgrade:o.upgrade,
                      parts:o.parts.slice(), left:vt.build * YARD_WORK, total:vt.build * YARD_WORK });
     } else {
       // предприятие числится в системе АСТЕРОИДА, а не сборки

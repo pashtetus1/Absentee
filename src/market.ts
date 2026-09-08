@@ -4,10 +4,9 @@
 // торге, но сама по себе она никого ни к чему не обязывает.
 
 import { COMPS, compOf, pickCaptain } from "./data";
-import { markSpeedOf } from "./galaxy";
 import { freeRocks, releaseOrder } from "./orders";
 import { L, S, corps, dateStr, market, patLive, patents, projects, proposals, say, shipyards, systems, tickCache, voyages, worlds } from "./state";
-import { canTravel, fuelCost } from "./travel";
+import { canTravel, fuelCost, routeSpeed } from "./travel";
 import { clamp } from "./util";
 import { addStock, firstStockSys, stockAt, totalStock } from "./world";
 import type { Corp, Part, Voyage, World } from "./types";
@@ -305,7 +304,7 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
                    if (acct && acct.fly) acct.fly[part.k] = Math.max(0, (acct.fly[part.k] || 0) - 1);
                    take(part);
                  },
-                 t:0, dur:(140 + rnd() * 50) / markSpeedOf(seller.id), born:dateStr(), captain:pickCaptain() });
+                 t:0, dur:(140 + rnd() * 50) / routeSpeed(sysFrom, dest, seller.id), born:dateStr(), captain:pickCaptain() });
   S.hauled++;
   return true;
 }

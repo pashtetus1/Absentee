@@ -74,7 +74,7 @@ export function ensureDev(cls: string, n: number): void {
   const col = colOf(cls);
   const d = { key:devKey(cls, n), cls:cls, mark:n, short:col.short + " Mk" + n,
             name:"Освоение: " + col.name.toLowerCase() + " Mk" + n,
-            diff:Math.round(900 * Math.pow(1.45, n - 1)) };
+            diff:Math.round(900 * Math.pow(1.9, n - 1)) };
   DEVS.push(d);
   corps.forEach((c) => { if (c.spent[d.key] === undefined) c.spent[d.key] = 0; });
   if (!patents[d.key]) patents[d.key] = { owner:-1, since:0, told:false };
@@ -100,6 +100,33 @@ export function devLevel(w: World): number {
 }
 export function devMult(w: World): number{ return 1 + 0.12 * devLevel(w); }
 export function devCap(w: World): number{ return devLevel(w); }
+// Технологии С МАРКАМИ — ступени лестницы: межзвёздный переход, ходовые
+// двигатели, освоение классов миров. У них своя судьба, не как у прочих
+// деталей: патентов нет, зато берутся строго по порядку, и ступень становится
+// общим достоянием, лишь когда кто-то освоил две следующие. Пока же ею
+// пользуется лишь тот, кто дошёл сам.
+export function markStep(k: string): { fam: string; n: number } | null {
+  const m = markOf(k);
+  if (m) return { fam:"move", n:m.mark };
+  if (isEngine(k)) return { fam:"eng", n:ENGKEYS.indexOf(k) + 1 };
+  const d = devOf(k);
+  if (d) return { fam:"dev_" + d.cls, n:d.mark };
+  return null;
+}
+/** Ключ n-й ступени семейства; null, если такой ступени (пока) нет. */
+export function stepKey(fam: string, n: number): string | null {
+  if (n < 1) return null;
+  if (fam === "move") return MARKS[n - 1] ? MARKS[n - 1].key : null;
+  if (fam === "eng") return ENGKEYS[n - 1] || null;
+  const k = devKey(fam.slice(4), n);
+  return devOf(k) ? k : null;
+}
+/** Ступень, без которой эту не взять; null у первой и у технологий без марок. */
+export function prevStep(k: string): string | null {
+  const st = markStep(k);
+  return st ? stepKey(st.fam, st.n - 1) : null;
+}
+
 // Четыре таблицы в одном списке: всё, во что можно вкладываться. Порядок тот же,
 // что и раньше — от него зависит, что компания выберет при равных прочих.
 // ENGINES сюда НЕ добавляются: это те же записи, что уже пришли в COMPS, и

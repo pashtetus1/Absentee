@@ -12,12 +12,12 @@
 
 import { engMult, pickCaptain } from "./data";
 import { dockShip } from "./docks";
-import { markSpeedOf } from "./galaxy";
+import { markLevelOf, markSpeedOf } from "./galaxy";
 import { takeFuel } from "./market";
 import { rnd } from "./rng";
 import { yardAt } from "./shipyard";
 import { S, U, corps, dateStr, docks, gates, say, shipyards, staged, systems, voyages } from "./state";
-import { fuelCost, routeKey } from "./travel";
+import { ensurePortal, fuelCost, newGate, routeKey, syncRoutes, useRoute } from "./travel";
 import { rnd6 } from "./util";
 import { makeWorld, openBranch } from "./world";
 import type { Gate, Ship, Sys, Voyage, Yard } from "./types";
@@ -43,7 +43,7 @@ export function moveShips(): void {
       continue;
     }
     staged.splice(i, 1);
-    voyages.push({ kind:st.kind, sysFrom:st.at, to:st.to, corp:st.corp, color:st.color, parts:st.parts,
+    voyages.push({ kind:st.kind, sysFrom:st.at, to:st.to, corp:st.corp, color:st.color, parts:st.parts, upgrade:st.upgrade,
                    t:0, dur:(220 + rnd()*80) / markSpeedOf(st.corp), born:dateStr(), captain:st.captain });
     say("<b>" + c.name + "</b>: " + what + " заправился в " + systems[st.at].name + " и вышел к " + systems[st.to].name + ".");
   }
@@ -99,14 +99,14 @@ export function moveShips(): void {
         // Старт не здесь — корабль идёт к точке старта своим ходом и заправится
         // там сам: паромом его не возят, он сам корабль.
         if (yd.from !== undefined && yd.from !== s.id) {
-          voyages.push({ kind:"reloc", cargo:yd.vt.key, sysFrom:s.id, to:yd.from, jumpTo:yd.to, corp:yd.lead,
+          voyages.push({ kind:"reloc", cargo:yd.vt.key, sysFrom:s.id, to:yd.from, jumpTo:yd.to, corp:yd.lead, upgrade:yd.upgrade,
                          color:yd.color, parts:yd.parts, t:0, dur:(200 + rnd()*70) / markSpeedOf(yd.lead),
                          born:dateStr(), captain:pickCaptain() });
           say("<b>" + lead.name + "</b> вывела " + yd.vt.name + " с верфи " + s.name +
               ": идёт к точке старта в " + systems[yd.from].name + ".");
           continue;
         }
-        voyages.push({ kind:yd.vt.key, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color,
+        voyages.push({ kind:yd.vt.key, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color, upgrade:yd.upgrade,
                        parts:yd.parts, t:0, dur:(220 + rnd()*80) / markSpeedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
         say("<b>" + lead.name + "</b> вывела " + yd.vt.name + " с верфи " + s.name + ".");
       } else if (yd.vt.key === "colony") {
@@ -162,6 +162,14 @@ export function arriveShip(sh: Ship, s: Sys): void {
 
 export function arriveVoyage(v: Voyage): void {
   if (U.pick && U.pick.data === v) U.pick = null;      // иначе в панели висит "в пути 102%"
+  // Проход по сети засчитывается маршрутам на пути: по этому счёту решают,
+  // стоит ли переделывать створы. Сам портальный корабль сеть не считает —
+  // он её строит.
+  if (v.kind !== "jump" && v.kind !== "gate") {
+    const fa = v.sysFrom !== undefined ? v.sysFrom : v.from ? v.from.sys : undefined;
+    const ta = v.sysFrom !== undefined ? v.to : v.to && v.to.sys !== undefined ? v.to.sys : undefined;
+    if (fa !== undefined && ta !== undefined && fa !== ta) useRoute(fa, ta);
+  }
   if (v.kind === "jump" || v.kind === "gate") {
     const t = systems[v.to];
     t.pulse = 1;
@@ -171,9 +179,22 @@ export function arriveVoyage(v: Voyage): void {
       // возникали в системе сами, никуда не летя, и маршрута за ними не
       // стояло вовсе — сеть без рёбер.
       const key = routeKey(v.sysFrom, v.to);
-      const g: Gate = gates[key] || (gates[key] = { a:v.sysFrom, b:v.to, built:false, building:false, owner:v.corp });
-      g.built = true; g.building = false; g.owner = v.corp; g.born = dateStr();
+      const lvl = Math.max(1, markLevelOf(corps[v.corp]));
+      const g: Gate = gates[key] || (gates[key] = newGate(v.sysFrom, v.to, v.corp, lvl));
+      // Комплект встаёт створами на ОБОИХ концах: в сторону друга друга. Створ,
+      // который уже смотрит туда, получает марку не ниже привезённой.
+      const was = g.built ? g.mark || 1 : 0;
+      ensurePortal(v.sysFrom, v.to, v.corp, lvl);
+      ensurePortal(v.to, v.sysFrom, v.corp, lvl);
+      if (!g.built) { g.built = true; g.building = false; g.owner = v.corp; g.born = dateStr(); }
+      g.upgrading = false;
+      syncRoutes();                 // соседи в конусах створов тоже могли соединиться
       systems[v.sysFrom].pulse = 1;
+      if (was) {
+        say("<b>" + corps[v.corp].name + "</b> переделала створы " + systems[v.sysFrom].name + " — " +
+            t.name + (g.mark > was ? " с Mk" + was + " на Mk" + g.mark : "") + ".");
+        return;
+      }
     }
     if (!t.unlocked) {
       t.unlocked = true;
@@ -186,7 +207,7 @@ export function arriveVoyage(v: Voyage): void {
   }
   if (v.kind === "reloc") {                       // дошёл до точки старта: заправка и прыжок оттуда
     staged.push({ kind:v.cargo, corp:v.corp, color:v.color, parts:v.parts, at:v.to, to:v.jumpTo,
-                  fuelWait:0, captain:v.captain, born:dateStr() });
+                  fuelWait:0, captain:v.captain, born:dateStr(), upgrade:v.upgrade });
     say("<b>" + corps[v.corp].name + "</b>: " + (v.cargo === "gate" ? "портальный корабль" : "прыжковый") +
         " дошёл до " + systems[v.to].name + " и заправляется.");
     return;

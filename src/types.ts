@@ -69,6 +69,9 @@ export interface Gate {
   a: number; b: number;                 // какие системы соединяет
   built: boolean; building: boolean;
   owner: number; born?: string;
+  mark: number;                         // марка комплекта: от неё скорость прохода
+  upgrading?: boolean;                  // на маршрут уже идёт комплект старшей марки
+  trips: number;                        // недавний трафик, рейсов с затуханием (~5 лет)
 }
 
 /** Планета. Пока не колонизирована, world пуст — миром она не является.
@@ -94,7 +97,14 @@ export interface Sys {
   mines: number;
   belt: boolean;                  // есть ли пояс астероидов
   gateR: number;                  // радиус последней орбиты — на ней стоят створы
+  gateAngs: Record<number, number>; // место под створ к каждому возможному соседу (в пределах 30° от луча)
+  portals: Portal[];              // построенные створы; один створ ведёт ко всем звёздам в своём конусе
 }
+
+/** Створ — сооружение на последней орбите. Смотрит в свою сторону и ведёт ко
+ *  всем звёздам в конусе ±40° от неё, до которых достаёт его марка. Маршрут
+ *  (Gate) открыт, когда створы на обоих концах смотрят друг на друга. */
+export interface Portal { ang: number; mark: number; owner: number; born?: string; }
 
 // ---- мир --------------------------------------------------------------
 
@@ -181,6 +191,7 @@ export interface Order {
   to?: number;                    // цель прыжка
   from?: number;                  // точка старта прыжка: система с заселённой планетой
   rock?: Rock;                    // какой астероид разрабатывать
+  upgrade?: boolean;              // портальный: не новый маршрут, а переделка ворот на старшую марку
 }
 
 /** Счёт того, что уже везут: чтобы не заказать одно и то же дважды.
@@ -231,6 +242,7 @@ export interface Yard {
   forCorp?: number;               // транспорт: чьей компании (иначе государственный)
   from?: number;                  // прыжок: откуда стартовать; не система верфи, если её нет в дальности
   body?: Planet; backers?: { corp: number; sum: number }[];
+  upgrade?: boolean;              // портальный: переделка существующих ворот
 }
 
 /** Как государство отвечает на предложения. В браузере manual — решает игрок;
@@ -287,6 +299,7 @@ export interface Staged {
   at: number;                     // где стоит
   to: number;                     // куда прыгнет
   fuelWait: number; captain: string; born: string;
+  upgrade?: boolean;
 }
 
 /** Рейс между звёздами или между мирами.
@@ -321,6 +334,7 @@ export interface Voyage {
   relief?: number;                // чья частная помощь; иначе везёт правительство
   cargo?: string;                 // что за груз у платформы или модуля
   jumpTo?: number;                // паром везёт прыжковый к точке старта: куда прыгать оттуда
+  upgrade?: boolean;              // портальный идёт переделывать ворота, а не прокладывать маршрут
   dest?: Dest; vent?: Venture; body?: Planet;
   backers?: { corp: number; sum: number }[];
 }

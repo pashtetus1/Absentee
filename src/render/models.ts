@@ -39,6 +39,38 @@ export function flame(x: number, y: number, s: number, rot: number): void {
   cx.beginPath(); cx.moveTo(-1.2, 5.2); cx.lineTo(0, 5.2 + len * 0.55); cx.lineTo(1.2, 5.2); cx.closePath(); cx.fill();
   cx.restore();
 }
+// Прыжок под движками. Корабль у края системы не просто сжимается в точку:
+// перед ним раскрывается дыра в пространстве — тёмный провал с ярким ободом
+// и волнами вокруг, — а сам он вытягивается к ней, как будто его втягивает.
+// k — раскрытие, 0..1.
+export function rift(x: number, y: number, r: number, k: number): void {
+  if (k <= 0.01) return;
+  const rr = r * (0.25 + 0.75 * k) * uiz;
+  cx.save();
+  const g = cx.createRadialGradient(x, y, 0, x, y, rr);
+  g.addColorStop(0, "#02040a"); g.addColorStop(0.72, "rgba(2,4,10,0.95)"); g.addColorStop(1, "rgba(154,168,255,0)");
+  cx.beginPath(); cx.arc(x, y, rr, 0, 6.2832); cx.fillStyle = g; cx.fill();
+  cx.beginPath(); cx.arc(x, y, rr * 0.86, 0, 6.2832);
+  cx.strokeStyle = "#b9c3ff"; cx.globalAlpha = k * (0.55 + 0.35 * Math.sin(glow * 9 + x)); cx.lineWidth = 1.4 * uiz; cx.stroke();
+  // искажение вокруг: волны пространства расходятся и тают
+  for (let q = 1; q <= 3; q++) {
+    const ph = (glow * 0.9 + q / 3) % 1;
+    cx.beginPath(); cx.arc(x, y, rr * (1 + ph * 1.6), 0, 6.2832);
+    cx.strokeStyle = "#9aa8ff"; cx.globalAlpha = k * 0.25 * (1 - ph); cx.lineWidth = uiz; cx.stroke();
+  }
+  cx.restore();
+}
+// Корабль, которого тянет в дыру: вытянут вдоль курса, сжат поперёк, дрожит и
+// тускнеет. k — сила искажения, 0..1; при нуле это обычный корабль с факелом.
+export function warped(kind: string, x: number, y: number, s: number, rot: number, col: string, k: number): void {
+  cx.save();
+  cx.translate(x, y); cx.rotate(rot || 0);
+  cx.scale(1 - k * 0.4, 1 + k * 1.1);
+  cx.translate(Math.sin(glow * 31 + x) * k * 0.9, 0);
+  cx.globalAlpha = 1 - k * 0.4;
+  flame(0, 0, s, 0); ship(kind, 0, 0, s, 0, col);
+  cx.restore();
+}
 // Взлёт и посадка одной формулой. Корабль не возникает и не пропадает
 // целиком: на первой доле пути он вырастает из точки у планеты, на последней
 // сжимается обратно в точку у цели. Так видно, ОТКУДА он вышел и КУДА делся,
@@ -93,7 +125,7 @@ export function cargoName(v: Voyage): string {
 }
 export function voyageLines(v: Voyage): string[] {             // рейс между звёздами или между мирами
   if (v.kind === "jump" || v.kind === "gate")
-    return [(v.kind === "gate" ? "Портальный · " : "Прыжковый · ") + corps[v.corp].name,
+    return [(v.kind === "gate" ? (v.upgrade ? "Портальный, переделка · " : "Портальный · ") : "Прыжковый · ") + corps[v.corp].name,
             "→ " + systems[v.to].name + " · " + eta(v.t, v.dur)];
   if (v.kind === "parts")
     return ["Грузовик · " + compOf(v.k).name.toLowerCase() + " для " + corps[v.forCorp].name,

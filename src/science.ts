@@ -3,7 +3,7 @@
 import { compOf, isEngine, markOf } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
 import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
-import { allTech, bestEngineMade, devOf, engOf, ensureDev, ownEngine, techOf } from "./tech";
+import { allTech, bestEngineMade, devOf, engOf, ensureDev, markStep, ownEngine, prevStep, stepKey, techOf } from "./tech";
 import type { Corp } from "./types";
 
 import { rnd } from "./rng";
@@ -22,6 +22,9 @@ export function pickTarget(c: Corp): string | null {
   let best = null, top = -1;
   allTech().forEach((f) => {
     if (knows(c, f.key)) return;
+    // марки — по порядку: следующую ступень не исследуют, не освоив предыдущую
+    const pk = prevStep(f.key);
+    if (pk && !knows(c, pk)) return;
     let worth;
     if (markOf(f.key)) {
       // следующая марка стоит ровно столько, сколько звёзд она открывает
@@ -118,7 +121,12 @@ export function research(): void {
         say("Выяснилось, каким оказался межзвёздный переход: <b>" + S.move.name + "</b>. " + S.move.hint);
       }
       const p = patents[c.target];
-      if (p.owner < 0) {
+      if (markStep(c.target)) {
+        // марки не патентуются: кто дошёл — тот и летает, остальные догоняют
+        say("<b>" + c.name + "</b> освоила «" + f.name.toLowerCase() + "»" +
+            (anyKnows(c.target) && corps.some((o) => { return o !== c && knows(o, c.target); }) ? " вслед за другими." : " первой."));
+        openSteps();
+      } else if (p.owner < 0) {
         p.owner = c.id; p.since = Y();
         say("<b>" + c.name + "</b> первой освоила «" + f.name.toLowerCase() + "», патент до " + (Y() + L.patTerm) + " года.");
       } else if (patLive(c.target)) {
@@ -126,6 +134,27 @@ export function research(): void {
             " держится до " + (p.since + L.patTerm) + " года.");
       } else say("<b>" + c.name + "</b> тоже освоила «" + f.name.toLowerCase() + "».");
       c.target = null;
+    }
+  });
+}
+
+// Ступень становится общим достоянием, когда кто-то в галактике освоил ДВЕ
+// следующие: Mk1 знают все, как только где-то взяты Mk2 и Mk3. Это замена
+// патенту у марок: монополия кончается не по календарю, а по отставанию.
+export function openSteps(): void {
+  allTech().forEach((f) => {
+    const st = markStep(f.key);
+    if (!st) return;
+    const n1 = stepKey(st.fam, st.n + 1), n2 = stepKey(st.fam, st.n + 2);
+    if (!n1 || !n2 || !anyKnows(n1) || !anyKnows(n2)) return;
+    const late = corps.filter((c) => { return !knows(c, f.key); });
+    if (!late.length) return;
+    late.forEach((c) => { c.known[f.key] = true; if (c.target === f.key) c.target = null; });
+    const p = patents[f.key];
+    if (p && !p.told) {
+      p.told = true; flash[f.key] = 1;
+      say("«" + f.name + "» стала общим достоянием: освоены две следующие марки. Догоняют: " +
+          late.map((c) => { return c.name; }).join(", ") + ".");
     }
   });
 }
