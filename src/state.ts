@@ -40,8 +40,8 @@ export const S = {
   // до тех пор вкладываешься в межзвёздный переход вслепую.
   moveKnown: false,
   trades: 0, turnover: 0, shipped: 0, movedPops: 0, refusals: 0, dropped: 0,
-  hauled: 0, burned: 0, raids: 0,                // деталей отправлено; топлива сожжено; перехватов
-  pirateCount: 0, capSeq: 0,
+  hauled: 0, burned: 0, raids: 0, lost: 0,       // деталей отправлено; топлива сожжено; перехватов; миров опустело
+  pirateCount: 0, crestSeq: 0, capSeq: 0,
   home: null as World, move: null as Move
 };
 

@@ -28,7 +28,7 @@ export function state(): Snapshot {
   return { tick: S.tick, treasury: S.treasury, corps: corps, worlds: worlds, systems: systems,
            move: S.move, gates: gates, market: market, patents: patents, voyages: voyages, projects: projects, shipyards: shipyards, proposals: proposals, staged: staged,
            trades: S.trades, shipped: S.shipped, movedPops: S.movedPops, refusals: S.refusals, dropped: S.dropped,
-           hauled: S.hauled, burned: S.burned, raids: S.raids, docks: docks, feed: feed };
+           hauled: S.hauled, burned: S.burned, raids: S.raids, lost: S.lost, docks: docks, feed: feed };
 }
 
 export function setLever(k: string, v: number | string): void {

@@ -1,7 +1,8 @@
 // Мир — это населённая планета: люди, еда, кошелёк правительства и места под
 // филиалы. До колонизации планета миром не является.
 
-import { dateStr, say, worlds } from "./state";
+import { isRealm } from "./realm";
+import { corps, dateStr, say, worlds } from "./state";
 import type { Corp, Planet, World } from "./types";
 
 export function makeWorld(body: Planet, seed: number, founder: number): World {
@@ -17,6 +18,10 @@ export function makeWorld(body: Planet, seed: number, founder: number): World {
   // модуль везёт трёхлетний запас провизии — иначе колония умирала раньше,
   // чем первый хлебовоз успевал дойти (рейс идёт двенадцать-семнадцать лет)
   if (founder >= 0) { w.food.stock = seed * 24; w.food.price = 2.5; w.gov.cash = 80; }   // два года провизии: голод должен случаться
+  // Колония, которую основало отделившееся государство, достаётся ЕМУ, а не
+  // тому, из которого оно вышло: герб над ней будет его. Иначе флаги врали бы
+  // ровно там, где интереснее всего — на расселении чужого государства.
+  if (founder >= 0 && isRealm(corps[founder])) w.free = true;
   body.world = w;
   worlds.push(w);
   return w;

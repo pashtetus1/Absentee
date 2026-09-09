@@ -174,6 +174,7 @@ export interface Corp {
   embargo: Record<string, number>;       // кому и в чём отказано
   ask: Record<string, number>;           // во сколько раз просит выше ходовой цены
   pirate?: boolean;                      // ушла в разбой
+  crest?: number;                        // номер гербовой фигуры; есть ТОЛЬКО у государства
   home?: World;                          // логово вольницы
   needYard?: boolean;                    // хотела заказать, но собрать негде — повод предлагать верфь
   origin?: string;                       // какой жребий её породил
@@ -397,7 +398,7 @@ export interface Snapshot {
   voyages: Voyage[]; projects: Project[]; docks: Dock[];
   shipyards: Shipyard[]; proposals: Proposal[]; staged: Staged[];
   trades: number; shipped: number; movedPops: number; refusals: number;
-  dropped: number; hauled: number; burned: number; raids: number;
+  dropped: number; hauled: number; burned: number; raids: number; lost: number;
   feed: { d: string; t: string }[];
 }
 

@@ -11,6 +11,7 @@ import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype } from 
 import { dockValue } from "../docks";
 import { galaxyRange, within } from "../galaxy";
 import { buyPrice, harvestOf } from "../labour";
+import { HOME, isRealm, realmName, realmOf } from "../realm";
 import { seedOf } from "../rng";
 import { prodOf, sciOf } from "../science";
 import { yardAt } from "../shipyard";
@@ -88,6 +89,10 @@ export function worldCard(w: World): string {
   return '<div class="card"><h3>' + (w === S.home ? '★ ' : '') + w.body.name + ' · ' + w.type.name + '</h3>' +
     '<div class="sub">' + fmt(total) + ' из ' + w.cap + ' человечков · ' +
     (w.founder >= 0 ? "основана " + corps[w.founder].name + ", " + w.born : "столица") + '</div>' +
+    // Под чьим гербом планета. Пока государство одно, писать это незачем — как
+    // и рисовать щиты на сцене.
+    (realmOf(w) !== HOME ? '<div class="sub" style="color:var(--gold)">Не в государстве: «' +
+       realmName(realmOf(w)) + '»</div>' : '') +
     '<div class="part"><span class="pn">в поле</span><span class="pw">' + fmt(p.farm) + ' · ' + w.wage.farm.toFixed(2) + '</span></div>' +
     '<div class="part"><span class="pn">в цехах</span><span class="pw">' + fmt(p.prod) + ' · ' + w.wage.prod.toFixed(2) + '</span></div>' +
     '<div class="part"><span class="pn">в лабораториях</span><span class="pw">' + fmt(p.sci) + ' · ' + w.wage.sci.toFixed(2) + '</span></div>' +
@@ -381,6 +386,7 @@ export function panels(): void {
   el("stats").textContent = "Миров " + worlds.length + " · людей " + fmt(totPop) + " · сделок " + S.trades +
     " · еды перевезено " + Math.round(S.shipped) + " · деталей грузовиком " + S.hauled +
     " · топлива сожжено " + S.burned + " · отказов " + S.refusals + ", свёрнуто сборок " + S.dropped +
+    (S.lost ? " · миров опустело " + S.lost : "") +
     " · сид " + seedOf();
 
   el("corps").innerHTML = corps.slice().sort((a, b) => { return b.cash - a.cash; }).map((c) => {
@@ -392,7 +398,7 @@ export function panels(): void {
       : (c.target ? "исследует " + techOf(c.target).short : "ничего не начинает");
     return '<div class="row"><div class="rhead"><i class="dot" style="background:' + c.color + '"></i>' +
       '<span class="rname">' + c.name + '</span><span class="price">' + Math.round(c.cash) + '</span></div>' +
-      '<div class="rmeta">' + c.craft + ' · филиалов ' + c.branches.length +
+      '<div class="rmeta">' + c.craft + (isRealm(c) ? ' · государство' : '') + ' · филиалов ' + c.branches.length +
       ' · цех ' + prodOf(c).toFixed(1) + ', лаб ' + sciOf(c).toFixed(1) + '</div>' +
       '<div class="rmeta">' + task + '</div>' +
       (can.length ? '<div class="rmeta" style="color:var(--gold)">делает: ' + can.join(", ") + '</div>' : '') +

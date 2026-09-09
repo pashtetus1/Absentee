@@ -7,6 +7,7 @@
 import { vis } from "../clock";
 import { compOf } from "../data";
 import { dockValue } from "../docks";
+import { realmCharge, realmColor } from "../realm";
 import { corps, systems } from "../state";
 import { Build, Dock, Part, Ship, Shipyard, Sys, Voyage } from "../types";
 import { clamp } from "../util";
@@ -298,6 +299,47 @@ export function star(x: number, y: number, rad: number, col: string): void {
     i ? cx.lineTo(px, py) : cx.moveTo(px, py);
   }
   cx.closePath(); cx.fillStyle = col; cx.fill();
+}
+// Герб государства: щит с фигурой. Ось опознания здесь та же, что у кораблей,
+// только на этаж выше: ЦВЕТ щита говорит, чья это контора, ФИГУРА — какое это
+// государство. Родное носит звезду — тот же знак, что столица, и он же
+// объясняет, почему звезда в игре одна: она была гербом ещё до того, как
+// появилось второе государство. Отделившимся достаётся одна из шести фигур по
+// очереди появления; седьмое государство берёт первую фигуру снова, но у него
+// уже другой цвет.
+//
+// Рисуется в поле восьми единиц по ширине, как корпус корабля, и ужимается
+// множителем r: щит обязан читаться и на шести пикселях над планетой, и на
+// четырёх над корабликом, поэтому фигуры крупные и без мелких деталей.
+export function crest(x: number, y: number, r: number, realm: number): void {
+  const col = realmColor(realm), ch = realmCharge(realm);
+  cx.save();
+  cx.translate(x, y); cx.scale(r / 4, r / 4);
+  cx.beginPath();
+  cx.moveTo(-4, -5); cx.lineTo(4, -5); cx.lineTo(4, 1.4);
+  // Низ нарочно ШИРОКИЙ и почти без острия. Настоящий геральдический щит
+  // сходится в точку, но на двенадцати пикселях обводка с двух сторон
+  // схлопывается там в сплошную каплю, и вместо щита выходит кубок на ножке.
+  cx.quadraticCurveTo(4, 5, 0, 5.4);
+  cx.quadraticCurveTo(-4, 5, -4, 1.4);
+  cx.closePath();
+  cx.fillStyle = "rgba(8,13,25,0.88)"; cx.fill();
+  cx.strokeStyle = col; cx.lineWidth = 0.95; cx.lineJoin = "round"; cx.lineCap = "round"; cx.stroke();
+  cx.fillStyle = col;
+  if (ch === 1) poly([-3.1,-1.5, 3.1,-1.5, 3.1,1.1, -3.1,1.1]);                  // пояс
+  else if (ch === 2) poly([-1.3,-4.1, 1.3,-4.1, 1.3,3.4, -1.3,3.4]);             // столб
+  else if (ch === 3) {                                                            // косой крест
+    cx.beginPath();
+    cx.moveTo(-2.7,-3.5); cx.lineTo(2.7,2.3); cx.moveTo(2.7,-3.5); cx.lineTo(-2.7,2.3);
+    cx.lineWidth = 1.5; cx.stroke();
+  }
+  else if (ch === 4) poly([0,-3.6, 3.3,0.3, 1.5,0.3, 0,-1.5, -1.5,0.3, -3.3,0.3]);  // шеврон
+  else if (ch === 5) {                                                            // кольцо
+    cx.beginPath(); cx.arc(0, -0.6, 2.3, 0, 6.2832); cx.lineWidth = 1.5; cx.stroke();
+  }
+  else if (ch === 6) poly([0,-3.9, 2.7,-0.4, 0,3.1, -2.7,-0.4]);                  // ромб
+  else star(0, -0.4, 2.8, col);                                                   // родное государство
+  cx.restore();
 }
 export function rock(x: number, y: number, rad: number, seed: number, col: string): void {
   cx.beginPath();

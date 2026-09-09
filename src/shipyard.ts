@@ -241,6 +241,44 @@ export function seizeYard(w: World, newOwner: number): void {
       (lost ? ", из очереди выброшено чужих сборок: " + lost : "") + ".");
 }
 
+/** Мир опустел — всё, что строится ИМ и ДЛЯ НЕГО, снимается со стапелей.
+ *
+ *  Верфь у него без людей не строит: crew считается по промышленным рукам
+ *  планеты (labour), а их не осталось. Держать её в списке значило бы держать
+ *  вечную очередь, в которую заказы встают и из которой не выходят, поэтому
+ *  уходит вся постройка целиком. Детали возвращаются хозяевам на склад в той
+ *  системе, где стоял стапель, — как при сворачивании сборки.
+ *
+ *  Отдельно снимается транспорт, заказанный ДЛЯ этого мира, но собираемый в
+ *  чужой системе: хлебовоз голодной колонии строят у поставщика еды (food.ts),
+ *  и его верфь никуда не делась. Сошёл бы он со стапеля — и встал бы на
+ *  стоянку с хозяином, которого больше нет.
+ *
+ *  Поданное предложение по верфи здесь же отзывается, взносы возвращаются
+ *  вкладчикам; отклонённые предложения выметает proposalsTick следующим
+ *  месяцем. */
+export function loseYard(w: World): void {
+  const y = w.yard;
+  if (y) {
+    y.queue.forEach((b) => { b.parts.forEach((p) => { addStock(corps[p.from], w.sys, p.k, 1); }); });
+    y.queue.length = 0;
+    const at = shipyards.indexOf(y);
+    if (at >= 0) shipyards.splice(at, 1);
+    w.yard = undefined;
+  }
+  shipyards.forEach((o) => {
+    for (let i = o.queue.length - 1; i >= 0; i--) {
+      if (o.queue[i].forWorld !== w) continue;
+      o.queue[i].parts.forEach((p) => { addStock(corps[p.from], o.world.sys, p.k, 1); });
+      o.queue.splice(i, 1);
+    }
+  });
+  proposals.forEach((p) => {
+    if (p.world !== w || p.state === "done" || p.state === "declined") return;
+    refund(p); p.state = "declined";
+  });
+}
+
 // ---- решение ------------------------------------------------------------
 function refund(p: Proposal): void {
   p.backers.forEach((b) => { corps[b.corp].cash += b.sum; });

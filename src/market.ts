@@ -11,7 +11,7 @@ import { L, S, corps, dateStr, docks, market, patLive, patents, projects, propos
 import { canTravel, fuelCost, needWith, routeSpeed, travelExtra } from "./travel";
 import { clamp } from "./util";
 import { addStock, firstStockSys, stockAt, totalStock } from "./world";
-import type { Corp, Part, Voyage, World } from "./types";
+import type { Corp, Part, Project, Voyage, World } from "./types";
 
 import type { FlyAcct } from "./types";
 
@@ -197,6 +197,31 @@ export function willSell(seller: Corp, buyer: Corp, k: string): boolean {
 // вечно: деньги собраны, а корпус никто не продаёт — и планета всё это время
 // помечена занятой, так что её не может взять никто другой. В прогоне из-за
 // этого первая колония уезжала со сорокового года на сто четвёртый.
+/** Подписка распалась: деньги вкладчикам по долям, детали ведущему на склад,
+ *  планета снова свободна. Одна дверь на два повода — семь лет без движения
+ *  (ниже) и исчезнувшая верфь (colony.ts, запустение мира). Пометку claimed
+ *  снять обязан КАЖДЫЙ из них: пока она стоит, планету не возьмёт никто. */
+export function dropProject(pr: Project, why: string): void {
+  const total = pr.backers.reduce((a, b) => { return a + b.sum; }, 0) || 1;
+  pr.backers.forEach((b) => { corps[b.corp].cash += pr.purse * b.sum / total; });
+  pr.parts.forEach((p) => { addStock(corps[pr.lead], pr.sys, p.k, 1); });
+  pr.body.claimed = false;
+  say("Подписка на колонию " + pr.body.name + " распалась" + why + " Деньги вернулись вкладчикам.");
+  S.dropped++;
+  projects.splice(projects.indexOf(pr), 1);
+}
+
+/** Сборка свёрнута: купленное остаётся на складе там, где собиралось, занятое
+ *  под неё (камень, маршрут) освобождается. Тоже одна дверь на два повода —
+ *  шесть лет без деталей и исчезнувшая верфь. */
+export function dropOrder(c: Corp, why: string): void {
+  if (!c.order) return;
+  say("<b>" + c.name + "</b> свернула сборку: " + why + ".");
+  c.order.parts.forEach((p) => { addStock(c, c.order.sys, p.k, 1); });
+  releaseOrder(c.order);
+  c.order = null; c.cool = 24; S.dropped++;
+}
+
 export function stalledProjects(): void {
   for (let i = projects.length - 1; i >= 0; i--) {
     const pr = projects[i];
@@ -212,16 +237,7 @@ export function stalledProjects(): void {
       corps.forEach((o) => { if (o.embargo[embKey(pr.lead, f.key)] > S.tick) blockers[o.name] = 1; });
     });
     const who = Object.keys(blockers);
-    // деньги возвращаются вкладчикам по долям, детали — ведущему на склад
-    const total = pr.backers.reduce((a, b) => { return a + b.sum; }, 0) || 1;
-    pr.backers.forEach((b) => { corps[b.corp].cash += pr.purse * b.sum / total; });
-    pr.parts.forEach((p) => { addStock(corps[pr.lead], pr.sys, p.k, 1); });
-    pr.body.claimed = false;
-    say("Подписка на колонию " + pr.body.name + " распалась" +
-        (who.length ? ": " + who.join(" и ") + " не продают детали." : ": собрать нечего.") +
-        " Деньги вернулись вкладчикам.");
-    S.dropped++;
-    projects.splice(i, 1);
+    dropProject(pr, who.length ? ": " + who.join(" и ") + " не продают детали." : ": собрать нечего.");
   }
 }
 
@@ -246,12 +262,8 @@ export function stalledOrders(): void {
       });
     });
     const who = Object.keys(blockers);
-    say("<b>" + c.name + "</b> свернула сборку: " + missing.map((f) => { return f.short; }).join(", ") +
-        (who.length ? " не продают " + who.join(" и ") : " взять негде") + ".");
-    // купленное остаётся на складе там, где собиралось; деньги не пропадают
-    c.order.parts.forEach((p) => { addStock(c, c.order.sys, p.k, 1); });
-    releaseOrder(c.order);
-    c.order = null; c.cool = 24; S.dropped++;
+    dropOrder(c, missing.map((f) => { return f.short; }).join(", ") +
+                 (who.length ? " не продают " + who.join(" и ") : " взять негде"));
   });
 }
 

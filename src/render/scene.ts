@@ -2,13 +2,14 @@
 import { vis } from "../clock";
 import { MARKRANGE } from "../data";
 import { galaxyRange, within } from "../galaxy";
+import { manyRealms, realmOf, realmOfCorp, realmOfShip, realmOfVoyage } from "../realm";
 import { yardAt } from "../shipyard";
 import { S, U, cam, corps, docks, gates, hits, shipyards, systems, voyages } from "../state";
 import { gatesAt, inNet, otherEnd, portalAng, portalFor, spread } from "../travel";
 import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
 import { CH, CW, advanceFrame, cx, glow, last, setSysK, setUiz, uiz } from "./canvas";
-import { advance, caption, dockLines, flame, grow, posOf, rift, rock, ship, star, tiny, warped, windowLines, yardLines, yardPos } from "./models";
+import { advance, caption, crest, dockLines, flame, grow, posOf, rift, rock, ship, star, tiny, warped, windowLines, yardLines, yardPos } from "./models";
 import type { Rock, Sys } from "../types";
 
 // Куда смотрит створ: в сторону звёзд, к которым ведёт. Готовый створ стоит
@@ -17,6 +18,11 @@ function gateAng(from: number, to: number): number{ return portalAng(from, to); 
 
 export function drawSystem(s: Sys): void {
   const mx = CW / 2, my = CH / 2;
+  // Гербы появляются на сцене только после первого отделения: пока государство
+  // одно, щит над каждой планетой и каждым корабликом отвечает на вопрос,
+  // которого никто не задавал. Считается ОДИН раз на кадр — иначе перебор
+  // контор пришёлся бы на каждый нарисованный кружок.
+  const flags = manyRealms();
   hits.length = 0;
   cx.fillStyle = "#080d19"; cx.fillRect(0, 0, CW, CH);
 
@@ -76,6 +82,10 @@ export function drawSystem(s: Sys): void {
       cx.globalAlpha = 1;
       star(p.x, p.y, Math.min(6.5, b.rad * 0.45), "#ffe6a8");
     }
+    // Герб — НАД планетой, выше пипок филиалов (те стоят на b.rad + 11 и первая
+    // из них смотрит ровно вверх). Снизу два ряда подписи, поэтому места нет
+    // больше нигде.
+    if (w && flags) crest(p.x, p.y - b.rad - 24, 6, realmOf(w));
     hits.push({ x:p.x, y:p.y, r:b.rad + 12, kind:"body", data:b });
     cx.font = "500 10.5px system-ui, sans-serif"; cx.fillStyle = w ? "#c9d2e4" : "#6a7590";
     cx.textAlign = "center"; cx.textBaseline = "top";
@@ -143,6 +153,9 @@ export function drawSystem(s: Sys): void {
     const t = st.dest.ref as Rock, base = posOf(t, mx, my), off = t.s + 5;
     const x = base.x + Math.cos(st.ang) * off, y = base.y + Math.sin(st.ang) * off;
     cx.fillStyle = st.color; cx.fillRect(x - 2.5, y - 2.5, 5, 5);
+    // Камень сам по себе ничей; герб над ним — того государства, чья контора
+    // на нём сидит. Подпись у астероида снизу, поэтому щит сверху.
+    if (flags) crest(base.x, base.y - t.s - 10, 5, realmOfCorp(corps[st.vent.lead]));
     hits.push({ x:x, y:y, r:9, kind:"vent", data:st.vent });
   });
 
@@ -188,6 +201,10 @@ export function drawSystem(s: Sys): void {
     if (g > 0.02) {
       flame(sh.x, sh.y, sh.size * g, sh.ang);
       ship(sh.glyph, sh.x, sh.y, sh.size * g, sh.ang, sh.color);
+      // Флаг растёт и тает вместе с кораблём: щит, висящий над точкой, из
+      // которой корабль ещё не вышел, читался бы как отдельная вещь. Отступ
+      // отсчитывается от РАЗМЕРА корпуса — иначе щит ложится кораблю на нос.
+      if (flags) crest(sh.x, sh.y - (sh.size + 9) * g, 4.2 * g, realmOfShip(sh));
     }
     if (U.pick && U.pick.data === sh) caption(sh.x, sh.y, windowLines(sh, false), sh.color);
     else tiny(sh.x, sh.y, sh.captain, sh.color);
@@ -220,7 +237,10 @@ export function drawSystem(s: Sys): void {
     const x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
     const rotc = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;   // носом к цели, как все
     const gc = 6 * grow(k);
-    if (gc > 0.12) { flame(x, y, gc, rotc); ship("cargo", x, y, gc, rotc, v.color); }
+    if (gc > 0.12) {
+      flame(x, y, gc, rotc); ship("cargo", x, y, gc, rotc, v.color);
+      if (flags) crest(x, y - 2.9 * gc, 0.7 * gc, realmOfVoyage(v));
+    }
     if (U.pick && U.pick.data === v) caption(x, y, windowLines(v, true), v.color);
     else tiny(x, y, v.captain, v.color);
     hits.push({ x:x, y:y, r:12, kind:"cargo", data:v });
@@ -269,7 +289,10 @@ export function drawSystem(s: Sys): void {
       const pull = out ? clamp((leg - 0.62) / 0.38, 0, 1) : 1 - clamp(leg / 0.3, 0, 1);
       rift(out ? b.x : a.x, out ? b.y : a.y, 15, open);
       const sz = 6.5 * (out ? grow(leg, 0.45, 0.12) : grow(leg, 0.1, 0.45));
-      if (sz > 0.12) warped(isJump ? "jump" : "cargo", x, y, sz, rot, v.color, pull);
+      if (sz > 0.12) {
+        warped(isJump ? "jump" : "cargo", x, y, sz, rot, v.color, pull);
+        if (flags) crest(x, y - 2.9 * sz, 0.7 * sz * (1 - pull), realmOfVoyage(v));
+      }
     } else {
       // вылет — растёт из точки у планеты, прилёт — сжимается в точку у цели;
       // со стороны створа корабль не анимируется: он там просто уходит
@@ -277,6 +300,7 @@ export function drawSystem(s: Sys): void {
       if (sz > 0.12) {
         flame(x, y, sz, rot);
         ship(isJump ? "jump" : "cargo", x, y, sz, rot, v.color);
+        if (flags) crest(x, y - 2.9 * sz, 0.7 * sz, realmOfVoyage(v));
       }
     }
     if (U.pick && U.pick.data === v) caption(x, y, windowLines(v, true), v.color);
@@ -290,6 +314,7 @@ export function nodeR(s: Sys): number { return 5 + Math.min(5, (s.mines + s.bodi
 export function seenSys(s: Sys): boolean { return s.unlocked || within(s.id, Math.max(galaxyRange(), MARKRANGE[0])).some((n) => { return systems[n].unlocked; }); }
 
 export function drawMap(): void {
+  const flags = manyRealms();          // как и в системе: щиты только после первого отделения
   hits.length = 0;
   cx.fillStyle = "#080d19"; cx.fillRect(0, 0, CW, CH);
   // Пятьдесят звёзд в один экран не влезают читаемо, поэтому карта таскается
@@ -362,7 +387,10 @@ export function drawMap(): void {
     // точку у звезды-получателя — иначе одно и то же движение выглядит
     // по-разному на двух видах
     const szm = 6.5 * uiz * grow(k, 0.08, 0.08);
-    if (szm > 0.12) { flame(x, y, szm, rot); ship(isJump ? "jump" : "cargo", x, y, szm, rot, v.color); }
+    if (szm > 0.12) {
+      flame(x, y, szm, rot); ship(isJump ? "jump" : "cargo", x, y, szm, rot, v.color);
+      if (flags) crest(x, y - 2.9 * szm, 0.7 * szm, realmOfVoyage(v));
+    }
     // на карте рейсов десятки — подпись только у выбранного и у того, над
     // которым мышь, иначе карта превращается в кашу из окошек
     if (U.pick && U.pick.data === v) caption(x, y, windowLines(v, true), v.color);
@@ -427,6 +455,18 @@ export function drawMap(): void {
       cx.beginPath(); cx.arc(s.x + Math.cos(a) * (r + 13 * uiz), s.y + Math.sin(a) * (r + 13 * uiz), 3.2 * uiz, 0, 6.2832);
       cx.fillStyle = corps[+id].color; cx.fill();
     });
+    // Гербы государств, у которых в этой системе есть мир. Их может быть
+    // несколько на одну звезду: отделившаяся планета не уводит из государства
+    // соседнюю по системе, и на карте это самое важное, что о звезде можно
+    // знать. Ряд идёт ВЫШЕ пипок филиалов (r + 13), иначе первая из них —
+    // она смотрит ровно вверх — накрыла бы щит.
+    if (flags && ws.length) {
+      const mine: number[] = [];
+      ws.forEach((b) => { const r2 = realmOf(b.world); if (mine.indexOf(r2) < 0) mine.push(r2); });
+      mine.forEach((r2, i) => {
+        crest(s.x + (i - (mine.length - 1) / 2) * 13 * uiz, s.y - (r + 25) * uiz, 5.5 * uiz, r2);
+      });
+    }
     hits.push({ x:s.x, y:s.y, r:26 * uiz, kind:"sys", data:s });
     const capital = S.home && S.home.sys === s.id;
     cx.font = (capital ? "600 " : "500 ") + (10 * uiz) + "px system-ui, sans-serif";

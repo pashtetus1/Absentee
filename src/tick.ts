@@ -1,6 +1,6 @@
 
 import { markTick } from "./clock";
-import { despair } from "./colony";
+import { abandon, despair } from "./colony";
 import { economy, ventureIncome } from "./economy";
 import { produce } from "./factory";
 import { foodRun } from "./food";
@@ -27,6 +27,11 @@ export function step(): void {
   piracy();
   if (S.tick % 12 === 0) { reviewOrders(); reviewProjects(); reviewProposals(); branchTrade(); events(); }
   assemble(); moveShips(); ventureIncome();
+  // Мир, где не осталось людей, перестаёт быть миром. Метём в КОНЦЕ месяца, а
+  // не сразу после labour: населением за месяц двигает не только убыль, но и
+  // переселение, эпидемия и прилетевший рейс, и только здесь оно уже не
+  // шевельнётся. Иначе мир с нулём людей доживал бы до следующего тика.
+  abandon();
   // трафик маршрутов затухает: за пять лет счёт без новых рейсов сходит на нет
   Object.keys(gates).forEach((k) => { gates[k].trips = (gates[k].trips || 0) * (1 - 1 / 60); });
   if (!headless) watchProposals();
