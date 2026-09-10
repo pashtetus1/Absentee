@@ -52,6 +52,19 @@ export interface VType {
   term?: number;                  // на сколько месяцев хватает жилы
 }
 
+/** Постройка на планете: что она даёт и скольким людям.
+ *
+ *  Пара к VType, и разница между ними ровно та, что между кораблём и домом:
+ *  корабль строят из деталей и он улетает, постройка стоит на месте и меняет
+ *  ПРАВИЛА мира, на котором стоит. Пока постройка одна — гидропонная ферма, —
+ *  но таблица заведена таблицей с самого начала: вторая постройка не должна
+ *  требовать переделки механики, только новой строки.
+ *
+ *  jobs — сколько мест она открывает, yield — сколько с одного работника. У
+ *  фермы это еда, и она НЕ зависит ни от типа планеты, ни от разрухи, ни от
+ *  неурожая, ни от освоения: теплица на то и теплица. */
+export interface BType { key: string; name: string; short: string; jobs: number; yield: number; glyph: string; }
+
 /** Способ межзвёздного перемещения. Партии достаётся ОДИН и случайно.
  *
  *  comp — деталь, без которой этот способ не работает: прыжковый двигатель под
@@ -156,6 +169,9 @@ export interface World {
   edgeYard?: { at: number; owner: number };
   free?: boolean;                 // мир объявил независимость и вышел из государства
   reliefAt?: number;              // когда сюда в последний раз слали помощь
+  /** Что на мире построено, ключами из BTYPES. Без знака «?»: пустой список и
+   *  отсутствующий значат одно и то же, а рядом уже лежат rights и parts. */
+  built: string[];
 }
 
 // ---- компании ---------------------------------------------------------
@@ -430,7 +446,7 @@ export interface Core {
   icon(ctx: CanvasRenderingContext2D, kind: string, x: number, y: number, s: number, col: string): void;
   consts: {
     COMPS: Comp[]; COLTECH: ColTech[]; PTYPES: PType[];
-    VTYPES: VType[]; MOVES: Move[]; ENGINES: Engine[]; MARKS: Mark[];
+    VTYPES: VType[]; MOVES: Move[]; ENGINES: Engine[]; MARKS: Mark[]; BTYPES: BType[];
   };
   speedOf(corpId: number): number;
   popOf(w: World): number;

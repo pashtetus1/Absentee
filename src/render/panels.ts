@@ -7,7 +7,7 @@
 // value нарочно any: в разметку кладут и числа, браузер сам приводит их к
 // строке, и String() вокруг каждого присваивания ничего бы не поймал.
 
-import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype } from "../data";
+import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype, btype } from "../data";
 import { dockValue } from "../docks";
 import { galaxyRange, within } from "../galaxy";
 import { buyPrice, harvestOf } from "../labour";
@@ -112,6 +112,8 @@ export function worldCard(w: World): string {
     '<div class="sub" style="margin:0 0 3px">Казна мира ' + Math.round(w.gov.cash) +
     ' · содержание ' + (popOf(w) * UPKEEP).toFixed(1) + '/мес' +
     ' · уехать хотят ' + w.wantOut.toFixed(1) + ' · ' + w.flow + '</div>' +
+    (w.built.length ? '<div class="sub" style="margin:0 0 3px">Постройки: ' +
+       w.built.map((k) => btype(k).name + ' (мест ' + btype(k).jobs.toFixed(1) + ')').join(", ") + '</div>' : '') +
     '<div class="sub" style="margin:0">Филиалы (' + w.branches.length + ' из ' + w.slots + '): ' +
     (w.branches.length ? w.branches.map((b) => { return corps[b.corp].name; }).join(", ") : "нет") + '</div>' +
     (w.parts.length ? '<div class="sub" style="margin:7px 0 2px">Модуль собран из:</div>' + partsList(w.parts, w.founder) : '') +

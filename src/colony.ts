@@ -7,13 +7,13 @@
 // освоении именно своего класса миров. Это старая идея из star-empire-sprawl
 // (колония отделяется и становится игроком), только теперь её рождает голод.
 
-import { COMPS, TEMPLATE } from "./data";
+import { COMPS, TEMPLATE, btype } from "./data";
 import { dropOrder, dropProject, unfly } from "./market";
 import { rnd } from "./rng";
 import { edgeShipyard, loseYard } from "./shipyard";
 import { S, U, corps, docks, projects, say, systems, voyages, worlds } from "./state";
 import { allTech } from "./tech";
-import { openBranch, popOf } from "./world";
+import { hasBuilt, openBranch, popOf } from "./world";
 import type { Corp, World } from "./types";
 
 export const EXTRA = ["#c9a0ff","#8ef0d0","#ffd27a","#ff9ecf","#9ad4ff","#d4ff7a","#ffb4a0","#a0ffe0"];
@@ -107,6 +107,16 @@ export function despair(): void {
       edgeShipyard(w, c.id);     // верфь уходит вместе с планетой, а не было — заложат свою
       say("<b>" + w.body.name + "</b> объявил независимость после четырёх лет голода: " +
           "теперь это компания «" + c.name + "». Филиалы " + (lost.length ? lost.join(", ") : "никого") + " отобраны.");
+    }
+    // Что бы ни выпало, после голодомора на мире остаётся ГИДРОПОННАЯ ФЕРМА.
+    // Её не строят и не оплачивают: её собирают руками те, кто пережил четыре
+    // года голода, и она — прямой след кризиса, а не отдельная стройка (в
+    // отличие от стапеля, который потому и стоит трёх лет). Ровно одна и
+    // навсегда: despair срабатывает для мира единожды, edge тому порукой.
+    if (!hasBuilt(w, "hydro")) {
+      w.built.push("hydro");
+      say("На <b>" + w.body.name + "</b> после голода поставили " + btype("hydro").name +
+          ": еда там растёт не из земли, и её немного, но она есть всегда.");
     }
     w.gov.cash *= 0.2; w.food.short = 0;
   });

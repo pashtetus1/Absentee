@@ -9,7 +9,7 @@ export function makeWorld(body: Planet, seed: number, founder: number): World {
   const w = { body:body, sys:body.sys, type:body.type, cap:body.type.cap, cap0:body.type.cap,
             pop:{ farm:seed * 0.6, prod:seed * 0.3, sci:seed * 0.05, free:seed * 0.05 },
             wage:{ farm:2.4, prod:3, sci:4.2 }, food:{ stock:seed * 2, price:1, short:0, gain:0 },
-            gov:{ cash:60 }, slots:2 + Math.round(body.type.cap / 4), rights:[], branches:[],
+            gov:{ cash:60 }, slots:2 + Math.round(body.type.cap / 4), rights:[], branches:[], built:[],
             wantOut:0, wantIn:0, founder:founder, born:dateStr(), parts:[], flow:"", blight:0,
             // Свежая колония — это разруха: полпустого склада, дорогая еда, пустая
             // казна, цеха не построены, урожай с необжитой земли вдвое меньше.
@@ -58,6 +58,8 @@ export function firstStockSys(c: Corp, k: string): number {              // пе
   return -1;
 }
 export function hasBranch(c: Corp, w: World): boolean{ return w.branches.some((b) => { return b.corp === c.id; }); }
+/** Стоит ли на мире такая постройка. */
+export function hasBuilt(w: World, k: string): boolean{ return w.built.indexOf(k) >= 0; }
 
 export function openBranch(c: Corp, w: World, quiet?: boolean): { corp: number; world: World; emp: { prod: number; sci: number; }; jobs: { prod: number; sci: number; }; } {
   if (hasBranch(c, w)) return null;

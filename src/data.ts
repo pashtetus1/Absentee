@@ -1,7 +1,7 @@
 // ===================== данные =====================
 
 import { S, canBuild, corps, fill } from "./state";
-import type { ColTech, Comp, Mark, Move, PType, Tech, VType, WorldClass } from "./types";
+import type { BType, ColTech, Comp, Mark, Move, PType, Tech, VType, WorldClass } from "./types";
 
 import { rnd } from "./rng";
 
@@ -129,6 +129,24 @@ export const VTYPES: VType[] = [
   { key:"liner",  name:"переселенческий",       need:{ hull:1, life:1 },          build:10, glyph:"cargo" }
 ];
 export function vtype(k: string): VType{ for (let i=0;i<VTYPES.length;i++) if (VTYPES[i].key===k) return VTYPES[i]; }
+
+// Постройки на планете. Первая и пока единственная — гидропонная ферма: её
+// ставит себе мир, прошедший голодомор, и она даёт горстку мест, где еда растёт
+// НЕ ИЗ ЗЕМЛИ. Отсюда все её числа.
+//
+// Урожай 1.0 выбран так, чтобы лежать НИЖЕ всей обитаемой полосы (тундра 1.3,
+// степь 1.5, сухая 1.1, снежная 0.9): на обычном мире теплица не включается
+// вовсе и зажигается только в неурожай и разруху — то есть работает полом, а не
+// прибавкой. Зато на голых (0.05..0.7) и на гигантах (0) она единственный
+// источник еды, и ради них всё и затевалось. Мест 0.6 — это половина дефицита
+// маленькой колонии, а не весь: голод обязан остаться игрой.
+//
+// Столице ферма не достанется никогда: край отсеян по w.founder < 0 (despair),
+// так что и калибровать надо на пределы 3..11, а не на её тридцать два.
+export const BTYPES: BType[] = [
+  { key:"hydro", name:"гидропонная ферма", short:"гидропоника", jobs:0.6, yield:1.0, glyph:"cir" }
+];
+export function btype(k: string): BType{ for (let i=0;i<BTYPES.length;i++) if (BTYPES[i].key===k) return BTYPES[i]; }
 /** Полный набор деталей корабля: таблица + выбранная модель двигателя + то,
  *  что требует дорога (под движками межзвёздный рейс везёт ещё и прыжковый).
  *
