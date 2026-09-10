@@ -187,7 +187,7 @@ export function drawSystem(s: Sys): void {
     }
     if (yard.queue.length > 1) tiny(x + 15, y - 9, "+" + (yard.queue.length - 1), "#6f7c9e");
     if (U.pick && U.pick.data === yard) caption(x, y, yardLines(yard), "#8f9bc4");
-    else tiny(x, y + 15, "верфь", yard.crew > 0 ? "#7f8cb4" : "#4e5872");
+    else tiny(x, y + 15, yard.scrap ? "стапель" : "верфь", yard.crew > 0 ? "#7f8cb4" : "#4e5872");
     hits.push({ x:x, y:y, r:14, kind:"yard", data:yard });
   });
 

@@ -13,14 +13,14 @@ import { corpRelief, events, piracy } from "./relief";
 import { panels } from "./render/panels";
 import { watchProposals } from "./render/ui";
 import { patentsExpire, research } from "./science";
-import { proposalsTick, reviewProposals } from "./shipyard";
+import { edgeYards, proposalsTick, reviewProposals } from "./shipyard";
 import { L, S, U, headless, resetTickCache, tickCache, worlds, gates } from "./state";
 
 export function step(): void {
   S.tick++; markTick(); S.yearNow = Math.floor(S.tick / 12);
   resetTickCache();
   worlds.forEach(labour);
-  economy(); proposalsTick(); research(); tickCache.dev = new Map(); tickCache.devBest = null;
+  economy(); proposalsTick(); edgeYards(); research(); tickCache.dev = new Map(); tickCache.devBest = null;
   produce(); trade(); stalledOrders(); stalledProjects();
   if (S.tick % 3 === 0) { patentsExpire(); tickCache.dev = new Map(); tickCache.devBest = null; }
   if (S.tick % 6 === 0) { foodRun(); corpRelief(); migrationRun(); despair(); }

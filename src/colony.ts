@@ -10,7 +10,7 @@
 import { COMPS, TEMPLATE } from "./data";
 import { dropOrder, dropProject, unfly } from "./market";
 import { rnd } from "./rng";
-import { loseYard, seizeYard } from "./shipyard";
+import { edgeShipyard, loseYard } from "./shipyard";
 import { S, U, corps, docks, projects, say, systems, voyages, worlds } from "./state";
 import { allTech } from "./tech";
 import { openBranch, popOf } from "./world";
@@ -85,7 +85,7 @@ export function despair(): void {
       openBranch(c, w, true);
       c.pirate = true; c.craft = "разбой"; c.nerve = 1.6;
       c.color = PIRATES[S.pirateCount++ % PIRATES.length];
-      seizeYard(w, c.id);      // верфь под вольницей: строить она не станет, но и никто другой
+      edgeShipyard(w, c.id);   // верфь под вольницей: чужого заказа она не примет
       say("<b>" + w.body.name + "</b> четыре года голодает — и берётся за оружие, не дожидаясь никого: " +
           "теперь это «" + c.name + "», и всё, что летит мимо " + systems[w.sys].name + ", в опасности. " +
           "Мир при этом из государства не вышел.");
@@ -104,7 +104,7 @@ export function despair(): void {
       // фигура на щите (см. realm.ts). Номер выдаётся по очереди появления и
       // больше не меняется — герб узнают, а не выводят.
       c.crest = 1 + S.crestSeq++ % 6;
-      seizeYard(w, c.id);        // верфь уходит вместе с планетой
+      edgeShipyard(w, c.id);     // верфь уходит вместе с планетой, а не было — заложат свою
       say("<b>" + w.body.name + "</b> объявил независимость после четырёх лет голода: " +
           "теперь это компания «" + c.name + "». Филиалы " + (lost.length ? lost.join(", ") : "никого") + " отобраны.");
     }

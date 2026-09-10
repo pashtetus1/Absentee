@@ -102,6 +102,11 @@ export function worldCard(w: World): string {
     (w.food.short > 2 ? ' · <span style="color:var(--bad)">голод</span>' : '') + '</div>' +
     (w.rough > 0 ? '<div class="sub" style="margin:0 0 3px;color:var(--bad)">Разруха: ещё ' + Math.ceil(w.rough / 12) + ' лет</div>' : '') +
     (w.blight > 0 ? '<div class="sub" style="margin:0 0 3px;color:var(--bad)">Неурожай: ещё ' + w.blight + ' мес.</div>' : '') +
+    // Три года между закладкой стапеля и первым кораблём — это долго, и без
+    // строки тут ничего не происходит вовсе: игрок видит голодный мир и никакого
+    // следа решения, которое уже принято.
+    (w.edgeYard ? '<div class="sub" style="margin:0 0 3px;color:var(--gold)">Стапель из мусора: соберут через ' +
+       Math.max(0, w.edgeYard.at - S.tick) + ' мес.</div>' : '') +
     '<div class="sub" style="margin:0 0 3px">Хлеб: закуп ' + buy.toFixed(2) + ', продажа ' + w.food.price.toFixed(2) +
     ' · казне ' + w.food.gain.toFixed(1) + '/мес</div>' +
     '<div class="sub" style="margin:0 0 3px">Казна мира ' + Math.round(w.gov.cash) +

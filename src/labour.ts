@@ -1,6 +1,6 @@
 // ===================== рынок труда на каждом мире =====================
 
-import { YARD_MAX, YARD_MIN, YARD_SHARE } from "./shipyard";
+import { SCRAP_MAX, SCRAP_MIN, SCRAP_SHARE, YARD_MAX, YARD_MIN, YARD_SHARE } from "./shipyard";
 import { corps } from "./state";
 import { devCap, devMult } from "./tech";
 import { clamp } from "./util";
@@ -81,7 +81,12 @@ export function labour(w: World): void {
 
   let jp = 0, js = 0;
   // верфь с работой в очереди просит людей наравне с цехами
-  const yardJobs = (w.yard && w.yard.queue.some((b) => b.left > 0)) ? clamp(p.prod * YARD_SHARE, YARD_MIN, YARD_MAX) : 0;
+  // Стапель из мусора просит рук вчетверо меньше верфи — отсюда и вся разница
+  // между ними: он собирает то же самое, но в разы дольше.
+  const yw = w.yard && w.yard.queue.some((b) => b.left > 0);
+  const yardJobs = !yw ? 0
+                 : w.yard.scrap ? clamp(p.prod * SCRAP_SHARE, SCRAP_MIN, SCRAP_MAX)
+                 : clamp(p.prod * YARD_SHARE, YARD_MIN, YARD_MAX);
   jp += yardJobs;
   w.branches.forEach((b) => {
     const c = corps[b.corp], n = Math.max(1, c.branches.length);

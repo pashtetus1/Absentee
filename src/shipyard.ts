@@ -25,9 +25,9 @@
 // ЧЕЛОВЕКА, — ошибка меры: тут время идёт по настенным часам, а не по тику.
 
 import { vtype } from "./data";
-import { HOME, isRealm, realmOf } from "./realm";
+import { HOME, isRealm, realmOf, realmOfCorp } from "./realm";
 import { rnd } from "./rng";
-import { L, S, corps, proposals, say, shipyards, systems } from "./state";
+import { L, S, corps, proposals, say, shipyards, systems, worlds } from "./state";
 import { canTravel } from "./travel";
 import { dist } from "./util";
 import { addStock } from "./world";
@@ -58,6 +58,14 @@ export const QUEUE_MAX = 3;                 // очередь длиннее —
 // лет. То есть обычно несколько лет, а иногда — беда.
 export const YARD_SHARE = 0.6;
 export const YARD_MIN = 2, YARD_MAX = 30;
+// Стапель из мусора берёт рук вчетверо меньше и оттого собирает в разы дольше.
+// Урезать пришлось ИМЕННО РУКИ, а не список того, что он умеет: мусорный стапель
+// — это плохая верфь, а не другая машина, и разница должна читаться сроком, а не
+// отказом. Потолок в шесть мест тут почти никогда не работает (на послеголодном
+// мире цехов и так мало) — работает доля и низкий пол: там, где настоящая верфь
+// нашла бы двоих по минимуму, стапель находит полчеловечка.
+export const SCRAP_SHARE = 0.25;
+export const SCRAP_MIN = 0.5, SCRAP_MAX = 6;
 export const YARD_WORK = 6;
 
 let seq = 0;
@@ -73,10 +81,17 @@ export function yardCost(w: World): number {
  *  здесь от расстояния почти не зависит (140-190 месяцев плюс случай), а
  *  место в очереди стоит десятки месяцев. Пока выбирали ближайшую, все вставали
  *  в домашнюю, а новые верфи стояли пустыми. */
-export function nearestYard(sys: number, c: Corp | null): Shipyard | null {
+export function nearestYard(sys: number, c: Corp | null, realm: number = HOME): Shipyard | null {
   let best: Shipyard = null, bq = 1e9, bd = 1e9;
   shipyards.forEach((y) => {
-    if (y.owner >= 0 && (!c || y.owner !== c.id)) return;   // частная — только хозяину
+    // Частная верфь — хозяину и ПРАВИТЕЛЬСТВУ СВОЕГО ГОСУДАРСТВА. Второе тут
+    // появилось не для красоты: государственный заказ идёт с forCorp = null
+    // (хлебовоз покупает казна мира, а не контора), и отделившийся мир не мог
+    // построить корабль на собственной верфи — единственной, какая у него есть.
+    // Сравнение прямое, без новых полей: realmOf(w) возвращает НОМЕР КОНТОРЫ
+    // основателя, и y.owner — тоже номер конторы. HOME = -1 с owner >= 0 не
+    // пересекается, поэтому значения по умолчанию оставляют прежнее поведение.
+    if (y.owner >= 0 && y.owner !== (c ? c.id : HOME) && y.owner !== realm) return;
     const ys = y.world.sys;
     if (ys !== sys && !canTravel(ys, sys)) return;
     const q = y.queue.length, d = ys === sys ? 0 : dist(systems[ys], systems[sys]);
@@ -94,11 +109,19 @@ export function nearestYard(sys: number, c: Corp | null): Shipyard | null {
  */
 export function orderTransport(kind: string, parts: Part[], sys: number,
                                forWorld: World | null, forCorp: Corp | null): boolean {
-  const y = nearestYard(sys, forCorp);
+  const realm = forCorp ? realmOfCorp(forCorp) : (forWorld ? realmOf(forWorld) : HOME);
+  const y = nearestYard(sys, forCorp, realm);
   if (!y) return false;
   const vt = vtype(kind);
+  // Ведущий сборки на ЧАСТНОЙ верфи — её хозяин. seizeYard оставляет "своё"
+  // именно по этому полю, и тест на частную верфь требует того же. Раньше у
+  // государственного заказа сюда попадал branches[0]: на отделившемся мире это
+  // случайно совпадало с хозяином (его филиал открывают первым), а на мире
+  // вольницы не совпало бы — там чужие филиалы не отбирают.
   y.queue.push({
-    vt: vt, lead: forCorp ? forCorp.id : (forWorld.branches.length ? forWorld.branches[0].corp : 0),
+    vt: vt, lead: forCorp ? forCorp.id
+                : y.owner >= 0 ? y.owner
+                : (forWorld.branches.length ? forWorld.branches[0].corp : 0),
     color: forCorp ? forCorp.color : "#8894ae", glyph: vt.glyph, parts: parts.slice(),
     left: vt.build * YARD_WORK, total: vt.build * YARD_WORK,
     forWorld: forWorld, forCorp: forCorp ? forCorp.id : undefined
@@ -132,14 +155,65 @@ export function yardAt(sys: number): Shipyard | null {
  *  до неё не летало ничего вовсе. Первое решение игрока от этого не пропало,
  *  оно сдвинулось туда, где ему и место: вторая верфь, у колонии, когда в
  *  домашней встала очередь. */
-export function foundYard(w: World, backers: { corp: number; sum: number }[]): Shipyard {
+export function foundYard(w: World, backers: { corp: number; sum: number }[],
+                          owner: number = -1, scrap?: boolean): Shipyard {
   const y: Shipyard = {
-    id: ++seq, world: w, owner: -1, ang: rnd() * 6.2832,
+    id: ++seq, world: w, owner: owner, ang: rnd() * 6.2832,
     queue: [], crew: 0, born: S.tick, backers: backers.slice()
   };
+  if (scrap) y.scrap = true;
   w.yard = y;
   shipyards.push(y);
   return y;
+}
+
+// ---- стапель на краю --------------------------------------------------------
+// Мир, прошедший голодомор, обзаводится верфью. Готовая просто меняет хозяина;
+// а вот если её не было — а на окраине её обычно и нет, — мир закладывает свою.
+// Ровно поэтому правило "верфь уходит вместе с планетой" почти никогда и не
+// срабатывало: уходить было нечему.
+//
+// Денег стапель не стоит: ценой служат три года. Мир только что отдал четыре
+// пятых кассы в общее дело, и требовать с него ещё и плату значило бы не
+// достроить никогда. Три года — столько же, сколько верфь по предложению.
+export const YARD_EDGE = 36;
+
+export function edgeShipyard(w: World, owner: number): void {
+  if (w.yard) { seizeYard(w, owner); return; }
+  w.edgeYard = { at: S.tick + YARD_EDGE, owner: owner };
+  say("<b>" + w.body.name + "</b> закладывает свой стапель: верфи тут не было, " +
+      "и строить её будут сами — года три.");
+}
+
+/** Заложенный стапель встаёт, а вставший — дорастает до верфи.
+ *
+ *  Доводка идёт за счёт ХОЗЯИНА, а не казны и не складчины: стапель частный, и
+ *  просить за него у чужого государства не у кого. Берётся она, только когда
+ *  стапель кому-то мешает — то есть когда в очереди уже кто-то стоит; иначе
+ *  контора вкладывала бы деньги в пустой стан просто потому, что они есть.
+ *  Казну своего государства сюда не зовём: у неё один расход и он про хлеб.
+ *
+ *  Зовётся каждый месяц рядом с proposalsTick. */
+export function edgeYards(): void {
+  shipyards.forEach((y) => {
+    if (!y.scrap || y.owner < 0 || !y.queue.length) return;
+    const c = corps[y.owner], cost = yardCost(y.world);
+    if (c.cash < cost * 1.25) return;           // не последние деньги
+    c.cash -= cost;
+    y.scrap = undefined;
+    say("<b>" + c.name + "</b> довела стапель у " + y.world.body.name +
+        " до настоящей верфи за " + cost + ": рук на неё теперь берут вчетверо больше.");
+  });
+  worlds.forEach((w) => {
+    if (!w.edgeYard || S.tick < w.edgeYard.at) return;
+    const owner = w.edgeYard.owner;
+    w.edgeYard = undefined;
+    if (w.yard) return;                 // пока строили, верфь взялась откуда-то ещё
+    foundYard(w, [], owner, true);
+    say("<b>У " + w.body.name + " встал свой стапель</b> — не верфь, а урезанная её " +
+        "версия, собранная из мусора: строит то же самое, только в разы дольше. " +
+        "Хозяин «" + corps[owner].name + "».");
+  });
 }
 
 function activeAt(w: World): Proposal | undefined {
@@ -264,6 +338,9 @@ export function seizeYard(w: World, newOwner: number): void {
  *  вкладчикам; отклонённые предложения выметает proposalsTick следующим
  *  месяцем. */
 export function loseYard(w: World): void {
+  // Заложенный стапель уходит вместе с миром: без этого опустевшая планета
+  // достроила бы верфь через три года после того, как перестала быть миром.
+  w.edgeYard = undefined;
   const y = w.yard;
   if (y) {
     y.queue.forEach((b) => { b.parts.forEach((p) => { addStock(corps[p.from], w.sys, p.k, 1); }); });

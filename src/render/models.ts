@@ -227,7 +227,8 @@ export function queueEta(y: Shipyard): (number | null)[] {
  *  показывалась только голова и число «ждут следом», то есть посмотреть
  *  очередь было нельзя нигде: кто стоит вторым и когда дойдёт — не узнать. */
 export function yardLines(y: Shipyard): string[] {
-  const out = [y.owner >= 0 ? "верфь «" + corps[y.owner].name + "»" : "верфь, общая"];
+  const what = y.scrap ? "стапель из мусора" : "верфь";
+  const out = [y.owner >= 0 ? what + " «" + corps[y.owner].name + "»" : "верфь, общая"];
   out.push("людей на стапеле " + y.crew.toFixed(1));
   if (!y.queue.length) { out.push("очередь пуста"); return out; }
   const eta = queueEta(y);
