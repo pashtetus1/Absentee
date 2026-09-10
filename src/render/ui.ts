@@ -59,12 +59,6 @@ export function feehint(): void {
     : p < 15 ? "Умеренный сбор: казна зарабатывает, сборка почти не страдает."
     : "Высокий сбор: выгоднее делать всё самому. Заодно дорожают транспорты, и голодные миры голодают дольше.";
 }
-export function dolehint(): void {
-  el("dolehint").textContent = L.dole === 0
-    ? "Без пособия свободные хватаются за любую работу, и зарплаты внизу."
-    : L.dole > 1.6 ? "Щедрое пособие: люди не спешат наниматься, зарплаты растут, казна пустеет."
-    : "Пособие держит зарплаты чуть выше дна.";
-}
 export function run(): void { if (U.timer) clearInterval(U.timer); setTickMs(300 / L.speed); U.timer = setInterval(step, tickMs); }
 
 export function syncControls(): void {
@@ -74,8 +68,6 @@ export function syncControls(): void {
   el("pat").value = L.patTerm; el("patval").textContent = L.patTerm + " лет";
   el("fee").value = Math.round(L.tradeFee * 100);
   el("feeval").textContent = Math.round(L.tradeFee * 100) + "%";
-  el("dole").value = Math.round(L.dole * 5);
-  el("doleval").textContent = L.dole.toFixed(1);
   el("speed").textContent = "×" + L.speed;
   el("subfield").value = L.subKey;
 }
@@ -211,9 +203,6 @@ export function bindUI(): void {
     L.tradeFee = +(e.target as Ctl).value / 100;
     el("feeval").textContent = Math.round(L.tradeFee * 100) + "%"; feehint(); saveLevers();
   });
-  el("dole").addEventListener("input", (e: Event) => {
-    L.dole = +(e.target as Ctl).value / 5; el("doleval").textContent = L.dole.toFixed(1); dolehint(); saveLevers();
-  });
   el("play").addEventListener("click", togglePause);
   // Прилипшую снизу кнопку на айфоне НАКРЫВАЕТ нижняя панель браузера.
   // position:fixed отсчитывается от layout-вьюпорта, а тот у мобильного
@@ -297,7 +286,7 @@ export function bindUI(): void {
   });
 
   loadLevers(); syncControls();
-  build(undefined, seedFromUrl()); seedToUrl(); scene(); taxhint(); subhint(); pathint(); feehint(); dolehint();
+  build(undefined, seedFromUrl()); seedToUrl(); scene(); taxhint(); subhint(); pathint(); feehint();
   requestAnimationFrame(frame);
   run();
 }

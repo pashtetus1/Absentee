@@ -1,7 +1,7 @@
 // ===================== рынок труда на каждом мире =====================
 
 import { YARD_MAX, YARD_MIN, YARD_SHARE } from "./shipyard";
-import { L, corps } from "./state";
+import { corps } from "./state";
 import { devCap, devMult } from "./tech";
 import { clamp } from "./util";
 import { popOf, reserveOf } from "./world";
@@ -99,14 +99,20 @@ export function labour(w: World): void {
   p.prod -= outP; p.sci -= outS; p.free += outP + outS;
 
   const openP = Math.max(0, jp - p.prod), openS = Math.max(0, js - p.sci);
-  const eager = clamp(0.32 - L.dole * 0.07, 0.04, 0.32);
+  // Готовность занять место — ПОСТОЯННАЯ. Здесь стоял рычаг пособия, и он был
+  // ложным выбором: пособие не могло дойти до людей (кошелька у населения нет,
+  // см. журнал), зато тормозило наём вот тут и переток в поле ниже, а через
+  // безработицу поднимало wantOut и гнало людей с планеты. Ноль был строго
+  // лучше любого другого положения, а рычаг, у которого одно положение всегда
+  // верное, — не рычаг, а украшение.
+  const eager = 0.32;
   const take = Math.min(p.free * eager, openP + openS);
   if (take > 0 && openP + openS > 0) {
     const shareP = openP / (openP + openS);
     p.free -= take; p.prod += take * shareP; p.sci += take * (1 - shareP);
   }
   if (w.type.farm > 0) {
-    const toFarm = p.free * clamp(0.04 - L.dole * 0.01, 0.005, 0.04);
+    const toFarm = p.free * 0.04;
     p.free -= toFarm; p.farm += toFarm;
   }
 

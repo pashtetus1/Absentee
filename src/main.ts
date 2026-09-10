@@ -35,7 +35,7 @@ export function setLever(k: string, v: number | string): void {
   // рычаг сам знает, число ему нужно или ключ технологии
   if (k === "tax") L.tax = v as number; else if (k === "sub") L.subYear = v as number;
   else if (k === "subKey") L.subKey = v as string;
-  else if (k === "fee") L.tradeFee = v as number; else if (k === "dole") L.dole = v as number;
+  else if (k === "fee") L.tradeFee = v as number;
   else if (k === "patTerm") L.patTerm = v as number;
 }
 
