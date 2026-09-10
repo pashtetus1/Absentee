@@ -3,11 +3,12 @@ import { PIRATES, pirateName } from "./colony";
 import { compOf, shipNeed, vtype } from "./data";
 import { corpBuyShip, takeDock } from "./docks";
 import { dispatch, surplusWorld } from "./food";
+import { harvestOf } from "./labour";
 import { takeFuel, unfly } from "./market";
 import { rnd } from "./rng";
 import { onOrder, orderTransport } from "./shipyard";
 import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
-import { bestEngineAt, devMult } from "./tech";
+import { bestEngineAt } from "./tech";
 import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
 import { clamp } from "./util";
 import { addStock, popOf } from "./world";
@@ -24,7 +25,13 @@ export function corpRelief(): void {
     let payer: Corp = null;
     w.branches.forEach((b) => { const c = corps[b.corp]; if (c.cash > 260 && (!payer || c.cash > payer.cash)) payer = c; });
     if (!payer) return;
-    const want = Math.ceil(Math.max(1, total - w.pop.farm * w.type.farm * devMult(w)) * 24);
+    // Урожай спрашиваем у harvestOf — у той же функции, которой мир кормится на
+    // самом деле. Здесь стояла СВОЯ оценка (фермеры на урожайность типа с
+    // освоением), четвёртая по счёту в игре: foodRun и панель уже свели свои к
+    // общей, а эта осталась и расходилась с настоящим урожаем тем сильнее, чем
+    // больше на мире всего, чего она не знает. Частная помощь от этого возила
+    // хлеб туда, где он уже был, и просила больше, чем нужно.
+    const want = Math.ceil(Math.max(1, total - harvestOf(w)) * 24);
     const pickSrc = surplusWorld(want, w);
     if (!pickSrc) return;
     const src = pickSrc.w, qty = Math.max(1, Math.min(want, Math.floor(pickSrc.extra)));
