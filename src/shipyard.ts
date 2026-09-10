@@ -25,6 +25,7 @@
 // ЧЕЛОВЕКА, — ошибка меры: тут время идёт по настенным часам, а не по тику.
 
 import { vtype } from "./data";
+import { HOME, isRealm, realmOf } from "./realm";
 import { rnd } from "./rng";
 import { L, S, corps, proposals, say, shipyards, systems } from "./state";
 import { canTravel } from "./travel";
@@ -153,7 +154,7 @@ export function reviewProposals(): void {
   corps.forEach((c) => {
     // повод — заказ, который негде собрать: либо уже сделанный, либо тот, что
     // компания хотела сделать, но не нашла верфи (needYard)
-    if (!(c.order || c.needYard) || c.pirate || c.cash < 200) return;
+    if (!(c.order || c.needYard) || c.pirate || isRealm(c) || c.cash < 200) return;
     if (proposals.some((p) => p.lead === c.id && p.state !== "done")) return;
     // Пока на столе лежит нерешённое предложение, новое имеет смысл только
     // если оно ДЕШЕВЛЕ для казны: иначе игрок утонет в стопке равных бумаг.
@@ -170,6 +171,11 @@ export function reviewProposals(): void {
       // Чужое предложение на этой же планете не мешает: перебить его можно,
       // и ниже оно снимается, если новое дешевле для казны. Своё — мешает.
       const act = activeAt(x);
+      // Не на чужой земле. Верфь по предложению оплачивает казна, а деньги за
+      // стройку получает ПЛАНЕТА (см. proposalsTick) — то есть домашняя контора
+      // с филиалом на отделившемся мире могла бы перевести туда деньги родной
+      // казны, ничего не нарушив ни одной проверкой.
+      if (realmOf(x) !== HOME) return;
       if (x.yard || (act && act.state !== "pending") || (x.yardRetryAt || 0) > S.tick) return;
       if (x.pop.prod < 2) return;                 // без рабочих рук верфь стояла бы вечно
       if (x.pop.prod > top) { top = x.pop.prod; w = x; }

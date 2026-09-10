@@ -2,6 +2,7 @@
 
 import { PTYPES, colOf, compOf, isEngine, markOf } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
+import { isRealm } from "./realm";
 import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
 import { allTech, bestEngineMade, devOf, engOf, ensureDev, markStep, ownEngine, prevStep, stepKey, techOf } from "./tech";
 import type { Corp } from "./types";
@@ -102,7 +103,10 @@ export function research(): void {
     if (!c.target) return;
     const f = techOf(c.target);
     c.spent[c.target] += sciOf(c) * (0.8 + aptOf(c, c.target) * 1.1) * 6;
-    if (c.target === L.subKey && L.subYear > 0 && S.treasury > L.subYear / 12) {
+    // Дотация — рычаг РОДНОГО государства, и отделившимся она не полагается:
+    // они и налога больше не платят. Вольница при этом дотацию по-прежнему
+    // получает — отсева по c.pirate тут нет и не было; см. дыры в журнале.
+    if (c.target === L.subKey && L.subYear > 0 && !isRealm(c) && S.treasury > L.subYear / 12) {
       c.spent[c.target] += L.subYear / 12; S.treasury -= L.subYear / 12;
     }
     if (c.spent[c.target] < f.diff * 0.55) return;

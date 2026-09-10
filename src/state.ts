@@ -30,6 +30,11 @@ export const market: Record<string, MarketRow> = {};
 export const patents: Record<string, Patent> = {};
 export const gates: Record<string, Gate> = {};   // ворота по маршрутам, ключ — routeKey
 export const flash: Record<string, number> = {};
+// Казна КАЖДОГО отделившегося государства, ключ — номер его конторы. Родная
+// казна лежит не здесь, а в S.treasury, и это не непоследовательность: она была
+// одна на всю игру до того, как государств стало несколько, и на неё смотрят
+// панель, сохранение и тесты. Домен — кто кому платит — в realm.ts.
+export const purses: Record<number, number> = {};
 export const cam = { x: 0, y: 0, k: 1 };         // камера карты: перетаскивание и зум
 
 export const S = {
@@ -42,6 +47,11 @@ export const S = {
   trades: 0, turnover: 0, shipped: 0, movedPops: 0, refusals: 0, dropped: 0,
   hauled: 0, burned: 0, raids: 0, lost: 0,       // деталей отправлено; топлива сожжено; перехватов; миров опустело
   pirateCount: 0, crestSeq: 0, capSeq: 0,
+  // Сколько налога родная казна недополучила с тех пор, как появились
+  // отделившиеся. Скаляр S.treasury сам по себе ничего не доказывает — он
+  // растёт и падает по десятку причин, — а этот счётчик отвечает ровно на один
+  // вопрос: пересекают ли деньги границу.
+  taxAway: 0,
   home: null as World, move: null as Move
 };
 

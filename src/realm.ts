@@ -14,7 +14,7 @@
 // Здесь только домен: кто к какому государству относится. Как щит нарисован —
 // в render/models.ts (crest), где его вешать — в render/scene.ts.
 
-import { corps } from "./state";
+import { S, corps, purses } from "./state";
 import type { Corp, Ship, Voyage, World } from "./types";
 
 /** Родное государство игрока. Своей конторы у него нет, поэтому и номера нет. */
@@ -54,3 +54,22 @@ export function realmColor(r: number): string { return r === HOME ? "#ffe6a8" : 
 /** Номер фигуры на щите; 0 — звезда родного государства. */
 export function realmCharge(r: number): number { return r === HOME ? 0 : corps[r].crest; }
 export function realmName(r: number): string { return r === HOME ? "государство" : corps[r].name; }
+
+// ---- казна ----------------------------------------------------------------
+// До первого отделения казна в игре одна, и вопроса "чья" не возникает. Как
+// только мир ушёл, вопрос появляется у КАЖДОГО платежа, и отвечать на него
+// надо в одном месте, а не двадцатью проверками w.free по коду.
+
+/** Сколько денег у этого государства. */
+export function treasuryOf(r: number): number {
+  return r === HOME ? S.treasury : (purses[r] || 0);
+}
+
+/** Приход (n > 0) или расход (n < 0). Пол на нуле живёт ЗДЕСЬ и только здесь:
+ *  весь код трат опирается на то, что казна не бывает отрицательной, и раньше
+ *  это держалось одной строкой в конце economy() — то есть верно ровно до
+ *  первого списания из другого модуля. */
+export function payTreasury(r: number, n: number): void {
+  if (r === HOME) S.treasury = Math.max(0, S.treasury + n);
+  else purses[r] = Math.max(0, (purses[r] || 0) + n);
+}

@@ -397,6 +397,10 @@ export interface Snapshot {
   market: Record<string, MarketRow>; patents: Record<string, Patent>;
   voyages: Voyage[]; projects: Project[]; docks: Dock[];
   shipyards: Shipyard[]; proposals: Proposal[]; staged: Staged[];
+  /** Казна каждого отделившегося государства; родная лежит в treasury. */
+  purses: Record<number, number>;
+  /** Налог, который родная казна недополучила с отделившихся: ноль, пока их нет. */
+  taxAway: number;
   trades: number; shipped: number; movedPops: number; refusals: number;
   dropped: number; hauled: number; burned: number; raids: number; lost: number;
   feed: { d: string; t: string }[];

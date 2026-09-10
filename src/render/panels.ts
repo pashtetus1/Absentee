@@ -11,7 +11,7 @@ import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype } from 
 import { dockValue } from "../docks";
 import { galaxyRange, within } from "../galaxy";
 import { buyPrice, harvestOf } from "../labour";
-import { HOME, isRealm, realmName, realmOf } from "../realm";
+import { HOME, isRealm, manyRealms, realmName, realmOf, treasuryOf } from "../realm";
 import { seedOf } from "../rng";
 import { prodOf, sciOf } from "../science";
 import { yardAt } from "../shipyard";
@@ -382,11 +382,18 @@ export function panels(): void {
 
   const totPop = worlds.reduce((a, w) => { return a + popOf(w); }, 0);
   el("treasury").textContent = Math.round(S.treasury).toLocaleString("ru-RU");
+  // Казна на экране одна — родная. Как только государств стало больше одного,
+  // одно число начинает вести себя по-новому (налог с ушедших в него не идёт),
+  // и без соседних строк это читается как поломка, а не как отделение.
+  const foreign = manyRealms()
+    ? corps.filter(isRealm).map((c) => c.name + " " + Math.round(treasuryOf(c.id))).join(", ")
+    : "";
   el("date").textContent = dateStr();
   el("stats").textContent = "Миров " + worlds.length + " · людей " + fmt(totPop) + " · сделок " + S.trades +
     " · еды перевезено " + Math.round(S.shipped) + " · деталей грузовиком " + S.hauled +
     " · топлива сожжено " + S.burned + " · отказов " + S.refusals + ", свёрнуто сборок " + S.dropped +
     (S.lost ? " · миров опустело " + S.lost : "") +
+    (foreign ? " · казна отделившихся: " + foreign : "") +
     " · сид " + seedOf();
 
   el("corps").innerHTML = corps.slice().sort((a, b) => { return b.cash - a.cash; }).map((c) => {

@@ -1,4 +1,5 @@
 
+import { HOME, payTreasury, realmOf } from "./realm";
 import { L, S, UPKEEP, corps, say, systems, worlds } from "./state";
 import { popOf } from "./world";
 import type { Rock } from "./types";
@@ -23,13 +24,29 @@ export function ventureIncome(): void {
 export function economy(): void {
   corps.forEach((c) => {
     if (c.cool > 0) c.cool--;
-    let earn = 0, wages = 0;
+    // Налог платят ТАМ, ГДЕ РАБОТАЮТ, а не туда, откуда контора родом. Считать
+    // по конторе было бы на строку короче, но тогда метрополия теряла бы налог
+    // с чужого филиала на СВОЕЙ планете, а это уже не граница, а дыра. Тем же
+    // правилом живёт местный налог тремя строками ниже.
+    //
+    // Выручка копится по государствам, а множится на ставку ОДИН раз в конце, а
+    // не по филиалу: сумма произведений и произведение суммы в плавающей точке
+    // не совпадают, и партия без отделения поехала бы от одной этой правки.
+    let earn = 0, wages = 0, home = 0;
+    const away: Record<number, number> = {};
     c.branches.forEach((b) => {
-      earn += b.emp.prod * 6.5;
+      const got = b.emp.prod * 6.5;
+      earn += got;
+      const r = realmOf(b.world);
+      if (r === HOME) home += got; else away[r] = (away[r] || 0) + got;
       wages += b.emp.prod * b.world.wage.prod + b.emp.sci * b.world.wage.sci;
       b.world.gov.cash += b.emp.prod * (b.world.rough > 0 ? 0.3 : 0.8);   // местный налог; в разруху собирать почти нечего
     });
-    S.treasury += earn * L.tax;
+    payTreasury(HOME, home * L.tax);
+    Object.keys(away).forEach((k) => {
+      const due = away[+k] * L.tax;
+      payTreasury(+k, due); S.taxAway += due;
+    });
     c.cash += earn * (1 - L.tax) - wages;
     if (c.cash < -40) c.cash = -40;
   });
@@ -56,6 +73,5 @@ export function economy(): void {
     // код покупок на это опирается.
     w.gov.cash = Math.max(0, w.gov.cash - popOf(w) * UPKEEP);
   });
-  if (S.treasury < 0) S.treasury = 0;
 }
 
