@@ -14,7 +14,7 @@ import { engMult, pickCaptain } from "./data";
 import { dockShip } from "./docks";
 import { markLevelOf, markSpeedOf } from "./galaxy";
 import { partMark } from "./data";
-import { takeFuel } from "./market";
+import { landPart, takeFuel } from "./market";
 import { rnd } from "./rng";
 import { yardAt } from "./shipyard";
 import { S, U, corps, dateStr, docks, gates, say, shipyards, staged, systems, voyages } from "./state";
@@ -238,7 +238,7 @@ export function arriveVoyage(v: Voyage): void {
     }
     return;
   }
-  if (v.kind === "parts") { v.take({ k:v.k, from:v.corp }); dockShip(v); return; }
+  if (v.kind === "parts") { landPart(v); dockShip(v); return; }
   if (v.kind === "food") { v.to.food.stock += v.qty; dockShip(v); return; }
   if (v.kind === "pops") {
     dockShip(v);

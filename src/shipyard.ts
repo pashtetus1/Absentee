@@ -70,6 +70,14 @@ export const YARD_WORK = 6;
 
 let seq = 0;
 
+/** Общий счётчик номеров: им метятся и верфи, и предложения. Он часть партии,
+ *  а не украшение — decideById ищет предложение по номеру, — поэтому его
+ *  уносит сохранение (save.ts). Сбрасывать его в build() незачем: номер нужен
+ *  только внутри партии, а сквозной счёт заодно не даёт спутать предложение
+ *  прошлой партии с нынешним. */
+export function seqOf(): number { return seq; }
+export function setSeq(n: number): void { seq = n; }
+
 /** Цена верфи деньгами: дороже вдали от родины, как и колония. */
 export function yardCost(w: World): number {
   return Math.round(400 * (1 + systems[w.sys].depth * 0.3));

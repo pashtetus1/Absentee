@@ -29,6 +29,15 @@
   h1 { font-size:19px; font-weight:600; letter-spacing:-0.01em; }
   header p { color:var(--dim); font-size:12.5px; max-width:64ch; }
 
+  .badsave { grid-column:1/-1; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+             border:1px solid var(--bad); border-radius:12px; background:#2a1a1c; padding:13px 15px; }
+  /* display:flex у класса СИЛЬНЕЕ, чем display:none у атрибута hidden в
+     таблице браузера: без этой строки спрятанная полоса остаётся на экране, и
+     "СОХРАНЕНИЕ НЕСОВМЕСТИМО" висит над живой партией. */
+  .badsave[hidden] { display:none; }
+  .badsave b { font-size:15px; letter-spacing:0.04em; color:var(--bad); }
+  .badsave span { flex:1 1 220px; font-size:12.5px; color:var(--dim); }
+
   .stage { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#080d19; }
   .stage canvas { display:block; width:100%; height:auto; cursor:pointer; }
   .keys { display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--faint); padding:9px 4px 0; }
@@ -148,6 +157,15 @@
 </head>
 <body>
 <div class="shell">
+  <!-- Партия не развернулась: сохранение сделано другой сборкой. Полоса во всю
+       ширину и вместо игры, а не рядом с ней — иначе это читалось бы как
+       мелкое замечание, а на деле пропала целая империя. -->
+  <div class="badsave" id="badsave" hidden>
+    <b>СОХРАНЕНИЕ НЕСОВМЕСТИМО</b>
+    <span id="badwhy"></span>
+    <button id="badnew">Начать заново</button>
+  </div>
+
   <header>
     <div>
       <h1>Absentee</h1>

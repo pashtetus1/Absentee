@@ -11,7 +11,7 @@ import { L, S, corps, dateStr, docks, market, patLive, patents, projects, propos
 import { canTravel, fuelCost, needWith, routeSpeed, travelExtra } from "./travel";
 import { clamp } from "./util";
 import { addStock, firstStockSys, stockAt, totalStock } from "./world";
-import type { Corp, Part, Project, Voyage, World } from "./types";
+import type { Consign, Corp, Order, Part, Project, Proposal, Voyage, World } from "./types";
 
 import type { FlyAcct } from "./types";
 
@@ -66,7 +66,7 @@ export function takeFuel(c: Corp, sys: number, k: string, direct?: boolean, n?: 
     if ((acct.fly[k] || 0) > 0) return false;
     buyPart(c, k, sys, 0.6,
             (sum: number) => { if (c.cash < sum + 10) return false; c.cash -= sum; return true; },
-            (part: Part) => { addStock(c, sys, part.k, 1); }, true, acct);
+            "stock", true, acct);
     return false;
   }
   const price = market[k].price * (1 + L.tradeFee);
@@ -267,13 +267,52 @@ export function stalledOrders(): void {
   });
 }
 
+// ---- кому достанется деталь -------------------------------------------
+// Раньше это было ЗАМЫКАНИЕ, которое покупатель вкладывал в рейс: грузовик нёс
+// с собой функцию, знавшую и счёт летящего, и заказ, к которому деталь
+// приписана. Пока партия жила только в памяти вкладки, разницы не было.
+// Сохранению функцию не записать ничем — и рейс с деталью оказался
+// единственным, что нельзя уложить в файл. Теперь на рейсе лежит запись:
+// consign — куда деталь, acct — в чей счёт, forCorp — кому. Поведение то же
+// до числа, проверено сличителем (test/compare.ts).
+function giveTo(buyer: Corp, dest: number, to: Consign, acct: FlyAcct, part: Part): void {
+  if (to === "order") {
+    const o = acct as Order;
+    // грузовик мог прилететь к уже свёрнутому заказу — тогда на склад
+    if (buyer.order !== o) { addStock(buyer, o.sys, part.k, 1); return; }
+    o.got[part.k] = (o.got[part.k] || 0) + 1; o.parts.push(part);
+    return;
+  }
+  if (to === "project") {
+    const pr = acct as Project;
+    if (projects.indexOf(pr) < 0) { addStock(buyer, pr.sys, part.k, 1); return; }
+    pr.got[part.k] = (pr.got[part.k] || 0) + 1; pr.parts.push(part);
+    return;
+  }
+  if (to === "proposal") {
+    const p = acct as Proposal;
+    if (proposals.indexOf(p) < 0) { addStock(buyer, p.world.sys, part.k, 1); return; }
+    p.got[part.k] = (p.got[part.k] || 0) + 1; p.parts.push(part);
+    return;
+  }
+  addStock(buyer, dest, part.k, 1);            // топливо просто ложится на склад
+}
+
+/** Рейс с деталью долетел: закрыть счёт летящего и выдать деталь тому, кому
+ *  она куплена. Второй конец у покупки один, и он здесь. */
+export function landPart(v: Voyage): void {
+  const part: Part = { k:v.k, from:v.corp };
+  if (v.acct && v.acct.fly) v.acct.fly[part.k] = Math.max(0, (v.acct.fly[part.k] || 0) - 1);
+  giveTo(corps[v.forCorp], v.to as number, v.consign, v.acct, part);
+}
+
 // Покупка = договор о цене плюс ДОСТАВКА. Если деталь лежит в другой системе,
 // она не появляется у покупателя по щелчку: за ней идёт грузовик, тратит
 // межзвёздное топливо и летит годами. Купленное в пути видно на карте.
 // acct — заказ или подписка, за которую покупают: в acct.fly считаются детали,
 // уже оплаченные и летящие. Без этого счёта покупатель заказывал одно и то же
 // каждый месяц, пока груз годами шёл, и в воздухе висели десятки грузовиков.
-export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, pay: (sum: number) => boolean, take: (part: Part) => void, noRefuse: boolean, acct: FlyAcct): boolean {
+export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, pay: (sum: number) => boolean, to: Consign, noRefuse: boolean, acct: FlyAcct): boolean {
   // Кандидаты: сначала те, у кого деталь лежит прямо здесь, потом дальние.
   // Перебираем ВСЕХ: раньше брали одного, и если он отказывал, покупка
   // срывалась на месяц — при том, что у соседа та же деталь лежала без дела.
@@ -304,7 +343,7 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
 
   addStock(seller, sysFrom, k, -1); seller.cash += price; seller.sold++;
   S.treasury += full - price; S.trades++; S.turnover += full; buyer.bought++;
-  if (sysFrom === dest) { take({ k:k, from:seller.id }); return true; }
+  if (sysFrom === dest) { giveTo(buyer, dest, to, acct, { k:k, from:seller.id }); return true; }
   const undo = (): boolean => {
     addStock(seller, sysFrom, k, 1); seller.cash -= price; S.treasury -= full - price;
     S.trades--; S.turnover -= full;
@@ -334,11 +373,7 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
   }
   if (acct) { if (!acct.fly) acct.fly = {}; acct.fly[k] = (acct.fly[k] || 0) + 1; }
   voyages.push({ kind:"parts", sysFrom:sysFrom, to:dest, k:k, qty:1, corp:seller.id, parts:shipParts, shipOwner:buyer.id,
-                 color:corps[seller.id].color, forCorp:buyer.id, acct:acct,
-                 take:(part: Part) => {
-                   if (acct && acct.fly) acct.fly[part.k] = Math.max(0, (acct.fly[part.k] || 0) - 1);
-                   take(part);
-                 },
+                 color:corps[seller.id].color, forCorp:buyer.id, acct:acct, consign:to,
                  t:0, dur:(140 + rnd() * 50) / routeSpeed(sysFrom, dest, seller.id, shipParts), born:dateStr(),
                  captain:dk ? dk.captain : pickCaptain() });
   S.hauled++;
@@ -379,11 +414,7 @@ export function trade(): void {
       }
       buyPart(c, f.key, o.sys, urgency,
               (sum: number) => { if (c.cash < sum + 25) return false; c.cash -= sum; return true; },
-              (part: Part) => {
-                // грузовик мог прилететь к уже свёрнутому заказу — тогда на склад
-                if (c.order !== o) { addStock(c, o.sys, part.k, 1); return; }
-                o.got[part.k] = (o.got[part.k] || 0) + 1; o.parts.push(part);
-              }, false, o);
+              "order", false, o);
     });
   });
   projects.forEach((pr) => {
@@ -401,10 +432,7 @@ export function trade(): void {
       }
       buyPart(lead, f.key, pr.sys, urgency,
               (sum: number) => { if (pr.purse < sum) return false; pr.purse -= sum; return true; },
-              (part: Part) => {
-                if (projects.indexOf(pr) < 0) { addStock(lead, pr.sys, part.k, 1); return; }
-                pr.got[part.k] = (pr.got[part.k] || 0) + 1; pr.parts.push(part);
-              }, false, pr);
+              "project", false, pr);
     });
   });
 
@@ -423,10 +451,7 @@ export function trade(): void {
       }
       buyPart(lead, f.key, sys, 0.5,
               (sum: number) => { if (lead.cash < sum + 25) return false; lead.cash -= sum; return true; },
-              (part: Part) => {
-                if (proposals.indexOf(p) < 0) { addStock(lead, sys, part.k, 1); return; }
-                p.got[part.k] = (p.got[part.k] || 0) + 1; p.parts.push(part);
-              }, false, p);
+              "proposal", false, p);
     });
   });
   // индекс продавцов верен только внутри торгов: позже в тике склады

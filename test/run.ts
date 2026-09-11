@@ -679,7 +679,7 @@ test("грузовик с деталями долетает и отдаёт гр
     st.voyages.forEach((v) => {
       if (v.kind !== "parts") return;
       assert(v.t <= 1.001, "грузовик пролетел мимо: t=" + v.t.toFixed(2));
-      assert(typeof v.take === "function", "у грузовика нет получателя");
+      assert(!!v.consign && !!v.acct, "у грузовика нет получателя");
     });
   });
 });
@@ -1527,6 +1527,146 @@ test("панель показывает всю очередь верфи, с п�
   assert(/на стапеле/.test(html), "не сказано, что стоит на стапеле");
   assert(/ждёт очереди/.test(html), "не сказано, что вторая сборка ждёт очереди");
   assert(/через \d+ мес\./.test(html), "не сказано, когда сборка сойдёт со стапеля");
+});
+
+// ── сохранение ──────────────────────────────────────────────────────────────
+// Игра задумана медленным симом: заходишь раз в несколько дней. Значит,
+// сохранение — не удобство, а само условие жанра, и проверять его надо строже
+// прочего: незамеченная потеря поля выглядит как "партия почему-то пошла
+// иначе" через полчаса игры, и найти это будет нечем.
+//
+// Слепок нарочно подробный и плоский, как в сличителе: сравнивать объекты
+// напрямую нельзя — в состоянии кольца (planet.world -> world.body).
+function snap(st: Snapshot): string {
+  const out: string[] = [];
+  out.push("tick " + st.tick, "казна " + st.treasury.toFixed(6), "способ " + st.move.key,
+           "налог " + st.taxAway.toFixed(6), "сделок " + st.trades, "перехватов " + st.raids,
+           "опустело " + st.lost, "верфей " + st.shipyards.length, "стоянок " + st.docks.length);
+  st.corps.forEach((c) => out.push("контора " + c.name + " " + c.cash.toFixed(6) + " филиалов " + c.branches.length +
+    " знает " + Object.keys(c.known).filter((k) => c.known[k]).sort().join("/") +
+    " ищет " + c.target + " герб " + c.crest + " разбой " + !!c.pirate +
+    " заказ " + (c.order ? c.order.type + JSON.stringify(c.order.got) : "нет")));
+  st.worlds.forEach((w) => out.push("мир " + w.body.name + " " + w.sys + " людей " +
+    (w.pop.farm + w.pop.prod + w.pop.sci + w.pop.free).toFixed(6) + " еды " + w.food.stock.toFixed(6) +
+    " казна " + w.gov.cash.toFixed(6) + " филиалов " + w.branches.length + " разруха " + w.rough +
+    " своё " + !!w.free + " верфь " + (w.yard ? w.yard.id : "нет") +
+    // кольцо мир -> планета -> мир обязано остаться кольцом, а не двумя копиями
+    " кольцо " + (w.body.world === w ? "цело" : "РАЗОРВАНО") +
+    " филиалы-те-же " + w.branches.every((b) => st.corps[b.corp].branches.indexOf(b) >= 0)));
+  st.voyages.forEach((v) => out.push("рейс " + v.kind + " " + v.t.toFixed(6) + " " + v.dur.toFixed(6) +
+    " " + (v.k || "-") + " " + (v.consign || "-") + " " + (v.qty || 0)));
+  st.systems.forEach((sy) => out.push("система " + sy.name + " открыта " + sy.unlocked + " шахт " + sy.mines +
+    " кораблей " + sy.ships.length + " створов " + sy.portals.length + " дел " + sy.ventures.length));
+  Object.keys(st.market).sort().forEach((k) => out.push("рынок " + k + " " + st.market[k].price.toFixed(6)));
+  Object.keys(st.patents).sort().forEach((k) => out.push("патент " + k + " " + st.patents[k].owner + " " + st.patents[k].since));
+  Object.keys(st.gates).sort().forEach((k) => out.push("ворота " + k + " " + st.gates[k].built + " " + st.gates[k].mark));
+  st.feed.forEach((f) => out.push("сводка " + f.d + " " + f.t));
+  return out.join("\n");
+}
+function firstDiff(a: string, b: string): string {
+  const x = a.split("\n"), y = b.split("\n");
+  for (let i = 0; i < Math.max(x.length, y.length); i++)
+    if (x[i] !== y[i]) return "строка " + i + ": «" + x[i] + "» против «" + y[i] + "»";
+  return "";
+}
+
+test("сохранение разворачивает ту же самую партию", () => {
+  const a = load("dist/index.html", { seed: 42 });
+  runYears(a, 120);
+  const text = a.save();
+  // Разворачиваем в ДРУГОЙ, уже пожившей партии: так видно поля, которые
+  // сохранение не трогает, — они остались бы от чужой игры.
+  const b = load("dist/index.html", { seed: 8 });
+  runYears(b, 40);
+  b.load(text);
+  const d = firstDiff(snap(a.state()), snap(b.state()));
+  assert(!d, "развернулась не та партия: " + d);
+});
+
+test("продолженная партия идёт тем же чередом, что и непрерванная", () => {
+  const a = load("dist/index.html", { seed: 11 });
+  runYears(a, 100);
+  const b = load("dist/index.html", { seed: 3 });
+  b.load(a.save());
+  // Дальше их ничто не связывает: если бы сохранение не уносило положение
+  // генератора, партии разошлись бы на первом же случайном числе.
+  runYears(a, 60); runYears(b, 60);
+  const d = firstDiff(snap(a.state()), snap(b.state()));
+  assert(!d, "через шестьдесят лет партии разошлись: " + d);
+});
+
+test("сохранение переживает отделение, разбой и опустевшие миры", () => {
+  // Сид 57 доводит партию до второго государства (см. проверку гербов): там
+  // появляются поля, которых в начале партии нет вовсе — герб, своя казна,
+  // логово вольницы. Ровно их и теряет небрежное сохранение.
+  const a = load("dist/index.html", { seed: 57 });
+  runYears(a, 300);
+  const st = a.state();
+  assert(st.corps.some((c) => c.crest !== undefined), "за триста лет никто не отделился: проверять нечего");
+  const b = load("dist/index.html", { seed: 2 });
+  b.load(a.save());
+  let d = firstDiff(snap(st), snap(b.state()));
+  assert(!d, "отделившиеся развернулись не так: " + d);
+  const pa = a.state().purses, pb = b.state().purses;
+  assert(JSON.stringify(pa) === JSON.stringify(pb), "казна отделившихся разъехалась");
+  runYears(a, 40); runYears(b, 40);
+  d = firstDiff(snap(a.state()), snap(b.state()));
+  assert(!d, "после разворачивания партии разошлись: " + d);
+});
+
+test("несовместимое сохранение не разворачивается и не портит партию", () => {
+  const sim = load("dist/index.html", { seed: 3 });
+  runYears(sim, 30);
+  const good = sim.save(), before = snap(sim.state());
+  const raw = JSON.parse(good);
+  const bad = [
+    JSON.stringify({ ...raw, f: raw.f + 1 }),               // другой формат записи
+    JSON.stringify({ ...raw, s: raw.s + ",новая-деталь" }), // другие таблицы правил
+    JSON.stringify({ ...raw, o: [] }),                      // пустая таблица объектов
+    JSON.stringify({ ...raw, h: [] }),                      // формы записей потерялись
+    "{ это не JSON",
+    "null"
+  ];
+  bad.forEach((text, i) => {
+    let msg = "";
+    try { sim.load(text); } catch (e) { msg = (e as Error).message; }
+    assert(msg === "СОХРАНЕНИЕ НЕСОВМЕСТИМО", "чужое сохранение №" + i + " прошло молча (" + msg + ")");
+  });
+  assert(snap(sim.state()) === before, "неудачное чтение испортило партию");
+  runYears(sim, 10);                                        // и она по-прежнему играется
+  assert(sim.state().tick === 40 * 12, "после неудачного чтения партия не идёт");
+  sim.load(good);                                           // своё же читается
+  assert(snap(sim.state()) === before, "своё сохранение перестало читаться");
+});
+
+test("партия сама ложится в localStorage и разворачивается из него", () => {
+  // Здесь проверяется не ядро, а игра целиком, как в браузере: файл открыли,
+  // походили, закрыли вкладку, открыли снова. Память браузера общая на два
+  // запуска — второй обязан найти в ней первый.
+  const store: Record<string, string> = {};
+  const a = load("dist/index.html", { withDom: true, seed: null, store });
+  a.step();
+  assert(store["absentee.save"], "после хода партия не отложилась в localStorage");
+  const b = load("dist/index.html", { withDom: true, seed: null, store });
+  assert(b.seedOf() === a.seedOf(), "развернулась другая партия: сид " + b.seedOf() + " вместо " + a.seedOf());
+  const d = firstDiff(snap(a.state()), snap(b.state()));
+  assert(!d, "из localStorage поднялась не та партия: " + d);
+  b.step();
+  assert(b.state().tick === a.state().tick + 1, "поднятая партия не идёт дальше");
+});
+
+test("несовместимое сохранение в localStorage не стирается и не запускает игру", () => {
+  const store: Record<string, string> = {};
+  const a = load("dist/index.html", { withDom: true, seed: null, store });
+  a.step();
+  const raw = JSON.parse(store["absentee.save"]);
+  const spoiled = JSON.stringify({ ...raw, s: raw.s + ",чужие-правила" });
+  store["absentee.save"] = spoiled;
+  const b = load("dist/index.html", { withDom: true, seed: null, store });
+  // Партия не собрана вовсе: игрок видит полосу и решает сам. И главное —
+  // чужое сохранение на месте: вернувшись к прежней сборке, он доиграет.
+  assert(b.state().worlds.length === 0, "после несовместимого сохранения игра всё-таки началась");
+  assert(store["absentee.save"] === spoiled, "несовместимое сохранение затёрли");
 });
 
 console.log("\n" + results.join("\n"));
