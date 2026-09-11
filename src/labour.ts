@@ -1,5 +1,6 @@
 // ===================== рынок труда на каждом мире =====================
 
+import { btype } from "./data";
 import { SCRAP_MAX, SCRAP_MIN, SCRAP_SHARE, YARD_MAX, YARD_MIN, YARD_SHARE } from "./shipyard";
 import { corps } from "./state";
 import { devCap, devMult } from "./tech";
@@ -30,7 +31,56 @@ export function yieldPerFarmer(w: World): number {
          (w.blight > 0 ? 0.5 : 1) *          // неурожай
          devMult(w);                          // освоение класса миров
 }
-export function harvestOf(w: World): number { return w.pop.farm * yieldPerFarmer(w); }
+// ---- гидропоника -----------------------------------------------------------
+// Постройка на планете даёт места, где еда растёт НЕ ИЗ ЗЕМЛИ, и потому её
+// выработку не трогает ничто из того, что портит поле: ни разруха, ни неурожай,
+// ни освоение класса миров. Это ПОЛ, а не ступень лестницы — освоенный терран от
+// теплицы не богатеет, а голая планета перестаёт быть приговором.
+//
+// С разрухой теплица не спорит сама собой, и оговаривать это не нужно: разруха
+// длится 120 месяцев, а ферму даёт только голодомор, то есть ещё 48 месяцев
+// голода после неё.
+//
+// Построек пока одна, и потому места складываются, а выработка берётся лучшая:
+// при двух разных теплицах это уже неверно — люди пошли бы в лучшую, пока в ней
+// есть места, и лишь потом в худшую. Вторая постройка обязана это переписать.
+export function hydroJobs(w: World): number {
+  let n = 0;
+  w.built.forEach((k) => { const b = btype(k); if (b) n += b.jobs; });
+  return n;
+}
+export function hydroYield(w: World): number {
+  let y = 0;
+  w.built.forEach((k) => { const b = btype(k); if (b && b.yield > y) y = b.yield; });
+  return y;
+}
+// Строгое «больше» обязательно: там, где земля лучше теплицы, теплица не должна
+// ОТНИМАТЬ людей у поля и тем снижать урожай. На терране (2.4) и в джунглях
+// (2.6) она не включается вовсе.
+export function hydroWorkers(w: World): number {
+  return hydroYield(w) > yieldPerFarmer(w) ? Math.min(w.pop.farm, hydroJobs(w)) : 0;
+}
+export function harvestOf(w: World): number {
+  const h = hydroWorkers(w);
+  return h * hydroYield(w) + (w.pop.farm - h) * yieldPerFarmer(w);
+}
+
+// Сколько вырастил СРЕДНИЙ фермер — и это не украшение, а условие сходимости
+// кассы. Ниже мир списывает за урожай grown * buy, а платит людям
+// pop.farm * wage.farm; сходятся эти два числа ТОЛЬКО при средней выработке.
+// Возьми кто-нибудь предельную (мол, «новый работник даст столько-то») — и
+// касса мира разойдётся с зарплатой тихо и навсегда.
+// Ноль фермеров — не ноль выработки: иначе мир с теплицей и пустым полем никогда
+// бы фермеров не завёл, а wage.farm перестала бы быть числом.
+export function yieldAvg(w: World): number {
+  if (w.pop.farm > 0.001) return harvestOf(w) / w.pop.farm;
+  return Math.max(yieldPerFarmer(w), hydroJobs(w) > 0 ? hydroYield(w) : 0);
+}
+/** Сколько мест в поле ВСЕГО. У земли их без счёта, у теплицы ровно столько,
+ *  сколько в ней стоек: за этим порогом выработка нового работника — ноль. */
+export function farmRoom(w: World): number { return w.type.farm > 0 ? 1e9 : hydroJobs(w); }
+/** Есть ли на мире куда встать фермеру. */
+export function canFarm(w: World): boolean { return w.type.farm > 0 || hydroJobs(w) > 0; }
 
 // Закупочная цена: сколько казна мира платит фермеру за единицу. Полный амбар
 // сбивает закуп — зерно некуда девать; пустой поднимает его вплотную к цене
@@ -77,7 +127,7 @@ export function labour(w: World): void {
   // поле, пока есть что есть, а не когда уже нечего.
   const lack = clamp(1 - w.food.stock / Math.max(1, reserveOf(w)), 0, 1);
   w.food.price = clamp(w.food.price * (1 + 0.04 * (total - grown) / Math.max(1, total) + PULL * lack), 0.2, 6);
-  w.wage.farm = w.type.farm > 0 ? yieldPerFarmer(w) * buy : 0;
+  w.wage.farm = canFarm(w) ? yieldAvg(w) * buy : 0;
 
   let jp = 0, js = 0;
   // верфь с работой в очереди просит людей наравне с цехами
@@ -116,21 +166,47 @@ export function labour(w: World): void {
     const shareP = openP / (openP + openS);
     p.free -= take; p.prod += take * shareP; p.sci += take * (1 - shareP);
   }
-  if (w.type.farm > 0) {
-    const toFarm = p.free * 0.04;
+  // «Есть куда встать», а не «мир умеет кормиться». Разница вся в теплице: на
+  // газовом гиганте (type.farm = 0) мест ровно столько, сколько в ней стоек, а
+  // за порогом выработка НОЛЬ. Без учёта мест ручеёк гнал бы туда людей вечно,
+  // они осели бы мёртвым грузом и разбавили среднюю выработку, по которой всем
+  // остальным платят.
+  const room = farmRoom(w) - p.farm;
+  if (canFarm(w) && room > 0) {
+    const toFarm = Math.min(p.free * 0.04, room);
     p.free -= toFarm; p.farm += toFarm;
   }
 
-  let best: keyof Wage = w.type.farm > 0 ? "farm" : "prod";
+  // Теплицу наполняют ДО заработков, пока в амбаре меньше месячной нормы. Это
+  // не рынок труда, а выживание: рынок тут отступает, но ровно на число мест в
+  // теплице и ровно пока мир голоден. Берут сперва незанятых, потом из науки и
+  // цехов — в том порядке, в каком людей проще увести от менее срочного дела.
+  const hungryNow = w.food.stock < total;
+  let need = Math.min(Math.min(hydroJobs(w), farmRoom(w)) - p.farm, total * 0.02);
+  if (hungryNow && need > 0) {
+    (["free","sci","prod"] as (keyof Pop)[]).forEach((k) => {
+      if (need <= 0) return;
+      const take = Math.min(p[k], need);
+      p[k] -= take; p.farm += take; need -= take;
+    });
+  }
+
+  let best: keyof Wage = canFarm(w) ? "farm" : "prod";
   if (w.wage.prod > w.wage[best]) best = "prod";
   if (w.wage.sci > w.wage[best]) best = "sci";
   let mv = 0;
   (["farm","prod","sci"] as (keyof Wage)[]).forEach((k) => {
     if (k === best) return;
     if (w.wage[best] < w.wage[k] * 1.12) return;
-    const open = best === "farm" ? 1e9 : (best === "prod" ? jp - p.prod : js - p.sci);
+    const open = best === "farm" ? farmRoom(w) - p.farm : (best === "prod" ? jp - p.prod : js - p.sci);
     if (open <= 0) return;
-    const m = Math.min(p[k] * 0.012, open);
+    // Из ГОЛОДНОЙ теплицы не уходят. Мест в ней горстка, и заработком она не
+    // берёт никогда: поле платит по своей выработке, а та упирается в потолок
+    // цены еды, тогда как лаборатория отделившихся платит вдвое (у них 2.2
+    // научных места на филиал — см. выше). Без этого порога мир голодал двести
+    // месяцев при ПУСТОЙ теплице, потому что все сидели в науке.
+    const floor = (hungry && k === "farm") ? Math.min(hydroJobs(w), p.farm) : 0;
+    const m = Math.min(Math.max(0, p[k] - floor) * 0.012, open);
     p[k] -= m; p[best] += m; mv += m;
   });
   w.flow = mv > 0.02 ? "идут в " + ({ farm:"поле", prod:"цеха", sci:"лаборатории" })[best] : "перетока почти нет";

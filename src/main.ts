@@ -13,6 +13,7 @@ import { seedOf } from "./rng";
 import { L, S, U, corps, docks, feed, gates, headless, market, patents, projects, proposals, purses, shipyards, staged, systems, voyages, worlds } from "./state";
 import { ENGINES, speedOf } from "./tech";
 import { step } from "./tick";
+import { harvestOf, yieldPerFarmer } from "./labour";
 import { popOf } from "./world";
 import type { Snapshot } from "./types";
 
@@ -20,6 +21,7 @@ import { decideById } from "./shipyard";
 import type { ApproveMode } from "./types";
 
 export { step, build, speedOf, popOf, icon, seedOf };
+export { harvestOf, yieldPerFarmer };
 export { decideById as decide };
 
 export function setApproval(mode: ApproveMode): void { L.approve = mode; }

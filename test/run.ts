@@ -345,8 +345,13 @@ test("касса мира не уходит в минус и остаётся ч
 // виден в числах, а не только в замысле.
 test("на скудной земле в поле платят меньше, чем на плодородной", () => {
   const st = runYears(load("dist/index.html", { seed: 61 }), 200);
-  const poor = st.worlds.filter((w) => w.type.farm > 0 && w.type.farm <= 0.7);
-  const rich = st.worlds.filter((w) => w.type.farm >= 2);
+  // Миры С ПОСТРОЙКАМИ из сравнения вон. Тест о том, что платят ЗА ВЫРАБОТКУ, а
+  // у мира с гидропоникой выработка больше не равна плодородию его земли: теплица
+  // держит пол независимо от почвы. Сравнивать его со скудной землёй — значит
+  // сравнивать не то, о чём тест: плодородный мир в неурожай даёт 2.4 x 0.5 = 1.2,
+  // и бедный с теплицей обгонит его законно.
+  const poor = st.worlds.filter((w) => w.type.farm > 0 && w.type.farm <= 0.7 && !w.built.length);
+  const rich = st.worlds.filter((w) => w.type.farm >= 2 && !w.built.length);
   if (!poor.length || !rich.length) return;          // в этой партии таких пар нет
   // сравниваем в долях цены еды: цены у миров свои и разные
   const rate = (w: typeof poor[0]) => w.wage.farm / Math.max(0.01, w.food.price);
@@ -906,6 +911,78 @@ test("у отделившегося государства свой герб, и
     });
   });
   assert(realms > 0, "за четыре партии ни одного отделения — гербов не из чего взяться");
+});
+
+// ── гидропонная ферма ───────────────────────────────────────────────────────
+// Первая постройка на планете. Её ставит себе мир, прошедший голодомор, при
+// любом из трёх исходов жребия: еда там растёт НЕ ИЗ ЗЕМЛИ, и потому её не
+// трогают ни разруха, ни неурожай, ни освоение. Это пол, а не ступень лестницы.
+test("гидропонная ферма ставится после голодомора, и ровно одна", () => {
+  let seen = 0;
+  for (const seed of [3, 6, 42, 57]) {
+    const sim = load("dist/index.html", { seed });
+    const st = runYears(sim, 300);
+    st.worlds.forEach((w) => {
+      assert(w.built.length <= 1, w.body.name + ": построек " + w.built.length + ", а больше одной пока нельзя");
+      assert(!w.built.length || w.edge, w.body.name + ": ферма есть, а края мир не проходил");
+      assert(w.built.every((k) => sim.consts.BTYPES.some((b) => b.key === k)),
+             w.body.name + ": построено то, чего нет в таблице");
+      if (w.built.length) seen++;
+    });
+  }
+  assert(seen > 0, "за четыре партии ни одной фермы");
+});
+
+// Ради этого всё и делалось: на мёртвой земле еда теперь всё-таки растёт.
+test("теплица кормит там, где земля не кормит вовсе", () => {
+  let dead = 0, fed = 0;
+  for (const seed of [19, 42, 47, 53, 63]) {
+    const sim = load("dist/index.html", { seed });
+    const st = runYears(sim, 300);
+    st.worlds.forEach((w) => {
+      if (!w.built.length || w.type.farm > 0.2) return;
+      dead++;
+      // выработка ПОЛЯ тут почти ноль, а урожай обязан быть больше неё
+      const field = w.pop.farm * sim.yieldPerFarmer(w);
+      const all = sim.harvestOf(w);
+      assert(all >= field - 1e-9, w.body.name + ": теплица УМЕНЬШИЛА урожай");
+      if (all > field + 1e-9) fed++;
+    });
+  }
+  assert(dead > 0, "за пять партий ни одного мира с фермой на мёртвой земле");
+  assert(fed > 0, "теплицы стоят, но ни на одном мёртвом мире не кормят");
+});
+
+// Обратное и не менее важное: там, где земля лучше теплицы, теплица обязана
+// СПАТЬ. Иначе она отняла бы людей у поля и урожай бы упал.
+test("на плодородной земле теплица не отнимает урожай", () => {
+  let rich = 0;
+  for (const seed of [19, 42, 57, 63]) {
+    const sim = load("dist/index.html", { seed });
+    const st = runYears(sim, 300);
+    st.worlds.forEach((w) => {
+      if (!w.built.length || w.type.farm < 1.4) return;
+      rich++;
+      const field = w.pop.farm * sim.yieldPerFarmer(w);
+      close(sim.harvestOf(w), field, 1e-9,
+            w.body.name + ": на плодородной земле урожай разошёлся с полевым");
+    });
+  }
+  assert(rich > 0, "за четыре партии ни одной фермы на плодородном мире");
+});
+
+// Деление на число фермеров — самое скользкое место всей правки: мир с теплицей
+// и пустым полем обязан давать ЧИСЛО, иначе зарплата станет NaN и разнесёт
+// переток людей по всей галактике молча.
+test("плата в поле всегда число и не отрицательна", () => {
+  for (const seed of [42, 53]) {
+    runYears(load("dist/index.html", { seed }), 300, (st) => {
+      st.worlds.forEach((w) => {
+        assert(Number.isFinite(w.wage.farm), w.body.name + ": плата в поле перестала быть числом");
+        assert(w.wage.farm >= 0, w.body.name + ": плата в поле ушла в минус");
+      });
+    });
+  }
 });
 
 // ── казна у каждого государства ─────────────────────────────────────────────

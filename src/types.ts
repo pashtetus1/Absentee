@@ -450,6 +450,11 @@ export interface Core {
   };
   speedOf(corpId: number): number;
   popOf(w: World): number;
+  /** Урожай мира и выработка одного полевого фермера. Наружу выведены затем,
+   *  что до сих пор продовольственные проверки могли только верить панели —
+   *  а панель уже врала этим самым числом. */
+  harvestOf(w: World): number;
+  yieldPerFarmer(w: World): number;
   setView(mode: string, sys?: number): void;
   /** Как отвечать на предложения без игрока: стенду нужна политика. */
   setApproval(mode: ApproveMode): void;
