@@ -10,6 +10,23 @@ import type { Pop, Wage, World } from "./types";
 
 export const PULL = 0.03;      // на сколько в месяц цена еды тянется к резерву (при пустом складе)
 export const CUT = 0.12;       // сколько казна оставляет себе с хлеба при полном амбаре
+// Свободный мир оставляет себе ВТРОЕ МЕНЬШЕ: отделившееся правительство
+// отдаёт фермеру почти всё, что выручило. Это про его СОБСТВЕННЫЙ доход, а не
+// про платёж метрополии — казённую долю с хлеба метрополия не видела никогда,
+// за границу денег отвечает налог (realm.ts).
+//
+// Ноль тут стоять НЕ МОЖЕТ, и это видно из разложения заработка казны:
+//   gain = eaten*price − grown*buy = price*(eaten − grown) + price*grown*CUT*fill
+// Второе слагаемое и есть доля. Убери её — и мир, который кормится сам
+// (grown >= total, значит eaten = total), получает price*(total − grown) <= 0,
+// то есть УБЫТОК каждый месяц ровно на величину излишка: казна скупает весь
+// урожай по полной цене, а продаёт только съеденное. Пол на нуле плюс
+// содержание прижали бы кассу к нулю навсегда, и посыпалась бы вся цепочка
+// порогов "хватает ли денег": хлебовоз, детали к нему, переселенцы, выкуп
+// корабля со стоянки. Отделившийся мир получил бы свой стапель и не смог бы на
+// нём ничего заказать.
+export const CUT_FREE = 0.05;
+export function cutOf(w: World): number { return w.free ? CUT_FREE : CUT; }
 
 export function squeeze(jobs: number, workers: number): number { return clamp(1 + 0.5 * (jobs - workers) / Math.max(1.2, workers), 0.55, 2.2); }
 
@@ -88,7 +105,7 @@ export function canFarm(w: World): boolean { return w.type.farm > 0 || hydroJobs
 // этой ценой и food.price и есть заработок казны, и она рыночная: её двигает
 // предложение (амбар), тогда как продажную цену двигает спрос.
 export function buyPrice(w: World): number {
-  return w.food.price * (1 - CUT * clamp(w.food.stock / Math.max(1, reserveOf(w)), 0, 1));
+  return w.food.price * (1 - cutOf(w) * clamp(w.food.stock / Math.max(1, reserveOf(w)), 0, 1));
 }
 
 export function labour(w: World): void {

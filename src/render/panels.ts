@@ -10,7 +10,7 @@
 import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype, btype } from "../data";
 import { dockValue } from "../docks";
 import { galaxyRange, within } from "../galaxy";
-import { buyPrice, harvestOf } from "../labour";
+import { cutOf, buyPrice, harvestOf } from "../labour";
 import { HOME, isRealm, manyRealms, realmName, realmOf, treasuryOf } from "../realm";
 import { seedOf } from "../rng";
 import { prodOf, sciOf } from "../science";
@@ -107,7 +107,11 @@ export function worldCard(w: World): string {
     // следа решения, которое уже принято.
     (w.edgeYard ? '<div class="sub" style="margin:0 0 3px;color:var(--gold)">Стапель из мусора: соберут через ' +
        Math.max(0, w.edgeYard.at - S.tick) + ' мес.</div>' : '') +
+    // Долю называем ЧИСЛОМ. Закуп и продажа у свободного мира почти совпадают, и
+    // без этой подписи два близких числа читаются как опечатка, а не как
+    // решение его правительства.
     '<div class="sub" style="margin:0 0 3px">Хлеб: закуп ' + buy.toFixed(2) + ', продажа ' + w.food.price.toFixed(2) +
+    ' · доля казны ' + Math.round(cutOf(w) * 100) + '%' +
     ' · казне ' + w.food.gain.toFixed(1) + '/мес</div>' +
     '<div class="sub" style="margin:0 0 3px">Казна мира ' + Math.round(w.gov.cash) +
     ' · содержание ' + (popOf(w) * UPKEEP).toFixed(1) + '/мес' +

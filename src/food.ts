@@ -21,6 +21,7 @@ import { engMult, pickCaptain, shipNeed, vtype } from "./data";
 import { takeDock } from "./docks";
 import { harvestOf } from "./labour";
 import { askPrice, fuelBill, govFuel, govFuelAvail } from "./market";
+import { HOME, payTreasury, realmOf, treasuryOf } from "./realm";
 import { rnd } from "./rng";
 import { onOrder, orderTransport } from "./shipyard";
 import { L, S, corps, dateStr, docks, say, voyages, worlds } from "./state";
@@ -106,6 +107,28 @@ export function dispatch(from: World, to: World, kind: string, qty: number, part
   return v;
 }
 
+/** Казна государства докладывает своему миру на хлеб.
+ *
+ *  Это ЕДИНСТВЕННЫЙ расход казны отделившихся, и без него она мёртвое число:
+ *  налог она собирает, а тратить его больше не на что — дотация науки и
+ *  докладка по верфи остались рычагами родного государства, у которого их и
+ *  крутит игрок. Так история замыкается: новое государство копит налог со своих
+ *  миров и кормит на него свои миры.
+ *
+ *  Родную казну сюда не зовём НАРОЧНО. У неё уже есть свои расходы и рычаги, а
+ *  докладка родным мирам сдвинула бы весь базовый баланс — и заодно сломала бы
+ *  правило, по которому партия без отделения обязана идти как прежде.
+ */
+function topUp(w: World, need: number): void {
+  const r = realmOf(w);
+  if (r === HOME || w.gov.cash >= need) return;
+  const give = Math.min(treasuryOf(r), need - w.gov.cash);
+  if (give <= 0) return;
+  payTreasury(r, -give);
+  w.gov.cash += give;
+  say("Казна «" + corps[r].name + "» доложила " + Math.round(give) + " на хлеб для " + w.body.name + ".");
+}
+
 export function foodRun(): void {
   worlds.forEach((w) => {
     // Урожай спрашиваем у harvestOf — у той же функции, которой мир кормится на
@@ -130,9 +153,12 @@ export function foodRun(): void {
     // сама по себе и в сделке не участвовала — кормить было одинаково дёшево
     // всегда, сколько бы рейсов ни ушло.
     const price = qty * src.food.price;
-    if (w.gov.cash < price + 10) return;
+    // Горючее считаем ДО кассы: чтобы доложить, надо знать полную цену рейса, а
+    // обе эти величины ничего не трогают и не двигают.
     const fk = src.sys === w.sys ? "fuel" : "sfuel";
     const tanks = fuelCost(src.sys, w.sys);                // под воротами — по баку на створ
+    topUp(w, price + fuelBill(fk, tanks) + 10);            // казна своего государства, если она есть
+    if (w.gov.cash < price + 10) return;
     if (!govFuelAvail(w, src, fk, tanks)) return;          // без горючего хлебовоз не полетит
     // сперва корабль со стоянки у поставщика, и только потом покупка нового
     const dk = takeDock(null, w, src.sys, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
