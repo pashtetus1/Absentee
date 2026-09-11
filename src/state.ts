@@ -1,0 +1,117 @@
+// ===================== состояние =====================
+//
+// Всё изменяемое состояние партии лежит здесь. Раньше это была россыпь
+// переменных внутри одной большой функции, и любая из них была видна отовсюду
+// даром. Теперь модулей два десятка, а модуль в ES-модулях умеет присваивать
+// только СВОИМ переменным — отсюда три правила раскладки:
+//
+//   коллекции (corps, worlds, systems...) объявлены через const и НИКОГДА не
+//     переприсваиваются: их чистят на месте через fill/clear. Так все модули
+//     держат один и тот же массив, и ни одному не нужен сеттер;
+//   S — показатели партии: месяц, год, казна, счётчики. Их правят все подряд;
+//   L — рычаги игрока, единственное, что он крутит руками (и что сохраняется);
+//   U — что сейчас на экране. К симуляции отношения не имеет: headless-прогон
+//     эти поля не читает и не пишет.
+
+import { MONTHS } from "./data";
+import type { Chosen, Corp, Dock, Gate, Hit, MarketRow, Move, Patent, Planet, Project, Sys, TickCache, Voyage, World } from "./types";
+
+import type { ApproveMode, Proposal, Shipyard } from "./types";
+
+import type { Staged } from "./types";
+
+export const corps: Corp[] = [], systems: Sys[] = [], voyages: Voyage[] = [];
+export const worlds: World[] = [], projects: Project[] = [], docks: Dock[] = [];
+export const shipyards: Shipyard[] = [], proposals: Proposal[] = [];
+export const staged: Staged[] = [];              // прыжковые у точки старта, ждут топлива
+export const feed: { d: string; t: string }[] = [];
+export const hits: Hit[] = [];                   // куда можно ткнуть на текущем кадре
+export const market: Record<string, MarketRow> = {};
+export const patents: Record<string, Patent> = {};
+export const gates: Record<string, Gate> = {};   // ворота по маршрутам, ключ — routeKey
+export const flash: Record<string, number> = {};
+// Казна КАЖДОГО отделившегося государства, ключ — номер его конторы. Родная
+// казна лежит не здесь, а в S.treasury, и это не непоследовательность: она была
+// одна на всю игру до того, как государств стало несколько, и на неё смотрят
+// панель, сохранение и тесты. Домен — кто кому платит — в realm.ts.
+export const purses: Record<number, number> = {};
+export const cam = { x: 0, y: 0, k: 1 };         // камера карты: перетаскивание и зум
+
+export const S = {
+  tick: 0, yearNow: 0, treasury: 320,
+  jumped: false,
+  // Какой из трёх способов достался государству — заранее НЕИЗВЕСТНО. Это
+  // выясняется в тот месяц, когда кто-нибудь доводит первую марку до конца:
+  // до тех пор вкладываешься в межзвёздный переход вслепую.
+  moveKnown: false,
+  trades: 0, turnover: 0, shipped: 0, movedPops: 0, refusals: 0, dropped: 0,
+  hauled: 0, burned: 0, raids: 0, lost: 0,       // деталей отправлено; топлива сожжено; перехватов; миров опустело
+  pirateCount: 0, crestSeq: 0, capSeq: 0,
+  // Сколько налога родная казна недополучила с тех пор, как появились
+  // отделившиеся. Скаляр S.treasury сам по себе ничего не доказывает — он
+  // растёт и падает по десятку причин, — а этот счётчик отвечает ровно на один
+  // вопрос: пересекают ли деньги границу.
+  taxAway: 0,
+  home: null as World, move: null as Move
+};
+
+export const L = {
+  tax: 0.18, subKey: "hull", subYear: 90, tradeFee: 0.06, patTerm: 25, speed: 1,
+  approve: "manual" as ApproveMode         // не рычаг игрока: политика стенда, в браузере всегда manual
+};
+
+export const U = {
+  view: { mode: "system", sys: 0 } as { mode: string; sys: number },
+  pick: null as Chosen, hover: null as Chosen, lastPanel: 0, running: true,
+  timer: null as ReturnType<typeof setInterval>
+};
+
+// Содержание мира: сколько казна мира тратит на человека в месяц. Не рычаг —
+// игрок не может это крутить, это цена существования людей.
+export const UPKEEP = 0.3;
+
+export const headless = typeof document === "undefined";
+
+// Чистка коллекций на месте — замена прежним "worlds = []" и "market = {}".
+// Присваивание сломало бы связь с модулями, которые этот же массив читают.
+export function fill<T>(arr: T[], items: T[]): T[] {
+  arr.length = 0;
+  for (let i = 0; i < items.length; i++) arr.push(items[i]);
+  return arr;
+}
+export function clear<T extends object>(obj: T): T {
+  for (let k in obj) if (Object.prototype.hasOwnProperty.call(obj, k)) delete (obj as any)[k];
+  return obj;
+}
+export function resetCam(): void { cam.x = 0; cam.y = 0; cam.k = 1; }
+
+export function Y(): number { return S.yearNow; }
+export function dateStr(): string { return "год " + Y() + " · " + MONTHS[S.tick % 12]; }
+export function say(t: string): void { feed.unshift({ d: dateStr(), t: t }); if (feed.length > 90) feed.pop(); }
+export function planets(s: Sys): Planet[] { return s.bodies; }
+
+// Патент — монополия НА ПРОИЗВОДСТВО (или на колонизацию класса миров), а не
+// право продать лицензию. Догнавший обязан ждать истечения.
+export function patLive(k: string): boolean { const p = patents[k]; return !!(p && p.owner >= 0 && Y() - p.since < L.patTerm); }
+export function knows(c: Corp, k: string): boolean { return !!c.known[k]; }
+export function canBuild(c: Corp, k: string): boolean { return knows(c, k) && (!patLive(k) || patents[k].owner === c.id); }
+export function makersOf(k: string): Corp[] { return corps.filter((c) => { return canBuild(c, k); }); }
+export function anyKnows(k: string): boolean { return corps.some((c) => { return c.known[k]; }); }
+export function anyMakes(k: string): boolean { return makersOf(k).length > 0; }
+
+// Кеш на один тик. Богатство компании, "последний астероид", уровень освоения
+// мира и список продавцов детали не меняются внутри тика, а спрашивались
+// тысячи раз за него — стоимость тика росла квадратично с числом компаний и
+// миров (0.08 мс на пяти компаниях, 4 мс на тридцати). Ответы те же, счёт
+// другой: воспроизводимость не трогаем.
+//
+// ПРАВИЛО: кеш нельзя строить на том, что меняется внутри тика — касса
+// меняется во время торгов, canBuild после науки, — иначе партии расходятся.
+export const tickCache: TickCache = { wealth: {}, prize: null, dev: new Map(), sellers: null, devBest: null };
+export function resetTickCache(): void {
+  tickCache.wealth = {};
+  tickCache.prize = null;
+  tickCache.dev = new Map();
+  tickCache.sellers = null;
+  tickCache.devBest = null;
+}

@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    // Ядро когда-нибудь переедет на C# (журнал, п.9), поэтому типы здесь —
+    // не украшение, а черновик будущих структур /Sim. Строгость включена
+    // сразу: смысл переезда как раз в том, чтобы опечатка в поле падала при
+    // сборке, а не превращалась в NaN через двести симулированных лет.
+    // Строгость выбрана по делу, а не по умолчанию.
+    //
+    // noImplicitAny включён: он и есть та самая польза, ради которой затевался
+    // переезд — функция обязана сказать, что принимает, и подсунуть мир вместо
+    // компании становится ошибкой сборки, а не странным числом через сто лет.
+    //
+    // strictNullChecks выключен СОЗНАТЕЛЬНО. Инварианты здесь держатся на том,
+    // что build() отработал раньше всех: home, move, cx заведомо не пусты, но
+    // доказать это компилятору нечем. Включение дало бы полсотни восклицаний
+    // "тут точно не null" — это шум, а не пойманные ошибки. Отдельным заходом
+    // включить можно, но это самостоятельная работа, а не побочный эффект.
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": false,
+    "target": "ES2018",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2018", "DOM"],
+    "noEmit": true,
+    // Тесты запускаются как есть: node test/run.ts, без отдельной сборки —
+    // Node сам срезает типы. Отсюда два требования: импорт с расширением .ts
+    // и erasableSyntaxOnly, который запрещает синтаксис, который Node срезать
+    // не умеет (enum, namespace, поля-параметры конструктора).
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "types": ["node"],
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

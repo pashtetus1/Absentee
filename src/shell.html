@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<!--
+================================================================================
+  ABSENTEE · прототип игры про космическую империю, которой нельзя управлять
+  напрямую. Игрок — государство: не приказывает, а меняет выгодность.
+
+  ЖУРНАЛ ПРОЕКТИРОВАНИЯ ЛЕЖИТ В JOURNAL.md, рядом с этим файлом.
+  Там: что за игра и задача игрока, что уже работает и почему сделано именно
+  так, что отвергнуто, все числа баланса с результатами прогонов, список
+  пойманных багов, известные дыры и следующие шаги. Прежде чем менять правила
+  здесь, прочитать его — он объясняет, почему они такие.
+
+  Тесты: node test/run.js
+================================================================================
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Absentee</title>
+<style>
+  :root { --bg:#0f1526; --panel:#161f38; --panel-2:#1b2544; --line:#26314f;
+          --ink:#e4e9f4; --dim:#8894ae; --faint:#5d6881; --gold:#f2b33d; --ok:#6fd39b; --bad:#ff8b5e; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+         font-size:14px; line-height:1.5; padding:20px; -webkit-font-smoothing:antialiased; }
+  .shell { max-width:1300px; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) 336px; gap:18px; align-items:start; }
+  header { grid-column:1/-1; display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; padding-bottom:12px; border-bottom:1px solid var(--line); }
+  h1 { font-size:19px; font-weight:600; letter-spacing:-0.01em; }
+  header p { color:var(--dim); font-size:12.5px; max-width:64ch; }
+
+  .stage { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#080d19; }
+  .stage canvas { display:block; width:100%; height:auto; cursor:pointer; }
+  .keys { display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--faint); padding:9px 4px 0; }
+  .keys span { display:flex; align-items:center; gap:5px; }
+  .keys canvas.ikon { display:block; width:22px; height:20px; }
+
+  .panel { border:1px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden; }
+  .panel.below { margin-top:14px; }
+  .block { padding:13px 15px; border-bottom:1px solid var(--line); }
+  .block:last-child { border-bottom:none; }
+  /* Единственное место, где игра ЖДЁТ ответа: должно быть видно с первого
+     взгляда, иначе предложение теряется среди сводок и рычагов. */
+  .block.ask { background:#1a2136; border-left:3px solid var(--gold); }
+  .block.ask .lab { color:var(--gold); }
+  .decide { padding:5px 12px; font-size:13px; }
+  .decide[data-ok="1"] { background:var(--gold); color:#141a29; border-color:var(--gold); font-weight:600; }
+  .lab { font-size:12px; color:var(--dim); margin-bottom:5px; }
+  .figures { display:flex; gap:18px; }
+  .fig { flex:1 1 auto; }
+  .val { font-size:23px; font-weight:600; font-variant-numeric:tabular-nums; letter-spacing:-0.02em; }
+  .valsm { font-size:15px; font-weight:600; }
+  .note { font-size:12px; color:var(--dim); }
+
+  .scenebar { display:flex; align-items:baseline; gap:10px; padding:0 2px 9px; }
+  .scenebar .sname { font-size:15px; font-weight:600; }
+  .scenebar .smeta { font-size:12px; color:var(--dim); flex:1 1 auto; }
+  button.ghost { padding:4px 10px; font-size:12px; }
+
+  .row { padding:8px 0; }
+  .row + .row { border-top:1px solid #1e2740; }
+  .rhead { display:flex; align-items:center; gap:7px; }
+  .rname { font-size:13px; font-weight:600; flex:1 1 auto; }
+  .rmeta { font-size:11.5px; color:var(--faint); margin-top:3px; }
+  .price { font-variant-numeric:tabular-nums; font-size:12.5px; }
+  .up { color:var(--bad); } .down { color:var(--ok); }
+  .bar { height:6px; border-radius:4px; background:#1a2338; display:flex; overflow:hidden; margin-top:5px; position:relative; }
+  .bar i { display:block; height:100%; }
+  .bar u { position:absolute; top:-2px; bottom:-2px; width:1px; background:#4a5674; }
+  .dot { flex:none; display:inline-block; width:9px; height:9px; border-radius:50%; }
+  .pip { flex:none; display:inline-block; width:7px; height:7px; border-radius:2px; }
+
+  .empty { color:var(--faint); font-size:12.5px; padding:6px 0; }
+  .clickrow { cursor:pointer; }
+  .clickrow:hover .rname { color:var(--gold); }
+  .srow { display:flex; align-items:center; gap:5px; margin-bottom:3px; }
+  .srow .rmeta { margin-left:auto; margin-top:0; }
+
+  .sliderhead { display:flex; justify-content:space-between; align-items:baseline; }
+  .sval { font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; }
+  input[type=range] { width:100%; accent-color:var(--gold); margin:6px 0 0; }
+  input[type=range]:focus-visible { outline:2px solid var(--gold); outline-offset:3px; }
+  select { width:100%; margin-top:5px; font:inherit; font-size:13px; background:var(--panel-2); color:var(--ink);
+           border:1px solid var(--line); border-radius:7px; padding:7px 9px; }
+  .hint { font-size:12px; color:var(--dim); margin-top:7px; min-height:32px; }
+
+  .feed { max-height:180px; overflow-y:auto; }
+  .feed p { font-size:12.5px; color:#b7c1d6; padding:5px 0; border-bottom:1px solid #1a2338; }
+  .feed p:last-child { border-bottom:none; }
+  .feed span.y { color:var(--faint); font-variant-numeric:tabular-nums; }
+  .feed b { color:var(--ink); font-weight:600; }
+
+  .ctl { display:flex; gap:7px; flex-wrap:wrap; }
+  button { font:inherit; font-size:13px; cursor:pointer; color:var(--ink); background:var(--panel-2);
+           border:1px solid var(--line); border-radius:8px; padding:8px 13px; }
+  button:hover { background:#222d52; }
+  button:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+  button.live { background:var(--gold); color:#141a29; border-color:var(--gold); font-weight:600; }
+
+  .card { background:var(--panel-2); border:1px solid var(--line); border-radius:9px; padding:10px 11px; }
+  .card h3 { font-size:13px; font-weight:600; margin-bottom:2px; }
+  .card .sub { font-size:11.5px; color:var(--faint); margin-bottom:7px; }
+  .part { display:flex; align-items:center; gap:6px; font-size:12px; padding:3px 0; }
+  .part span.pn { flex:1 1 auto; }
+  .part span.pw { color:var(--faint); font-size:11.5px; }
+
+  /* На узком экране пауза прилипает к низу. Целевой формат мобильный, а шапка
+     уезжает вверх на первом же движении пальца — и единственная кнопка, которая
+     нужна в любой момент, оказывалась за экраном: остановить, чтобы разглядеть
+     корабль, было нечем. Прилипает только она; карта, скорость и "заново"
+     остаются в шапке, за ними лезут осознанно. Кнопка та же самая, не копия, —
+     иначе её надпись и цвет пришлось бы держать в двух местах.
+     Отступ снизу считается от --vvbot: сколько видимой области отъела нижняя
+     панель браузера (её меряет скрипт, см. fitPause). На айфоне кнопка иначе
+     оказывается ПОД панелью Chrome — safe-area тут не спасает, она про полосу
+     жестов, а не про браузер. max() берёт большее из двух: без скрипта или на
+     настольном остаётся прежнее поведение.
+     Размеры кнопки помножены на --vvz = 1/пинч-зум. Прилипшая кнопка живёт в
+     layout-вьюпорте, и при разведении пальцев её раздувает вместе со страницей:
+     на скриншоте она занимала пол-экрана и вылезала за левый край. Обратный
+     множитель держит её ОДНОГО ФИЗИЧЕСКОГО РАЗМЕРА при любом зуме, а left
+     считается от видимой области, а не от середины страницы. */
+  @media (max-width:900px) {
+    .shell { grid-template-columns:1fr; }
+    body { padding:14px 14px calc(78px + max(env(safe-area-inset-bottom), var(--vvbot, 0px))); }
+    #play { position:fixed; z-index:20; transform:translateX(-50%);
+            left:calc(var(--vvleft, 0px) + var(--vvw, 100vw) / 2);
+            bottom:calc(14px * var(--vvz, 1) + max(env(safe-area-inset-bottom), var(--vvbot, 0px)));
+            min-width:calc(136px * var(--vvz, 1));
+            padding:calc(13px * var(--vvz, 1)) calc(22px * var(--vvz, 1));
+            font-size:calc(15px * var(--vvz, 1));
+            border-radius:calc(8px * var(--vvz, 1));
+            box-shadow:0 6px 22px rgba(4,8,18,0.6); }
+  }
+  /* Узко бывает и на настольном экране — от зума страницы. Кнопка нужна внизу
+     и там (шапка уезжает так же), но крупный палец-размер посреди сцены только
+     заслоняет её. Отличаем не по ширине, а по указателю: мышь целится точнее
+     пальца, поэтому при pointer:fine та же прилипшая кнопка мельче и прижата
+     к углу, а не к середине — под курсором она не мешает смотреть. */
+  @media (max-width:900px) and (pointer:fine) {
+    body { padding-bottom:calc(54px + var(--vvbot, 0px)); }
+    #play { left:auto; right:14px; transform:none;
+            bottom:calc(12px + max(env(safe-area-inset-bottom), var(--vvbot, 0px)));
+            min-width:0; padding:7px 14px; font-size:13px;
+            box-shadow:0 4px 14px rgba(4,8,18,0.5); }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div>
+      <h1>Absentee</h1>
+      <p>Люди живут на каждой освоенной планете и сами выбирают занятие — ты можешь только менять условия. У планеты есть предел: чем теснее и чем больше безработных, тем сильнее тянет уехать. Колонизировать чужой тип мира умеет тот, у кого есть технология, но дело дорогое — вкладываются несколько компаний, и каждая получает право на филиал. Бесплодные миры кормятся привозной едой, которую покупает правительство планеты. Ткни в любой корабль, чтобы увидеть, что он везёт и чей он.</p>
+    </div>
+    <div class="ctl">
+      <button id="map">Карта</button>
+      <button id="play" class="live">Пауза</button>
+      <button id="speed">×1</button>
+      <button id="reset">Заново</button>
+    </div>
+  </header>
+
+  <div>
+    <div class="scenebar">
+      <button id="tomap" class="ghost">← карта</button>
+      <div class="sname" id="sname">—</div>
+      <div class="smeta" id="smeta"></div>
+      <button id="zout" class="ghost" title="отдалить">−</button>
+      <button id="zin" class="ghost" title="приблизить">+</button>
+      <button id="zfit" class="ghost" title="вернуть вид">сброс</button>
+    </div>
+    <div class="stage"><canvas id="view" width="840" height="680"></canvas></div>
+    <div class="keys">
+      <span><canvas class="ikon" data-kind="jump" width="22" height="20"></canvas> прыжковый</span>
+      <span><canvas class="ikon" data-kind="mine" width="22" height="20"></canvas> добывающая платформа</span>
+      <span><canvas class="ikon" data-kind="colony" width="22" height="20"></canvas> колониальный модуль</span>
+      <span><canvas class="ikon" data-kind="cargo" width="22" height="20"></canvas> транспорт: еда и люди</span>
+      <span>пробел — пауза</span>
+      <span>карта: тащить мышью, Ctrl+колесо или кнопки — масштаб</span>
+      <span>форма — что за корабль, цвет — чей он, герб — чьё государство</span>
+    </div>
+
+    <div class="panel below">
+      <div class="block">
+        <div class="lab">Рынок деталей</div>
+        <div id="market"></div>
+      </div>
+      <div class="block">
+        <div class="lab">Освоенные миры</div>
+        <div id="worlds"></div>
+      </div>
+      <div class="block">
+        <div class="lab" id="ventlab">Предприятия</div>
+        <div id="ventures"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="block">
+      <div class="figures">
+        <div class="fig"><div class="lab">Казна</div><div class="val" id="treasury">0</div></div>
+        <div class="fig"><div class="lab">Дата</div><div class="val valsm" id="date">—</div></div>
+      </div>
+      <div class="note" id="stats" style="margin-top:7px"></div>
+    </div>
+
+    <div class="block ask" id="propblock" hidden>
+      <div class="lab">Решение государства</div>
+      <div id="proposals"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Что выбрано</div>
+      <div id="inspect"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Портальная сеть</div>
+      <div id="portal"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Ходовые двигатели</div>
+      <div id="engines"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Освоение миров</div>
+      <div id="devs"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Технологии колонизации</div>
+      <div id="coltech"></div>
+    </div>
+
+    <div class="block">
+      <div class="sliderhead"><div class="lab" style="margin:0">Налог с корпораций</div><div class="sval" id="taxval">18%</div></div>
+      <input type="range" id="tax" min="0" max="60" step="1" value="18" aria-label="Налог">
+      <div class="hint" id="taxhint"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Субсидия исследованиям</div>
+      <select id="subfield"></select>
+      <div class="sliderhead" style="margin-top:9px"><div class="lab" style="margin:0">В год</div><div class="sval" id="subval">90</div></div>
+      <input type="range" id="sub" min="0" max="360" step="30" value="90" aria-label="Размер субсидии">
+      <div class="hint" id="subhint"></div>
+    </div>
+
+    <div class="block">
+      <div class="sliderhead"><div class="lab" style="margin:0">Срок патента</div><div class="sval" id="patval">25 лет</div></div>
+      <input type="range" id="pat" min="5" max="70" step="5" value="25" aria-label="Срок патента">
+      <div class="hint" id="pathint"></div>
+    </div>
+
+    <div class="block">
+      <div class="sliderhead"><div class="lab" style="margin:0">Торговый сбор</div><div class="sval" id="feeval">6%</div></div>
+      <input type="range" id="fee" min="0" max="40" step="1" value="6" aria-label="Торговый сбор">
+      <div class="hint" id="feehint"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Компании</div>
+      <div id="corps"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Сводка</div>
+      <div class="feed" id="feed"></div>
+    </div>
+  </div>
+</div>
+
+<!--СКРИПТ-->
+</body>
+</html>
