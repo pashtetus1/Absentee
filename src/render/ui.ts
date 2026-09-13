@@ -3,6 +3,7 @@
 import { setTickMs, tickMs } from "../clock";
 import { markName, markOf, moveName } from "../data";
 import { loadLevers, saveLevers } from "../levers";
+import { drop, hold, keep, resume } from "../save";
 import { seedOf } from "../rng";
 import { build } from "../setup";
 import { decideById } from "../shipyard";
@@ -95,7 +96,10 @@ export function togglePause(): void {
   const b = el("play");
   b.textContent = U.running ? "Пауза" : "Пуск";
   b.className = U.running ? "live" : "";
-  if (U.running) run(); else clearInterval(U.timer);
+  // На паузе партия откладывается НЕ ДОЖИДАЯСЬ часов: пауза — это ровно то
+  // место, где вкладку закрывают, а сама по себе она ходов больше не даёт,
+  // и следующая запись случилась бы неизвестно когда.
+  if (U.running) run(); else { clearInterval(U.timer); keep(true); }
 }
 
 let seenProposals = 0;
@@ -252,7 +256,8 @@ export function bindUI(): void {
   el("tomap").addEventListener("click", () => { U.view.mode = "map"; scene(); });
   // «Заново» — это НОВАЯ партия, поэтому сид новый; чтобы повторить прежнюю,
   // достаточно вернуться по прежнему адресу
-  el("reset").addEventListener("click", () => { build(); seedToUrl(); scene(); if (U.running) run(); });
+  el("reset").addEventListener("click", () => { fresh(); });
+  el("badnew").addEventListener("click", () => { fresh(seedFromUrl()); });
   el("ventures").addEventListener("click", (e) => {
     const row = (e.target as HTMLElement).closest(".clickrow");
     if (row) open(+row.getAttribute("data-sys"));
@@ -282,13 +287,81 @@ export function bindUI(): void {
   if (typeof window !== "undefined") window.addEventListener("hashchange", () => {
     const want = seedFromUrl();
     if (want === undefined || want === seedOf()) return;
-    build(undefined, want); scene(); if (U.running) run();
+    // Вписанный руками сид — это заказ на другую партию, то же самое, что
+    // «Заново» с номером: прежняя кончилась, и отложенная вместе с ней.
+    fresh(want);
   });
 
+  // Вкладку прячут чаще, чем закрывают: на телефоне это любое переключение
+  // приложения, и именно там теряется последнее. pagehide — единственное
+  // событие, на которое можно рассчитывать в мобильном сафари.
+  window.addEventListener("pagehide", () => { keep(true); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") keep(true); });
+
   loadLevers(); syncControls();
-  build(undefined, seedFromUrl()); seedToUrl(); scene(); taxhint(); subhint(); pathint(); feehint();
-  requestAnimationFrame(frame);
-  run();
+  start();
+}
+
+// Общее окончание запуска: и у развёрнутой партии, и у собранной заново.
+// Рычаги сюда попадают из сохранения, поэтому ползунки синхронизируются
+// ПОСЛЕ, а не до: иначе на экране стояли бы прошлые числа.
+function live(): void {
+  seedToUrl(); syncControls(); scene(); taxhint(); subhint(); pathint(); feehint();
+  // Предложения, с которыми партия пришла, уже виденные: иначе первый же ход
+  // после разворачивания встал бы на паузу из-за решения, принятого вчера.
+  seenProposals = proposals.filter((p) => p.state === "pending").length;
+  if (U.running) run();
+}
+
+let framing = false;
+function start(): void {
+  const want = seedFromUrl();
+  let on = false;
+  try { on = resume(); }
+  catch (e) {
+    // Сохранение чужое. Партия НЕ собирается и не запускается: собрать новую
+    // значило бы затереть чужую следующей же записью, а игрок, может быть,
+    // просто открыл файл другой сборки и вернётся к прежней. Решает он.
+    hold(); showBad(e as Error & { why?: string });
+    return;
+  }
+  // Ссылка с сидом сильнее отложенной партии: по ней пришли за конкретной
+  // партией, и разворачивать вместо неё свою было бы подменой. Отложенная при
+  // этом теряется — сохранение в игре одно, и это его цена.
+  if (!on || (want !== undefined && want !== seedOf())) build(undefined, want);
+  live();
+  if (!framing) { framing = true; requestAnimationFrame(frame); }
+}
+
+/** Новая партия по кнопке: прежней больше нет, поэтому и отложенная стирается
+ *  — иначе следующий запуск развернул бы её поверх новой. */
+function fresh(seed?: number): void {
+  drop();
+  el("badsave").hidden = true;
+  lock(false);
+  build(undefined, seed);
+  live();
+  if (!framing) { framing = true; requestAnimationFrame(frame); }
+}
+
+// Пока полоса висит, партии НЕТ вовсе — ни миров, ни рынка. Управление при
+// этом выглядит рабочим и им можно пользоваться: «Пуск» запустил бы ходы по
+// пустому состоянию, а ползунок патента полез бы в пустую таблицу патентов.
+// Поэтому всё, что трогает партию, на это время заперто; «Заново» — нет, это
+// единственный выход отсюда.
+const LOCKED = ["play", "speed", "map", "tomap", "zin", "zout", "zfit",
+                "tax", "sub", "pat", "fee", "subfield"];
+function lock(on: boolean): void { LOCKED.forEach((id) => { el(id).disabled = on; }); }
+
+/** Полоса во всю ширину вместо игры. Громко — и нарочно: молчаливое
+ *  «начали новую партию» выглядело бы как пропавшая империя. */
+function showBad(e: Error & { why?: string }): void {
+  console.error(e.message + (e.why ? ": " + e.why : ""));
+  lock(true);
+  el("badwhy").textContent = "Отложенная партия сделана другой сборкой игры" +
+    (e.why ? " (" + e.why + ")" : "") + ": продолжить её нечем. " +
+    "Можно открыть прежнюю сборку и доиграть там — сохранение цело, пока не нажата кнопка.";
+  el("badsave").hidden = false;
 }
 
 

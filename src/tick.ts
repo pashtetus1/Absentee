@@ -10,6 +10,7 @@ import { migrationRun } from "./migration";
 import { moveShips } from "./motion";
 import { assemble, branchTrade, reviewOrders, reviewProjects } from "./orders";
 import { corpRelief, events, piracy } from "./relief";
+import { keep } from "./save";
 import { panels } from "./render/panels";
 import { watchProposals } from "./render/ui";
 import { patentsExpire, research } from "./science";
@@ -34,7 +35,7 @@ export function step(): void {
   abandon();
   // трафик маршрутов затухает: за пять лет счёт без новых рейсов сходит на нет
   Object.keys(gates).forEach((k) => { gates[k].trips = (gates[k].trips || 0) * (1 - 1 / 60); });
-  if (!headless) watchProposals();
+  if (!headless) { watchProposals(); keep(); }
   if (!headless && (L.speed <= 4 || Date.now() - U.lastPanel > 120)) { panels(); U.lastPanel = Date.now(); }
 }
 

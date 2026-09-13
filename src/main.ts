@@ -10,6 +10,7 @@ import { icon } from "./render/models";
 import { bindUI } from "./render/ui";
 import { build } from "./setup";
 import { seedOf } from "./rng";
+import { gameText, restore } from "./save";
 import { L, S, U, corps, docks, feed, gates, headless, market, patents, projects, proposals, purses, shipyards, staged, systems, voyages, worlds } from "./state";
 import { ENGINES, speedOf } from "./tech";
 import { step } from "./tick";
@@ -21,6 +22,10 @@ import { decideById } from "./shipyard";
 import type { ApproveMode } from "./types";
 
 export { step, build, speedOf, popOf, icon, seedOf };
+// Сохранение отдаётся наружу тем же API, что и всё остальное: стенду нужно
+// уметь снять партию и развернуть её обратно, иначе проверить сохранение
+// нечем — а непроверенное сохранение хуже никакого.
+export { gameText as save, restore as load };
 export { harvestOf, yieldPerFarmer };
 export { decideById as decide };
 

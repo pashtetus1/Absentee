@@ -34,6 +34,11 @@ interface Options {
   withDom?: boolean;
   /** Сид генератора случайных чисел: одна и та же партия воспроизводится. */
   seed?: number | null;
+  /** Память браузера между запусками: что один запуск отложил, второй найдёт.
+   *  Ради этого она и передаётся снаружи — сохранение проверяется только так,
+   *  вдвоём, а заглушка, которая всё забывает, показала бы зелёный на игре,
+   *  теряющей партию. */
+  store?: Record<string, string>;
 }
 
 function stubElement(): any {
@@ -60,7 +65,7 @@ function stubContext(): any {
 // headless: ядро само видит отсутствие document и не трогает панели.
 // Второй режим (withDom) существует, чтобы проверить, что отрисовка вообще
 // не падает — она тоже часть файла и тоже ломается.
-export function load(file: string, { withDom = false, seed = null }: Options = {}): Harnessed {
+export function load(file: string, { withDom = false, seed = null, store = {} }: Options = {}): Harnessed {
   const html = readFileSync(resolve(import.meta.dirname, "..", file), "utf8");
   // \r?  — на Windows git выдаёт файл с CRLF, и без этого стенд не находит тег
   const m = html.match(/<script>\r?\n([\s\S]*?)\r?\n<\/script>/);
@@ -98,7 +103,11 @@ export function load(file: string, { withDom = false, seed = null }: Options = {
     };
     sandbox.document.getElementById("view").getContext = stubContext;
     sandbox.window = { devicePixelRatio: 1, addEventListener() {} };
-    sandbox.localStorage = { getItem: (): string => null, setItem() {}, removeItem() {} };
+    sandbox.localStorage = {
+      getItem: (k: string): string => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
+      setItem: (k: string, v: string) => { store[k] = String(v); },
+      removeItem: (k: string) => { delete store[k]; }
+    };
     // кадр не крутится сам: тест дёргает __frame() руками, чтобы отрисовка
     // карты и системы реально исполнялась, а не только регистрировалась
     sandbox.requestAnimationFrame = (fn: (ts: number) => void): number => { sandbox.__frame = fn; return 0; };
