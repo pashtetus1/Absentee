@@ -246,10 +246,12 @@ export function labour(w: World): void {
   else (["farm","prod","sci","free"] as (keyof Pop)[]).forEach((k) => { p[k] = Math.max(0, p[k] + add * p[k] / total); });
 
   // Желание уехать: теснота плюс безработица плюс голод. Это не приказ игрока
-  // и не приказ компании — просто людям тут нечего ловить.
+  // и не приказ компании — просто людям тут нечего ловить. С голодного мира
+  // уехать может только незанятый: фермер из голодного поля больше не уезжает
+  // (migration.ts, leavers).
   const unemp = p.free / Math.max(0.05, total);
   const push = Math.max(0, fill - 0.7) * 1.4 + Math.max(0, unemp - 0.12) * 1.2 + (hungry ? 0.5 : 0) + (rough ? 0.3 : 0);
-  w.wantOut = clamp(push * total * 0.25, 0, p.free + p.farm * 0.3);
+  w.wantOut = clamp(push * total * 0.25, 0, p.free + (hungry ? 0 : p.farm * 0.3));
   w.wantIn = Math.max(0, w.cap * 0.85 - total);
 }
 

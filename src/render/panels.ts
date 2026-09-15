@@ -15,7 +15,7 @@ import { HOME, isRealm, manyRealms, realmName, realmOf, treasuryOf } from "../re
 import { seedOf } from "../rng";
 import { prodOf, sciOf } from "../science";
 import { slotPrice, yardAt } from "../shipyard";
-import { L, S, U, UPKEEP, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, voyages, worlds } from "../state";
+import { L, S, U, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, upkeepOf, voyages, worlds } from "../state";
 import { DEVS, ENGINES, techOf } from "../tech";
 import { fuelCost } from "../travel";
 import { fmt } from "../util";
@@ -114,7 +114,7 @@ export function worldCard(w: World): string {
     ' · доля казны ' + Math.round(cutOf(w) * 100) + '%' +
     ' · казне ' + w.food.gain.toFixed(1) + '/мес</div>' +
     '<div class="sub" style="margin:0 0 3px">Казна мира ' + Math.round(w.gov.cash) +
-    ' · содержание ' + (popOf(w) * UPKEEP).toFixed(1) + '/мес' +
+    ' · содержание ' + upkeepOf(popOf(w)).toFixed(1) + '/мес' +
     ' · уехать хотят ' + w.wantOut.toFixed(1) + ' · ' + w.flow + '</div>' +
     (w.built.length ? '<div class="sub" style="margin:0 0 3px">Постройки: ' +
        w.built.map((k) => btype(k).name + ' (мест ' + btype(k).jobs.toFixed(1) + ')').join(", ") + '</div>' : '') +

@@ -1,6 +1,6 @@
 
 import { HOME, payTreasury, realmOf } from "./realm";
-import { L, S, UPKEEP, corps, say, systems, worlds } from "./state";
+import { L, S, corps, say, systems, upkeepOf, worlds } from "./state";
 import { popOf } from "./world";
 import type { Rock } from "./types";
 
@@ -71,7 +71,7 @@ export function economy(): void {
     // Пол на нуле обязателен: до сих пор w.gov.cash не мог стать
     // отрицательным (все списания идут через проверки "хватает ли"), и весь
     // код покупок на это опирается.
-    w.gov.cash = Math.max(0, w.gov.cash - popOf(w) * UPKEEP);
+    w.gov.cash = Math.max(0, w.gov.cash - upkeepOf(popOf(w)));
   });
 }
 
