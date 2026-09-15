@@ -3,6 +3,7 @@
 import { seenByState } from "../charts";
 import { setTickMs, tickMs } from "../clock";
 import { markName, markOf, moveName } from "../data";
+import { starOf } from "../galaxy";
 import { loadLevers, saveLevers } from "../levers";
 import { drop, hold, keep, resume } from "../save";
 import { seedOf } from "../rng";
@@ -16,7 +17,7 @@ import { clamp } from "../util";
 import { CH, CW, cv, cx, setCanvas, sysK } from "./canvas";
 import { icon } from "./models";
 import { Ctl, el, panels } from "./panels";
-import { frame } from "./scene";
+import { ZOOM_IN, aimCam, camFit, frame } from "./scene";
 import type { Hit } from "../types";
 
 export function scene(): void {
@@ -33,7 +34,7 @@ export function scene(): void {
     el("smeta").textContent = "видно систем " + op + " · миров " + ws + " · " + moveName();
   } else {
     const s = systems[U.view.sys];
-    el("smeta").textContent = "планет " + s.bodies.length + " · " +
+    el("smeta").textContent = starOf(s).name + " звезда · планет " + s.bodies.length + " · " +
       s.bodies.map((b) => { return b.type.name; }).join(", ");
   }
   el("ventlab").textContent = map ? "Что происходит в системах" : "Предприятия · " + systems[U.view.sys].name;
@@ -167,7 +168,9 @@ export function bindUI(): void {
     const sx = CW / rect.width, sy = CH / rect.height;
     const dx = (e.clientX - drag.x) * sx, dy = (e.clientY - drag.y) * sy;
     moved = Math.max(moved, Math.abs(dx) + Math.abs(dy));
-    cam.x = drag.cx + dx; cam.y = drag.cy + dy;
+    if (moved <= 4) return;                          // ещё не тащат, а щёлкают
+    cam.x = drag.cx + dx; cam.y = drag.cy + dy; cam.free = true;
+    aimCam();
   });
   window.addEventListener("mouseup", () => { setTimeout(() => { drag = null; }, 0); });
 
@@ -181,13 +184,24 @@ export function bindUI(): void {
   }, { passive:false });
 
   function zoomAt(p: { x: number; y: number }, mul: number): void {
-    const k = clamp(cam.k * mul, 0.7, 4);
+    // Пределы — от рамки известного (scene.ts, camFit): отдалить дальше неё
+    // нельзя, за ней для государства ничего нет. Отдалил до упора — карта
+    // снова сама держит известное в кадре, как после двойного клика.
+    const fit = camFit();
+    const k = clamp(cam.k * mul, fit.k, fit.k * ZOOM_IN);
+    if (k <= fit.k * 1.001) { resetCam(); return; }
     // приближаем к точке под курсором, а не к углу канваса
     cam.x += p.x * (cam.k - k); cam.y += p.y * (cam.k - k);
-    cam.k = k;
+    cam.k = k; cam.free = true;
+    aimCam();
   }
-  el("zin").addEventListener("click", () => { zoomAt({ x:CW/2, y:CH/2 }, 1.3); });
-  el("zout").addEventListener("click", () => { zoomAt({ x:CW/2, y:CH/2 }, 0.77); });
+  // Кнопки приближают к середине ВИДА, то есть к точке карты под центром
+  // холста. Прежние {CW/2, CH/2} были серединой карты и совпадали с серединой
+  // вида только при нетронутой камере — а теперь нетронутая камера смотрит
+  // туда, где известное, и середина карты может быть за краем экрана.
+  const mid = (): { x: number; y: number } => ({ x:(CW / 2 - cam.x) / cam.k, y:(CH / 2 - cam.y) / cam.k });
+  el("zin").addEventListener("click", () => { zoomAt(mid(), 1.3); });
+  el("zout").addEventListener("click", () => { zoomAt(mid(), 0.77); });
   el("zfit").addEventListener("click", () => { resetCam(); });
 
   cv.addEventListener("dblclick", () => { resetCam(); });

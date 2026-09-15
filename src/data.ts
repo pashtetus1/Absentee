@@ -1,7 +1,7 @@
 // ===================== данные =====================
 
 import { S, canBuild, corps, fill } from "./state";
-import type { Arm, BType, ColTech, Comp, Corp, Mark, Move, PType, Part, Tech, VType, WorldClass } from "./types";
+import type { Arm, BType, ColTech, Comp, Corp, Mark, Move, PType, Part, StarClass, Tech, VType, WorldClass } from "./types";
 
 import { rnd } from "./rng";
 
@@ -328,6 +328,22 @@ export function rollType(): PType {
   for (let i = 0; i < PTYPES.length; i++) { r -= PTYPES[i].w; if (r <= 0) return PTYPES[i]; }
   return PTYPES[0];
 }
+
+// Звёзды шести цветов, как в Master of Orion 2. Раньше все пятьдесят были
+// одинаково золотыми, и карта читалась как россыпь одинаковых фонарей. Доли —
+// по тому же чувству, что у MOO2: красных и оранжевых карликов больше всех,
+// голубых гигантов меньше всех. Какая звезда какого цвета, решает galaxy.ts
+// (starOf) по её месту на карте, а не генератор: цвет пока только облик, и
+// тянуть ради него случайное число значило бы пересобрать каждую партию.
+// В отпечаток сохранения таблица не входит — сохранение на неё не ссылается.
+export const STARS: StarClass[] = [
+  { key:"blue",   name:"голубая",    core:"#eef4ff", rgb:"110,160,255", size:1.25, share:0.06 },
+  { key:"white",  name:"белая",      core:"#ffffff", rgb:"205,220,255", size:1.1,  share:0.12 },
+  { key:"yellow", name:"жёлтая",     core:"#fff6dd", rgb:"242,179,61",  size:1,    share:0.2 },
+  { key:"orange", name:"оранжевая",  core:"#ffe8d0", rgb:"255,132,52",  size:0.95, share:0.22 },
+  { key:"red",    name:"красная",    core:"#ffd2c4", rgb:"232,72,56",   size:0.85, share:0.28 },
+  { key:"brown",  name:"коричневая", core:"#e8c4a4", rgb:"150,96,62",   size:0.72, share:0.12 }
+];
 
 // Рецепт — то, чем корабль ОТЛИЧАЕТСЯ от других, и только оно: бур делает
 // платформу платформой, капсула — колонией, трюм — грузовиком.

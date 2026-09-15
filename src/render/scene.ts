@@ -2,7 +2,7 @@
 import { vis } from "../clock";
 import { seenByState } from "../charts";
 import { MARKRANGE, hullScale } from "../data";
-import { galaxyRange, within } from "../galaxy";
+import { galaxyRange, starOf, within } from "../galaxy";
 import { HOME, manyRealms, realmOf, realmOfCorp, realmOfShip, realmOfVoyage } from "../realm";
 import { yardAt } from "../shipyard";
 import { S, U, cam, corps, docks, fights, gates, hits, shipyards, systems, voyages, warships } from "../state";
@@ -78,11 +78,13 @@ export function drawSystem(s: Sys): void {
     cx.strokeStyle = "#131c2f"; cx.lineWidth = 1; cx.stroke();
   });
 
-  const pulse = 1 + Math.sin(glow * 0.7) * 0.04;
+  // Светило своего цвета (starOf, galaxy.ts): голубое крупнее и ярче жёлтого,
+  // коричневое — тусклый маленький уголёк.
+  const sc = starOf(s), pulse = (1 + Math.sin(glow * 0.7) * 0.04) * sc.size;
   const sg = cx.createRadialGradient(mx, my, 2, mx, my, 26 * pulse);
-  sg.addColorStop(0, "#fff3d0"); sg.addColorStop(0.5, "#f2b33d"); sg.addColorStop(1, "rgba(242,179,61,0)");
+  sg.addColorStop(0, sc.core); sg.addColorStop(0.5, "rgb(" + sc.rgb + ")"); sg.addColorStop(1, "rgba(" + sc.rgb + ",0)");
   cx.beginPath(); cx.arc(mx, my, 26 * pulse, 0, 6.2832); cx.fillStyle = sg; cx.fill();
-  cx.beginPath(); cx.arc(mx, my, 10, 0, 6.2832); cx.fillStyle = "#fff6dd"; cx.fill();
+  cx.beginPath(); cx.arc(mx, my, 10 * sc.size, 0, 6.2832); cx.fillStyle = sc.core; cx.fill();
 
   s.rocks.forEach((r) => {
     const p = posOf(r, mx, my);
@@ -319,6 +321,18 @@ export function drawSystem(s: Sys): void {
     if (U.pick && U.pick.data === v) caption(x, y, windowLines(v, true), v.color);
     else tiny(x, y, v.captain, v.color);
     hits.push({ x:x, y:y, r:12, kind:"cargo", data:v });
+    // Бой за рейс между мирами идёт ЗДЕСЬ, у самого рейса: вольница бьёт
+    // хлебовозы у себя дома (battle.ts, raidHunt). На карте галактики такой
+    // бой жмётся к узлу звезды, а смотреть на него — в системе.
+    if (v.fight !== undefined) {
+      const f = fights.find((o) => { return o.id === v.fight; });
+      if (f) {
+        drawFight(f, x, y, 1);
+        if (U.pick && U.pick.data === f)
+          caption(x, y, fightLines(f, corps[f.raider] ? corps[f.raider].name : "неизвестные"), "#ff8b5e");
+        hits.push({ x:x, y:y, r:22, kind:"fight", data:f });
+      }
+    }
   });
 
   // Межзвёздные рейсы, пока они ещё ВНУТРИ этой системы (legIn). Первые 15% пути —
@@ -393,6 +407,52 @@ export function nodeR(s: Sys): number { return 5 + Math.min(5, (s.mines + s.bodi
  *  задать не может: оно не знает, что они есть. */
 export function seenSys(s: Sys): boolean { return seenByState(s.id); }
 
+// ---- камера карты -------------------------------------------------------
+// Карта держит в кадре ТО, ЧТО ГОСУДАРСТВО ЗНАЕТ, а не всю галактику. Пока
+// известны две звезды, они и занимают экран: раньше вид по умолчанию был
+// рассчитан на все пятьдесят, и две известные звезды слипались в точку посреди
+// пустого холста. Отдалить дальше рамки известного нельзя — за ней для
+// государства ничего нет (seenSys); приблизить можно в ZOOM_IN раз. Открылась
+// новая звезда — рамка раздвигается сама, если игрок карту не трогал; тронул —
+// его вид остаётся, только не шире рамки и центром не за её краем.
+
+/** Во сколько раз карту можно приблизить сверх рамки известного. */
+export const ZOOM_IN = 4;
+/** Поля кадра под подписи, пипки и гербы крайних звёзд, в точках экрана. */
+const FIT_PADX = 64, FIT_PADY = 60;
+/** Самая узкая рамка в единицах карты. Одна-две близкие звезды иначе
+ *  растянулись бы на весь экран, и пропала бы мера расстояний: круг телескопа
+ *  и зона охоты вольницы — настоящие расстояния, и они должны влезать. */
+const FIT_SPAN = 140;
+
+/** Кадр, в который помещается всё известное: масштаб, сдвиг и рамка (в
+ *  единицах карты), за край которой центр вида не уводится. */
+export function camFit(): { k: number; x: number; y: number; x0: number; y0: number; x1: number; y1: number } {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  systems.forEach((s) => {
+    if (!seenSys(s)) return;
+    x0 = Math.min(x0, s.x); x1 = Math.max(x1, s.x);
+    y0 = Math.min(y0, s.y); y1 = Math.max(y1, s.y);
+  });
+  if (x0 > x1) { x0 = x1 = CW / 2; y0 = y1 = CH / 2; }
+  const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+  const w = Math.max(FIT_SPAN, x1 - x0), h = Math.max(FIT_SPAN, y1 - y0);
+  const k = Math.min((CW - 2 * FIT_PADX) / w, (CH - 2 * FIT_PADY) / h);
+  return { k:k, x:CW / 2 - mx * k, y:CH / 2 - my * k,
+           x0:mx - w / 2, y0:my - h / 2, x1:mx + w / 2, y1:my + h / 2 };
+}
+
+/** Навести камеру перед кадром: не тронутую игроком — ровно на рамку
+ *  известного, тронутую — не шире рамки и центром не за её краем. */
+export function aimCam(): void {
+  const fit = camFit();
+  if (!cam.free) { cam.k = fit.k; cam.x = fit.x; cam.y = fit.y; return; }
+  cam.k = clamp(cam.k, fit.k, fit.k * ZOOM_IN);
+  const vx = clamp((CW / 2 - cam.x) / cam.k, fit.x0, fit.x1);
+  const vy = clamp((CH / 2 - cam.y) / cam.k, fit.y0, fit.y1);
+  cam.x = CW / 2 - vx * cam.k; cam.y = CH / 2 - vy * cam.k;
+}
+
 export function drawMap(): void {
   // Как и в системе: щиты только после первого отделения и только там, где
   // чужое государство есть. Звезда считается чужой, если на ней лежит хоть один
@@ -408,6 +468,7 @@ export function drawMap(): void {
   // Пятьдесят звёзд в один экран не влезают читаемо, поэтому карта таскается
   // мышью и приближается колесом. Всё, что ниже, рисуется в координатах
   // КАРТЫ; попадания по клику пересчитываются обратно в них же.
+  aimCam();
   cx.save(); cx.translate(cam.x, cam.y); cx.scale(cam.k, cam.k);
   setUiz(1 / cam.k);             // дальше всё, что не расстояние, ужимается на зум
   // Пунктир — докуда дотягивается нынешняя марка. Он и показывает край:
@@ -497,10 +558,19 @@ export function drawMap(): void {
   // Бои. Рисуются ПОСЛЕ рейсов и ДО звёзд: бой идёт между звёзд, он важнее
   // одного рейса и не должен теряться под узлом системы.
   fights.forEach((f) => {
-    drawFight(f, f.x, f.y, uiz);
+    const at = systems[f.sys];
+    // Карта показывает только известное: бой у звезды, которой государство не
+    // знает, выдал бы саму звезду.
+    if (!at || !seenSys(at)) return;
+    // Бой за рейс ВНУТРИ системы стоит ровно в узле звезды и накрыл бы её
+    // собой. Он отодвигается вбок, за пипки филиалов: видно и то, что дерутся
+    // у этой звезды, и саму звезду.
+    const home = Math.hypot(f.x - at.x, f.y - at.y) < 1;
+    const x = home ? at.x + 30 * uiz : f.x, y = home ? at.y - 30 * uiz : f.y;
+    drawFight(f, x, y, uiz);
     if (U.pick && U.pick.data === f)
-      caption(f.x, f.y, fightLines(f, corps[f.raider] ? corps[f.raider].name : "неизвестные"), "#ff8b5e");
-    hits.push({ x:f.x, y:f.y, r:22 * uiz, kind:"fight", data:f });
+      caption(x, y, fightLines(f, corps[f.raider] ? corps[f.raider].name : "неизвестные"), "#ff8b5e");
+    hits.push({ x:x, y:y, r:22 * uiz, kind:"fight", data:f });
   });
   systems.forEach((s) => {
     // Звезда — ЗНАЧОК системы, а не тело с размером: ужимается на зум, чтобы
@@ -551,14 +621,18 @@ export function drawMap(): void {
       cx.beginPath(); cx.arc(s.x, s.y, r + 6 * uiz, 0, 6.2832);
       cx.strokeStyle = "#3f4a78"; cx.setLineDash([2 * uiz, 4 * uiz]); cx.lineWidth = 1.4 * uiz; cx.stroke(); cx.setLineDash([]);
     }
+    // Звёзды шести цветов, как в Master of Orion 2 (starOf, galaxy.ts): корона и
+    // ядро — цветом класса. Размер узла от класса НЕ зависит: на карте звезда —
+    // значок системы, а не тело (см. nodeR).
+    const sc = starOf(s);
     const g = cx.createRadialGradient(s.x, s.y, uiz, s.x, s.y, r + 9 * uiz);
-    g.addColorStop(0, "#fff3d0"); g.addColorStop(0.45, "rgba(242,179,61,0.55)"); g.addColorStop(1, "rgba(242,179,61,0)");
+    g.addColorStop(0, sc.core); g.addColorStop(0.45, "rgba(" + sc.rgb + ",0.6)"); g.addColorStop(1, "rgba(" + sc.rgb + ",0)");
     cx.beginPath(); cx.arc(s.x, s.y, r + 9 * uiz, 0, 6.2832); cx.fillStyle = g; cx.fill();
     // Ядро звезды: у столичной системы — звёздочка, у прочих кружок. Знак тот
     // же, что на диске самой столицы в виде системы, и место у него то же —
     // центр узла, куда не заезжают ни пипки филиалов (r+13), ни подписи.
-    if (S.home && S.home.sys === s.id) star(s.x, s.y, r * 1.15, "#fff6dd");
-    else { cx.beginPath(); cx.arc(s.x, s.y, r * 0.5, 0, 6.2832); cx.fillStyle = "#fff6dd"; cx.fill(); }
+    if (S.home && S.home.sys === s.id) star(s.x, s.y, r * 1.15, sc.core);
+    else { cx.beginPath(); cx.arc(s.x, s.y, r * 0.5, 0, 6.2832); cx.fillStyle = sc.core; cx.fill(); }
     const ws = s.bodies.filter((b) => { return b.world; }), here: Record<number, number> = {};
     ws.forEach((b) => { b.world.branches.forEach((br) => { here[br.corp] = 1; }); });
     const ids = Object.keys(here);
@@ -596,11 +670,15 @@ export function drawMap(): void {
   cx.font = "500 11px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
   cx.textAlign = "left"; cx.textBaseline = "top";
   cx.fillText("клик по системе — внутрь, по кораблю — что везёт · тащить мышью, Ctrl+колесо — приблизить", 16, 16);
-  if (cam.k !== 1 || cam.x || cam.y) cx.fillText("×" + cam.k.toFixed(1) + " · двойной клик вернёт вид", 16, 32);
+  if (cam.free) cx.fillText("×" + (cam.k / camFit().k).toFixed(1) + " · двойной клик вернёт вид", 16, 32);
 }
 
 export function frame(ts: number): void {
-  const dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
+  // На паузе НИЧЕГО не шевелится. Фаза glow, по которой кружат стоянки, верфи
+  // и военные корабли, дрожат огни и дышит звезда, идёт только пока идёт время
+  // партии. Раньше она шла по настенным часам всегда, и империя, поставленная
+  // на паузу, продолжала вращаться — пауза выглядела неработающей.
+  const dt = !U.running ? 0 : last ? Math.min(0.05, (ts - last) / 1000) : 0.016;
   advanceFrame(ts, dt);
   systems.forEach((s) => { advance(s, dt); });
   if (U.view.mode === "map") drawMap(); else drawSystem(systems[U.view.sys]);

@@ -13,7 +13,7 @@ import { bindUI } from "./render/ui";
 import { build } from "./setup";
 import { seedOf } from "./rng";
 import { gameText, restore } from "./save";
-import { L, S, U, corps, docks, feed, fights, gates, grounds, headless, market, shipMarket, freight, patents, projects, proposals, purses, shipyards, staged, systems, voyages, warships, worlds } from "./state";
+import { L, S, U, cam, corps, docks, feed, fights, gates, grounds, headless, market, shipMarket, freight, patents, projects, proposals, purses, shipyards, staged, systems, voyages, warships, worlds } from "./state";
 import { ENGINES, speedOf } from "./tech";
 import { step } from "./tick";
 import { harvestOf, yieldPerFarmer } from "./labour";
@@ -66,6 +66,10 @@ export const consts = { COMPS, COLTECH, PTYPES, VTYPES, MOVES, ENGINES, MARKS, B
 
 // для стенда: переключить вид, чтобы кадр отрисовал и карту, и систему
 export function setView(mode: string, sys?: number): void { U.view = { mode: mode, sys: sys || 0 }; }
+// для стенда: куда смотрит карта — без этого точку клика по ней не посчитать
+export function camera(): { x: number; y: number; k: number; free: boolean } {
+  return { x: cam.x, y: cam.y, k: cam.k, free: cam.free };
+}
 
 // Запуск ПОСЛЕ объявления API: легенда рисуется через него, и при обратном
 // порядке падала бы на первой же загрузке.

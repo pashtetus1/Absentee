@@ -252,10 +252,12 @@ export function restore(text: string): void {
   setSeq(g.seq as number);
   setFightSeq((g.wseq as number) || 0);
 
-  const view = g.view as { mode: string; sys: number }, c = g.cam as { x: number; y: number; k: number };
+  const view = g.view as { mode: string; sys: number }, c = g.cam as { x: number; y: number; k: number; free?: boolean };
   U.view = { mode: view.mode, sys: view.sys };
   U.pick = null; U.hover = null;
-  cam.x = c.x; cam.y = c.y; cam.k = c.k;
+  // free в сохранениях до подгонки карты нет — такие разворачиваются с картой,
+  // которая сама держит известное в кадре.
+  cam.x = c.x; cam.y = c.y; cam.k = c.k; cam.free = !!c.free;
   clear(flash); hits.length = 0; resetTickCache();
 }
 

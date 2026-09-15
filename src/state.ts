@@ -43,7 +43,9 @@ export const flash: Record<string, number> = {};
 // одна на всю игру до того, как государств стало несколько, и на неё смотрят
 // панель, сохранение и тесты. Домен — кто кому платит — в realm.ts.
 export const purses: Record<number, number> = {};
-export const cam = { x: 0, y: 0, k: 1 };         // камера карты: перетаскивание и зум
+// Камера карты: перетаскивание и зум. free — игрок сам двигал карту; пока нет,
+// карта держит в кадре ровно то, что знает государство (render/scene.ts, camFit).
+export const cam = { x: 0, y: 0, k: 1, free: false };
 
 export const S = {
   tick: 0, yearNow: 0, treasury: 320,
@@ -127,7 +129,7 @@ export function clear<T extends object>(obj: T): T {
   for (let k in obj) if (Object.prototype.hasOwnProperty.call(obj, k)) delete (obj as any)[k];
   return obj;
 }
-export function resetCam(): void { cam.x = 0; cam.y = 0; cam.k = 1; }
+export function resetCam(): void { cam.x = 0; cam.y = 0; cam.k = 1; cam.free = false; }
 
 export function Y(): number { return S.yearNow; }
 export function dateStr(): string { return "год " + Y() + " · " + MONTHS[S.tick % 12]; }

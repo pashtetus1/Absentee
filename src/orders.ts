@@ -145,10 +145,38 @@ export function addNeed(a: Record<string, number> | null, b: Record<string, numb
   return out;
 }
 
-/** Где в системе повиснет спутник: своя орбита ближе к звезде, чем пояс и
- *  планеты, — там пусто, и телескоп не налезает подписью ни на что. */
-export function satSpot(s: Sys): { ang: number; r: number } {
-  return { ang:rnd6(), r:42 + s.sats.length * 11 };
+/** Где в системе повиснет спутник: У ПЛАНЕТЫ, а не у звезды. Раньше у каждого
+ *  спутника была своя орбита вокруг светила, ближе пояса, и телескопы в
+ *  столичной системе висели прямо на солнце — ничьи на вид и ни при чём.
+ *
+ *  Планета выбирается по хозяину: мир, где у конторы филиал, — там её люди,
+ *  им телескоп и ставят; нет такого — самый людный мир системы; в пустой
+ *  системе — самая крупная планета. Место — неподвижная точка сбоку от
+ *  планеты (планеты в игре стоят на местах): не снизу, где две строки её
+ *  подписи, и дальше дорожек стоянки, верфи и военных кораблей, которые
+ *  кружат ближе. Следующий спутник у той же планеты — на шаг дальше, а место
+ *  сбитого занимает первый же новый.
+ *
+ *  Хранится место по-прежнему координатами от звезды (ang, r), так что всё,
+ *  что к спутнику летит или его рисует, осталось как было. Случайное число
+ *  берётся ровно одно, как и раньше: поток партии этой правкой не сдвинут. */
+export const SAT_OFF = 44, SAT_STEP = 11;
+export function satSpot(s: Sys, c: Corp): { ang: number; r: number } {
+  const turn = rnd6();
+  let body: Planet = null, top = -1;
+  s.bodies.forEach((b) => {
+    const w = b.world;
+    const score = w ? (hasBranch(c, w) ? 1000 : 500) + popOf(w) : b.rad;
+    if (score > top) { top = score; body = b; }
+  });
+  if (!body) return { ang:turn, r:42 + s.sats.length * 11 };
+  const px = Math.cos(body.ang) * body.r, py = Math.sin(body.ang) * body.r;
+  const from = (o: Sat): number => { return Math.hypot(Math.cos(o.ang) * o.r - px, Math.sin(o.ang) * o.r - py); };
+  let n = 0;
+  while (s.sats.some((o) => { return Math.abs(from(o) - (body.rad + SAT_OFF + n * SAT_STEP)) < 0.01; })) n++;
+  const a = Math.sin(turn) > 0.45 ? -turn : turn, d = body.rad + SAT_OFF + n * SAT_STEP;
+  const x = px + Math.cos(a) * d, y = py + Math.sin(a) * d;
+  return { ang:Math.atan2(y, x), r:Math.hypot(x, y) };
 }
 
 // Переделка створов на старшую марку. Створ ведёт корабль со скоростью СВОЕГО
@@ -393,6 +421,11 @@ export function reviewProjects(): void {
 export function branchTrade(): void {
   worlds.forEach((w) => {
     if (w === S.home || w.branches.length >= w.slots) return;
+    // В логово вольницы филиалов не открывают: планету взяли с боем и чужие
+    // цеха с неё выгнали (ground.ts), а продавать место конторе, которую сам
+    // же грабишь, ватаге незачем. Без этой строки выгнанные возвращались на
+    // планету по одному через пару лет, и логово снова выглядело общим.
+    if (corps.some((p) => { return p.pirate && p.home === w; })) return;
     corps.forEach((c) => {
       if (hasBranch(c, w) || !knowsSys(c, w.sys) || c.cash < 420 || rnd() > 0.04) return;
       c.cash -= 140; w.gov.cash += 140;
@@ -442,7 +475,7 @@ export function assemble(): void {
       // Спутник числится в системе с закладки: пока его собирают и везут, туда
       // не полетит второй. Место на орбите выбирается сразу — оно же служит
       // целью кораблику, который его повезёт.
-      const ds = systems[o.dst], spot = satSpot(ds);
+      const ds = systems[o.dst], spot = satSpot(ds, c);
       // Ступень телескопа берётся С САМОГО СПУТНИКА, а не из знаний хозяина:
       // деталь могли купить у того, кто умеет лучше, и смотрит спутник тем,
       // что на нём стоит.

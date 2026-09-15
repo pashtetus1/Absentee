@@ -1,11 +1,11 @@
 // ===================== галактика =====================
 
-import { BODYNAMES, MARKRANGE, MARKS, ROCKNAMES, SYSNAMES, ptypeOf, rollType } from "./data";
+import { BODYNAMES, MARKRANGE, MARKS, ROCKNAMES, STARS, SYSNAMES, ptypeOf, rollType } from "./data";
 import { CH, CW } from "./render/canvas";
 import { rnd } from "./rng";
 import { canBuild, corps, fill, systems } from "./state";
 import { dist, rnd6 } from "./util";
-import type { Corp, Mark, PType, Sys } from "./types";
+import type { Corp, Mark, PType, StarClass, Sys } from "./types";
 
 // pts — координаты ВСЕХ звёзд: направления на соседей, до которых когда-нибудь
 // дотянется портал, резервируются под ворота ещё при расстановке планет.
@@ -198,6 +198,22 @@ export function galaxyRange(): number {
   corps.forEach((c) => { best = Math.max(best, rangeOf(c)); });
   return best;
 }
+/** Цвет звезды (STARS, data.ts). Не бросается генератором и не хранится в
+ *  сохранении: выводится из места звезды на карте. Поэтому у партии звёзды
+ *  всегда тех же цветов — и после F5, и в стенде, — а поток случайных чисел
+ *  партии цветом не тронут. Столица — жёлтая, как родное солнце в MOO2. */
+export function starOf(s: { id: number; x: number; y: number }): StarClass {
+  if (s.id === 0) return STARS.filter((c) => c.key === "yellow")[0];
+  let h = Math.imul(Math.round(s.x * 16), 73856093) ^ Math.imul(Math.round(s.y * 16), 19349663);
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
+  h = Math.imul(h ^ (h >>> 12), 0x297a2d39);
+  h ^= h >>> 15;
+  const u = (h >>> 0) / 4294967296;
+  let acc = 0;
+  for (let i = 0; i < STARS.length; i++) { acc += STARS[i].share; if (u < acc) return STARS[i]; }
+  return STARS[STARS.length - 1];
+}
+
 export function bestMark(): Mark | null {
   let out = null;
   MARKS.forEach((m) => { if (corps.some((c) => { return canBuild(c, m.key); })) out = m; });

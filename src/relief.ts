@@ -1,15 +1,14 @@
 
-import { PIRATES, pirateName } from "./colony";
 import { raidHunt } from "./battle";
 import { startUprising } from "./ground";
 import { holdOf, holdOfType, shipNeed, vtype } from "./data";
 import { corpBuyShip } from "./docks";
 import { bestOffer, buildCost, cargoTo, launch, takeOffer } from "./fleet";
-import { GIVE_OVER, dispatch, surplusWorld } from "./food";
+import { GIVE_OVER, surplusWorld } from "./food";
 import { fuelBill, takeFuel } from "./market";
 import { rnd } from "./rng";
-import { edgeShipyard, onOrder, orderTransport } from "./shipyard";
-import { S, corps, docks, say, systems, worlds } from "./state";
+import { onOrder, orderTransport } from "./shipyard";
+import { S, corps, docks, grounds, say, worlds } from "./state";
 import { bestEngineAt } from "./tech";
 import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
 import { popOf, reserveOf, stockAt } from "./world";
@@ -78,17 +77,18 @@ export function corpRelief(): void {
 // как только открыт, а пиратов нет, он почти неизбежен — к началу перелётов
 // хоть кто-то должен быть вне закона.
 export function turnPirate(c: Corp, lair: World, why: string): void {
-  c.pirate = true; c.craft = "разбой"; c.nerve = 1.6; c.home = lair;
-  c.name = pirateName(lair);
-  c.color = PIRATES[S.pirateCount++ % PIRATES.length];
-  // Мятеж — не восстание населения, а уход конторы за черту, и наземной битвы
-  // за этим не следует: мир остаётся чей был. Но промысел требует КОРАБЛЕЙ, а
-  // их негде строить: общая верфь заказа от вольницы не примет (army.ts). Так
-  // что ватага первым делом закладывает свой стапель — ровно как та, что
-  // поднялась из голода.
-  edgeShipyard(lair, c.id);
-  say("<b>" + lair.body.name + "</b>: " + why + " — теперь это «" + c.name + "», и всё, что летит мимо " +
-      systems[lair.sys].name + ", в опасности.");
+  // МЯТЕЖ — ЭТО ВОССТАНИЕ, а не смена вывески. Раньше контора объявляла себя
+  // вольницей в тот же день: логово оставалось чьим было, чужие филиалы на нём
+  // работали бок о бок с ватагой, и никакой битвы за этим не стояло — игрок
+  // видел вольницу, сидящую на планете вместе с теми, кого она грабит.
+  //
+  // Теперь мятежники берутся за оружие на своём самом людном мире (lairFor), и
+  // дальше решает наземная битва (ground.ts), та же, что у голодного мира. Победили —
+  // планета их: чужие филиалы отобраны, склады взяты, стапель заложен, контора
+  // зовётся вольницей (rebelsWin). Проиграли — остаются конторой, но
+  // разоружённой, и вне закона не уходят.
+  say("<b>" + lair.body.name + "</b>: " + why + " — контора берётся за оружие.");
+  startUprising(lair, c, "вольница");
 }
 // Куда уходит бунтующая контора. НЕ на столицу: логово под окнами государства
 // выглядело нелепее всего — а именно оно и выпадало чаще прочих, потому что
@@ -96,13 +96,22 @@ export function turnPirate(c: Corp, lair: World, why: string): void {
 // которая дальше родины ещё не шагнула, им была родина. И не туда, где уже
 // сидит чужая ватага: два логова у одной звезды — это две одинаковые строки
 // в списке контор, а не две силы на карте.
+//
+// И туда, где ЕСТЬ КОМУ браться за оружие. С тех пор как мятеж идёт наземной
+// битвой (turnPirate), логово в «самом дальнем филиале» стало ловушкой: самый
+// дальний у конторы почти всегда самая свежая колония, то есть самая пустая, и
+// битва на ней просто выкашивала людей. Замер, 8 партий по 200 лет: население
+// логова в начале мятежа медианой 0.38 человечка, из 57 мятежей 42 подавлены, 7
+// логов опустели посреди боя и ещё 27 — за десять лет после. А подавленный мятеж
+// не даёт вольницы, и гарантированный шанс поднимал следующий — на следующей
+// пустой колонии. Поэтому логово — самый ЛЮДНЫЙ подходящий мир, и только от
+// половины человечка: тот же порог, что у голодного восстания (despair, piracy).
 function lairFor(c: Corp): World {
-  let best: World = null, far = -1;
+  let best: World = null, top = -1;
   c.branches.forEach((b) => {
-    const w = b.world;
-    if (w === S.home || corps.some((p) => { return p.pirate && p.home === w; })) return;
-    const d = systems[w.sys].depth;
-    if (d > far) { far = d; best = w; }
+    const w = b.world, pop = popOf(w);
+    if (w === S.home || w.war || pop < 0.5 || corps.some((p) => { return p.pirate && p.home === w; })) return;
+    if (pop > top) { top = pop; best = w; }
   });
   return best;
 }
@@ -124,9 +133,12 @@ export function events(): void {
   // к 168-му году в разбое было 55% контор, включая четыре стартовые из пяти.
   // Флаг считаем на ходу, а не один раз до цикла: иначе в один месяц уходили
   // в разбой сразу несколько контор, все с гарантированным шансом.
-  let outlaw = corps.some((c) => { return c.pirate; });
+  // Мятеж, который ещё идёт битвой, — тоже «кто-то вне закона»: иначе, пока
+  // первая контора дерётся за логово, гарантированный шанс толкал бы в разбой
+  // вторую, третью и дальше, по одной в год.
+  let outlaw = corps.some((c) => { return c.pirate; }) || grounds.some((g) => { return g.kind === "вольница"; });
   corps.forEach((c) => {
-    if (c.pirate || !c.branches.length) return;
+    if (c.pirate || !c.branches.length || grounds.some((g) => { return g.corp === c.id; })) return;
     const first = S.moveKnown && !outlaw;
     if (rnd() > (first ? 0.25 : 0.008)) return;
     const lair = lairFor(c);
