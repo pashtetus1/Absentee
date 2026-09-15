@@ -14,7 +14,7 @@ import { cutOf, buyPrice, harvestOf } from "../labour";
 import { HOME, isRealm, manyRealms, realmName, realmOf, treasuryOf } from "../realm";
 import { seedOf } from "../rng";
 import { prodOf, sciOf } from "../science";
-import { yardAt } from "../shipyard";
+import { slotPrice, yardAt } from "../shipyard";
 import { L, S, U, UPKEEP, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, voyages, worlds } from "../state";
 import { DEVS, ENGINES, techOf } from "../tech";
 import { fuelCost } from "../travel";
@@ -226,6 +226,11 @@ export function inspector(): void {
     box.innerHTML = '<div class="card"><h3>Верфь у ' + d.world.body.name + '</h3>' +
       '<div class="sub">' + (d.owner >= 0 ? "хозяин " + corps[d.owner].name : "общая") +
       ' · людей на стапеле ' + d.crew.toFixed(1) + ' · в очереди ' + d.queue.length + '</div>' +
+      // Сколько сейчас стоит встать сюда: по этой цене компании и решают,
+      // затевать ли жилу. Хлебовозы и переселенцы идут без платы.
+      '<div class="sub">место в очереди: жила ' + slotPrice(d, vtype("mine")) +
+      ', колония ' + slotPrice(d, vtype("colony")) + ', ' + vtype(S.move.vt).name + ' ' + slotPrice(d, vtype(S.move.vt)) +
+      ' · в казну ' + d.world.body.name + '</div>' +
       yardQueue(d) + '</div>';
     return;
   }

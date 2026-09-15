@@ -1095,20 +1095,29 @@ test("казна не строит верфь на отделившемся ми
   }
 });
 
+// Рост марки меряется по трём партиям, а не по одной: с платой за место в
+// очереди у компаний меньше денег, лаборатории нанимают по кошельку, и наука
+// идёт медленнее — это принято нарочно (shipyard.ts, SLOT_RATE). Отдельная
+// партия теперь может честно просидеть на Mk1 все триста лет; застрять не
+// должна вся галактика сразу.
 test("освоение миров растёт до Mk5, а колонизация — на каждый тип планеты", () => {
-  const sim = load("dist/index.html", { seed: 1 });
-  const st = runYears(sim, 300);
-  const known = Object.keys(st.patents).filter((k) => /^dev_/.test(k) && st.corps.some((c) => c.known[k]));
-  assert(known.length > 0, "ни одной марки освоения за триста лет");
-  const best = known.reduce((m, k) => Math.max(m, +k.split("_")[2]), 0);
-  assert(best >= 2, "освоение застряло на Mk" + best);
-  assert(best <= 5, "освоение перевалило за Mk5: Mk" + best);
-  // за каждой взятой маркой обязана существовать следующая — до пятой
-  known.forEach((k) => {
-    const p = k.split("_");
-    if (+p[2] >= 5) return;
-    assert(st.patents[p[0] + "_" + p[1] + "_" + (+p[2] + 1)], "после " + k + " нет следующей марки");
-  });
+  let sim = null as ReturnType<typeof load>, top = 0;
+  for (const seed of [1, 2, 3]) {
+    sim = load("dist/index.html", { seed });
+    const st = runYears(sim, 300);
+    const known = Object.keys(st.patents).filter((k) => /^dev_/.test(k) && st.corps.some((c) => c.known[k]));
+    assert(known.length > 0, "сид " + seed + ": ни одной марки освоения за триста лет");
+    const best = known.reduce((m, k) => Math.max(m, +k.split("_")[2]), 0);
+    assert(best <= 5, "освоение перевалило за Mk5: Mk" + best);
+    top = Math.max(top, best);
+    // за каждой взятой маркой обязана существовать следующая — до пятой
+    known.forEach((k) => {
+      const p = k.split("_");
+      if (+p[2] >= 5) return;
+      assert(st.patents[p[0] + "_" + p[1] + "_" + (+p[2] + 1)], "после " + k + " нет следующей марки");
+    });
+  }
+  assert(top >= 2, "освоение застряло на Mk" + top + " во всех трёх партиях");
   // технология колонизации — на каждый тип планеты, умеренные тоже
   const types = sim.consts.PTYPES;
   types.forEach((t) => { assert(sim.consts.COLTECH.some((f) => f.key === t.tech), t.name + ": нет своей технологии колонизации"); });

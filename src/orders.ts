@@ -3,7 +3,7 @@
 import { shipNeed, vtype, MARKSPEED } from "./data";
 import { galaxyRange, rangeOf, within, markLevelOf } from "./galaxy";
 import { rnd } from "./rng";
-import { YARD_WORK, nearestYard, yardAt } from "./shipyard";
+import { YARD_WORK, nearestYard, paySlot, slotPrice, yardAt } from "./shipyard";
 import { S, anyMakes, canBuild, corps, dateStr, fill, gates, market, projects, say, systems, voyages, worlds } from "./state";
 import { bestEngineMade } from "./tech";
 import { gateOf, newGate, reachable, routeKey } from "./travel";
@@ -128,6 +128,10 @@ export function reviewOrders(): void {
       o.rock.taken = true;
       const ym = nearestYard(baseSys(c, pickS.id), c);
       if (!ym) { o.rock.taken = false; c.needYard = true; return; }
+      // Жила — дело необязательное: если комплект вместе с местом в очереди
+      // сейчас не по карману, её не затевают. У забитой верфи место дорогое, и
+      // именно тут очередь перестаёт пополняться тем, без чего можно жить.
+      if (c.cash < orderCost(best) + slotPrice(ym, best)) { o.rock.taken = false; return; }
       o.dst = pickS.id; o.sys = ym.world.sys; o.yard = ym;   // собирают на верфи, везут к астероиду
     } else {
       const jt = jumpTarget(c) || upgradeTarget(c);
@@ -251,6 +255,11 @@ export function assemble(): void {
       if (yard) { o.parts.forEach((p) => { addStock(c, o.sys, p.k, 1); }); releaseOrder(o); c.order = null; }
       return;
     }
+    // Место в очереди оплачивается ДО всего остального: ниже заказ может
+    // перенацелиться и занять маршрут, и повторять это каждый месяц, пока
+    // компания копит на место, нельзя. Не хватает — комплект ждёт на складе.
+    const price = slotPrice(yard, vt);
+    if (!paySlot(yard, price, (sum) => { if (c.cash < sum) return false; c.cash -= sum; return true; })) return;
     if (vt.key === "jump" || vt.key === "gate") {
       // цель могла открыться, пока свозили детали — тогда летим к другой
       let to = o.to, from = o.from;
@@ -277,7 +286,8 @@ export function assemble(): void {
     const names = Object.keys(from).filter((id) => { return +id !== c.id; })
                       .map((id) => { return corps[+id].name; });
     say("<b>" + c.name + "</b> собрала комплект и заложила " + vt.name + "." +
-        (names.length ? " Детали от: " + names.join(", ") + "." : " Всё своё."));
+        (names.length ? " Детали от: " + names.join(", ") + "." : " Всё своё.") +
+        " Место в очереди у " + yard.world.body.name + " — " + price + ".");
     c.order = null; c.cool = 24 + Math.floor(rnd() * 24);
   });
 
@@ -286,11 +296,19 @@ export function assemble(): void {
     if (!full(pr.need, pr.got)) return;
     const yp = pr.yard;
     if (!yp) return;
+    // За место платит складчина: сперва тем, что осталось от деталей, а
+    // недостающее докладывает ведущий. Не хватает и у него — модуль ждёт.
+    const lead = corps[pr.lead], price = slotPrice(yp, vtype("colony"));
+    if (!paySlot(yp, price, (sum) => {
+      const rest = sum - Math.min(pr.purse, sum);
+      if (lead.cash < rest) return false;
+      pr.purse -= sum - rest; lead.cash -= rest; return true;
+    })) return;
     yp.queue.push({ vt:vtype("colony"), lead:pr.lead, color:corps[pr.lead].color, glyph:"cir",
                                  body:pr.body, dst:pr.dst, backers:pr.backers.slice(), parts:pr.parts.slice(),
                                  left:vtype("colony").build * YARD_WORK, total:vtype("colony").build * YARD_WORK });
     say("<b>" + corps[pr.lead].name + "</b> заложила колониальный модуль для " + pr.body.name +
-        " (вкладчиков " + pr.backers.length + ").");
+        " (вкладчиков " + pr.backers.length + "). Место в очереди у " + yp.world.body.name + " — " + price + ".");
     pr.done = true;
   });
   fill(projects, projects.filter((pr) => { return !pr.done; }));
