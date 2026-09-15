@@ -20,7 +20,11 @@ export interface Tech { key: string; name: string; short: string; diff: number; 
  *  ровно этим числом — во сколько раз быстрее идёт корабль, на котором стоит
  *  такой двигатель. У остальных деталей множителя нет, и его отсутствие
  *  означает «это не двигатель», а не «забыли заполнить». */
-export interface Comp extends Tech { work: number; base: number; glyph: string; mult?: number; }
+export interface Comp extends Tech {
+  work: number; base: number; glyph: string;
+  mult?: number;                  // ходовой двигатель: множитель скорости внутри системы
+  slots?: number;                 // корпус: сколько деталей держит, считая себя
+}
 /** Класс миров: право колонизировать такие планеты. */
 export interface ColTech extends Tech {}
 /** Марка межзвёздного перехода: чем выше, тем дальше бьёт и тем быстрее идёт

@@ -5,7 +5,7 @@
 // модельки нужны ещё и панелям (значки в легенде рисуются ими же).
 
 import { vis } from "../clock";
-import { compOf } from "../data";
+import { compOf, hullOf, roomOfKey } from "../data";
 import { dockValue } from "../docks";
 import { lotsOf } from "../freight";
 import { realmCharge, realmColor } from "../realm";
@@ -123,11 +123,11 @@ export function cargoName(v: Voyage): string {
   return v.cargo === "colony" ? "Колониальный модуль"
        : v.cargo === "mine"   ? "Платформа"
        : v.cargo === "gate"   ? "Портальный корабль"
-       :                        "Прыжковый корабль";
+       :                        "Грузовик-первопроходец";
 }
 export function voyageLines(v: Voyage): string[] {             // рейс между звёздами или между мирами
   if (v.kind === "jump" || v.kind === "gate")
-    return [(v.kind === "gate" ? (v.upgrade ? "Портальный, переделка · " : "Портальный · ") : "Прыжковый · ") + corps[v.corp].name,
+    return [(v.kind === "gate" ? (v.upgrade ? "Портальный, переделка · " : "Портальный · ") : "Первопроходец · ") + corps[v.corp].name,
             "→ " + systems[v.to].name + " · " + eta(v.t, v.dur)];
   if (v.kind === "parts")
     return ["Грузовик · " + lotsOf(v).map((l) => compOf(l.k).short).join(", ") + " для " + corps[v.forCorp].name,
@@ -330,6 +330,10 @@ export function windowLines(o: Ship | Voyage, isVoyage: boolean): string[] {
   const owner = isVoyage ? (v.forCorp !== undefined ? v.forCorp : v.corp) : sh.corp;
   let lines = head.concat(["командир " + o.captain]);
   if (isVoyage && v.kind === "parts") lines.push("везёт: " + lotsOf(v).map((l) => compOf(l.k).short + " — " + corps[l.from].name).join("; "));
+  const h = hullOf(o.parts || []);
+  // Вместимость — первое, что хочется знать о корабле: по ней видно, почему
+  // этот везёт двадцать еды, а тот сорок.
+  if (h) lines.push(compOf(h).short + " · мест " + roomOfKey(h) + ", занято " + o.parts.length);
   const mk = makersOfParts(o.parts, owner);
   if (mk.length) lines = lines.concat(["из чего собран:"]).concat(mk);
   return lines;
