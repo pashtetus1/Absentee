@@ -10,7 +10,7 @@ import { labour } from "./labour";
 import { stalledOrders, stalledProjects, trade } from "./market";
 import { migrationRun } from "./migration";
 import { moveShips } from "./motion";
-import { mapTrade } from "./charts";
+import { mapTrade, scanSats } from "./charts";
 import { assemble, branchTrade, reviewOrders, reviewProjects } from "./orders";
 import { corpRelief, events, piracy } from "./relief";
 import { keep } from "./save";
@@ -32,7 +32,7 @@ export function step(): void {
   // Карты продают раз в год и до заказов: купленная карта — это новые цели,
   // и решать, что строить, контора должна уже с ней на руках.
   if (S.tick % 12 === 0) { mapTrade(); reviewOrders(); reviewProjects(); reviewProposals(); branchTrade(); events(); }
-  assemble(); moveShips(); ventureIncome();
+  assemble(); moveShips(); scanSats(); ventureIncome();
   // Мир, где не осталось людей, перестаёт быть миром. Метём в КОНЦЕ месяца, а
   // не сразу после labour: населением за месяц двигает не только убыль, но и
   // переселение, эпидемия и прилетевший рейс, и только здесь оно уже не

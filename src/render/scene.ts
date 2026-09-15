@@ -1,7 +1,7 @@
 
 import { vis } from "../clock";
 import { seenByState } from "../charts";
-import { MARKRANGE, SCOPE_RANGE, hullScale } from "../data";
+import { MARKRANGE, hullScale } from "../data";
 import { galaxyRange, within } from "../galaxy";
 import { HOME, manyRealms, realmOf, realmOfCorp, realmOfShip, realmOfVoyage } from "../realm";
 import { yardAt } from "../shipyard";
@@ -200,7 +200,7 @@ export function drawSystem(s: Sys): void {
     const p = posOf(sat, mx, my);
     ship(sat.laser ? "satgun" : "sat", p.x, p.y, 7, sat.ang + 1.5708, sat.color);
     if (flags) crest(p.x, p.y - 14, 4.6, realmOfCorp(corps[sat.owner]));
-    tiny(p.x, p.y + 12, sat.laser ? "телескоп, лазер" : "телескоп", "#7f8cb4");
+    tiny(p.x, p.y + 12, "телескоп Mk" + sat.mark + (sat.laser ? ", лазер" : ""), "#7f8cb4");
     hits.push({ x:p.x, y:p.y, r:11, kind:"sat", data:sat });
   });
 
@@ -501,7 +501,10 @@ export function drawMap(): void {
     // именно здесь, и почему следующий спутник ставят туда, а не сюда.
     const live = s.sats.filter((sat) => { return sat.live; });
     if (live.length) {
-      cx.beginPath(); cx.arc(s.x, s.y, SCOPE_RANGE, 0, 6.2832);
+      // Круг — по ДАЛЬНОЗОРКОСТИ лучшего телескопа в системе: у Mk1 он мал, у
+      // Mk4 накрывает пол-экрана, и разницу между ступенями видно сразу.
+      const sight = live.reduce((a, sat) => { return Math.max(a, sat.range); }, 0);
+      cx.beginPath(); cx.arc(s.x, s.y, sight, 0, 6.2832);
       cx.strokeStyle = "#2a3c66"; cx.globalAlpha = 0.5; cx.lineWidth = uiz;
       cx.setLineDash([1.5 * uiz, 6 * uiz]); cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
     }

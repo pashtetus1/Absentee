@@ -10,7 +10,7 @@
 // на компании и на корабле его не было видно: два одинаковых грузовика летели
 // с разной скоростью, и объяснить это, глядя на корабль, было нечем.
 
-import { COLTECH, COMPS, ENGKEYS, HULLKEYS, MARKS, clsOf, colOf, compOf, isEngine, isHull, markOf, roomOfKey } from "./data";
+import { COLTECH, COMPS, ENGKEYS, HULLKEYS, MARKS, SCOPEKEYS, clsOf, colOf, compOf, isEngine, isHull, isScope, markOf, roomOfKey } from "./data";
 import { anyMakes, canBuild, corps, patents, tickCache } from "./state";
 import { stockAt } from "./world";
 import type { ColTech, Corp, Dev, Engine, Tech, World } from "./types";
@@ -121,7 +121,7 @@ export function devLevel(w: World): number {
 export function devMult(w: World): number{ return 1 + 0.12 * devLevel(w); }
 export function devCap(w: World): number{ return devLevel(w); }
 // Технологии С МАРКАМИ — ступени лестницы: межзвёздный переход, ходовые
-// двигатели, корпуса, освоение классов миров. У них своя судьба, не как у прочих
+// двигатели, корпуса, телескопы, освоение классов миров. У них своя судьба, не как у прочих
 // деталей: патентов нет, зато берутся строго по порядку, и ступень становится
 // общим достоянием, лишь когда кто-то освоил две следующие. Пока же ею
 // пользуется лишь тот, кто дошёл сам.
@@ -130,6 +130,7 @@ export function markStep(k: string): { fam: string; n: number } | null {
   if (m) return { fam:"move", n:m.mark };
   if (isEngine(k)) return { fam:"eng", n:ENGKEYS.indexOf(k) + 1 };
   if (isHull(k)) return { fam:"hull", n:HULLKEYS.indexOf(k) + 1 };
+  if (isScope(k)) return { fam:"scope", n:SCOPEKEYS.indexOf(k) + 1 };
   const d = devOf(k);
   if (d) return { fam:"dev_" + d.cls, n:d.mark };
   return null;
@@ -140,6 +141,7 @@ export function stepKey(fam: string, n: number): string | null {
   if (fam === "move") return MARKS[n - 1] ? MARKS[n - 1].key : null;
   if (fam === "eng") return ENGKEYS[n - 1] || null;
   if (fam === "hull") return HULLKEYS[n - 1] || null;
+  if (fam === "scope") return SCOPEKEYS[n - 1] || null;
   const k = devKey(fam.slice(4), n);
   return devOf(k) ? k : null;
 }

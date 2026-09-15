@@ -5,8 +5,8 @@
 // Стенд запускает ядро без браузера: см. test/. Отдаём только чтение состояния
 // и шаг — отрисовка в тестах не участвует принципиально.
 
-import { BTYPES, COLTECH, COMPS, MARKS, MOVES, PTYPES, SCOPE_RANGE, VTYPES } from "./data";
-import { STATE_EYES, knowsSys, seenByState } from "./charts";
+import { BTYPES, COLTECH, COMPS, MARKRANGE, MARKS, MOVES, PTYPES, VTYPES } from "./data";
+import { SCAN_MONTHS, STATE_EYES, knowsSys, seenByState } from "./charts";
 import { icon } from "./render/models";
 import { bindUI } from "./render/ui";
 import { build } from "./setup";
@@ -58,7 +58,7 @@ export function setLever(k: string, v: number | string): void {
 // MARKS больше не переприсваивается (чистится на месте), поэтому геттер,
 // который раньше ловил подмену массива, больше не нужен.
 export const consts = { COMPS, COLTECH, PTYPES, VTYPES, MOVES, ENGINES, MARKS, BTYPES,
-                        SCOPE_RANGE, STATE_EYES };
+                        MARKRANGE, SCAN_MONTHS, STATE_EYES };
 
 // для стенда: переключить вид, чтобы кадр отрисовал и карту, и систему
 export function setView(mode: string, sys?: number): void { U.view = { mode: mode, sys: sys || 0 }; }

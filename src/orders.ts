@@ -1,7 +1,7 @@
 // ===================== заказы, консорциумы, филиалы =====================
 
 import { knowsSys, sayAt, seenByState } from "./charts";
-import { SCOPE_RANGE, shipNeed, vtype, MARKSPEED } from "./data";
+import { bestScopeMade, scopeMark, shipNeed, sightOfKey, vtype, MARKSPEED } from "./data";
 import { galaxyRange, rangeOf, within, markLevelOf } from "./galaxy";
 import { rnd } from "./rng";
 import { YARD_WORK, nearestYard, paySlot, slotPrice, yardAt } from "./shipyard";
@@ -84,14 +84,21 @@ export function expandTarget(c: Corp): { from: number; to: number; upgrade?: boo
 // ЧУЖОЙ СПУТНИК В ТОЙ ЖЕ СИСТЕМЕ НЕ МЕШАЕТ. Он смотрит для своего хозяина, а
 // не для всех: пока карта не куплена, соседняя звезда для этой конторы не
 // существует. Поэтому над одной планетой висит по спутнику от каждой конторы,
-// которой дешевле посмотреть самой, чем купить карту у нашедшего. Свой второй
-// спутник в той же системе бессмыслен — он увидит ровно то же самое.
+// которой дешевле посмотреть самой, чем купить карту у нашедшего, — и все они
+// ищут одну и ту же ближайшую звезду наперегонки (scanSats).
+//
+// А вот СВОЙ спутник в той же системе бессмыслен — но только пока телескоп у
+// него не хуже нынешнего. Осилила контора следующую ступень — ставит второй,
+// рядом со своим же: он видит дальше, и смотреть ему есть куда.
 export function satTarget(c: Corp): { dst: number; opens: number } | null {
+  const sk = bestScopeMade();
+  if (!sk) return null;                          // телескопов не делает никто
+  const sight = sightOfKey(sk);
   let out: { dst: number; opens: number } = null, top = 0;
   systems.forEach((s) => {
     if (!knowsSys(c, s.id) || !reachable(s.id)) return;
-    if (s.sats.some((sat) => { return sat.owner === c.id; })) return;
-    const opens = within(s.id, SCOPE_RANGE).filter((n) => { return !knowsSys(c, n); }).length;
+    if (s.sats.some((sat) => { return sat.owner === c.id && sat.range >= sight; })) return;
+    const opens = within(s.id, sight).filter((n) => { return !knowsSys(c, n); }).length;
     if (!opens) return;
     const score = opens / (1 + s.depth * 0.3);
     if (score > top) { top = score; out = { dst:s.id, opens:opens }; }
@@ -414,8 +421,14 @@ export function assemble(): void {
       // не полетит второй. Место на орбите выбирается сразу — оно же служит
       // целью кораблику, который его повезёт.
       const ds = systems[o.dst], spot = satSpot(ds);
+      // Ступень телескопа берётся С САМОГО СПУТНИКА, а не из знаний хозяина:
+      // деталь могли купить у того, кто умеет лучше, и смотрит спутник тем,
+      // что на нём стоит.
+      const sp = o.parts.filter((pt) => { return scopeMark(pt.k) > 0; })
+                        .sort((a, b) => { return scopeMark(b.k) - scopeMark(a.k); })[0];
       const sat: Sat = { sys:o.dst, owner:c.id, color:c.color, ang:spot.ang, r:spot.r,
-                         parts:o.parts.slice(), born:dateStr(), found:0,
+                         parts:o.parts.slice(), born:dateStr(), found:0, scan:0,
+                         mark:sp ? scopeMark(sp.k) : 1, range:sp ? sightOfKey(sp.k) : 0,
                          laser:o.parts.some((pt) => { return pt.k === "laser"; }),
                          live:false, building:true };
       ds.sats.push(sat);

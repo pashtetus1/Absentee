@@ -7,8 +7,8 @@
 // value нарочно any: в разметку кладут и числа, браузер сам приводит их к
 // строке, и String() вокруг каждого присваивания ничего бы не поймал.
 
-import { STATE_EYES, knownCount, knowsSys, mapPrice, seenByState } from "../charts";
-import { COLTECH, COMPS, MARKS, SCOPE_RANGE, colOf, compOf, hullOf, markName, moveName, roomOfKey, vtype, btype } from "../data";
+import { SCAN_MONTHS, STATE_EYES, knownCount, knowsSys, mapPrice, seenByState } from "../charts";
+import { COLTECH, COMPS, MARKS, colOf, compOf, hullOf, markName, moveName, roomOfKey, vtype, btype } from "../data";
 import { dockValue, partsValue, shipFactor } from "../docks";
 import { lotsOf } from "../freight";
 import { galaxyRange, within } from "../galaxy";
@@ -246,11 +246,16 @@ export function inspector(): void {
     // Спутник — вещь, которая ЗНАЕТ. Поэтому в карточке не «скорость» и не
     // «курс», а дальность телескопа, что он нашёл и кому это видно.
     const knowers = corps.filter((c) => { return knowsSys(c, d.sys); });
+    // Спутник ищет звёзды по одной и годами: в карточке видно, сколько он
+    // уже всматривается в очередную и сколько нашёл за жизнь.
+    const left = Math.max(0, SCAN_MONTHS - (d.scan || 0));
     box.innerHTML = '<div class="card"><h3>Спутник' + (d.laser ? ' с боевым лазером' : '') + '</h3>' +
       '<div class="sub">' + corps[d.owner].name + ' · орбита ' + systems[d.sys].name +
       (d.born ? ' · с ' + d.born : '') + '</div>' +
-      '<div class="part"><span class="pn">телескоп бьёт на</span><span class="pw">' + SCOPE_RANGE + '</span></div>' +
+      '<div class="part"><span class="pn">телескоп Mk' + d.mark + '</span><span class="pw">видит на ' + d.range + '</span></div>' +
       '<div class="part"><span class="pn">нашёл звёзд</span><span class="pw">' + d.found + '</span></div>' +
+      '<div class="part"><span class="pn">ищет следующую</span><span class="pw">' +
+      (left / 12).toFixed(1) + ' лет осталось</span></div>' +
       '<div class="part"><span class="pn">эту систему знают</span><span class="pw">' + knowers.length +
       ' из ' + corps.length + '</span></div>' +
       (d.laser ? '<div class="sub" style="margin:6px 0 0">Лазер пока не стреляет: боёв в игре нет. ' +

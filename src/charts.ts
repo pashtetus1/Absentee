@@ -17,7 +17,7 @@
 // видимой. Игрок на это влияет косвенно — налогом и сбором: чем меньше он
 // берёт, тем меньше причин прятать.
 
-import { SCOPE_RANGE } from "./data";
+import { MARKRANGE, ownSight } from "./data";
 import { rnd } from "./rng";
 import { S, canBuild, corps, say, systems } from "./state";
 import { dist } from "./util";
@@ -66,6 +66,47 @@ export function learnSys(c: Corp, id: number, how: string): void {
   }
 }
 
+// ---- что видит спутник -------------------------------------------------
+// Спутник НЕ открывает всё в своём круге разом. Он находит звёзды ПО ОДНОЙ и
+// годами: четыре года на каждую (SCAN_MONTHS). Небо большое, телескоп один, и
+// разглядеть в нём звезду — работа, а не щелчок.
+//
+// Отсюда и конкуренция, ради которой это и сделано. Два спутника разных контор
+// в одной системе смотрят на одну и ту же ближайшую незнакомую звезду, и
+// достаётся она тому, чей телескоп встал раньше. Опоздавший потратит те же
+// четыре года и придёт вторым — знание у него будет, а первенства нет: карту
+// на этой звезде продаёт уже не он.
+//
+// Ищется всегда БЛИЖАЙШАЯ незнакомая: карта раскрывается кольцами от обжитого,
+// а не пятнами. Если ближнюю успели купить, спутник просто переводит взгляд на
+// следующую, не теряя наблюдения, — месяцы считаются самому спутнику, а не
+// звезде.
+export const SCAN_MONTHS = 48;
+
+export function scanSats(): void {
+  systems.forEach((s) => {
+    s.sats.forEach((sat) => {
+      if (!sat.live) return;
+      const c = corps[sat.owner];
+      if (!c) return;
+      let aim = -1, bd = 1e9;
+      for (let j = 0; j < systems.length; j++) {
+        if (j === s.id || knowsSys(c, j)) continue;
+        const d = dist(s, systems[j]);
+        if (d <= sat.range && d < bd) { bd = d; aim = j; }
+      }
+      if (aim < 0) return;                       // всё, что достаёт телескоп, уже знаем
+      if (++sat.scan < SCAN_MONTHS) return;
+      sat.scan = 0; sat.found++;
+      const first = knownCount(aim) === 0;
+      learnSys(c, aim, "Нашла её " + c.name + " телескопом с орбиты " + s.name + ".");
+      sayAt(s.id, "<b>" + c.name + "</b>: телескоп с орбиты " + s.name + " разглядел " +
+            (seenByState(aim) ? "систему " + systems[aim].name : "ещё одну звезду") +
+            (first ? "." : " — её уже знают другие."));
+    });
+  });
+}
+
 /** Сколько стоит карта этой системы. Цена — за то, что в системе ЛЕЖИТ:
  *  свободные планеты и камни, — и растёт с удалённостью: чем дальше звезда,
  *  тем дороже обошлось её найти. */
@@ -108,10 +149,14 @@ export function mapTrade(): void {
     // где контора уже бывала: от этих звёзд и меряется «под боком»
     const mine = systems.filter((s) => { return knowsSys(buyer, s.id); });
     if (!mine.length) return;
+    // «Под боком» — на дальность СВОЕГО телескопа: покупают то, что могли бы и
+    // сами разглядеть, только годами. Телескопа нет вовсе — считаем по первой
+    // ступени: без неё контора и мечтать о дальнем не может.
+    const near = Math.max(ownSight(buyer), MARKRANGE[0]);
     let want: Sys = null, top = 0;
     systems.forEach((s) => {
       if (!s.unlocked || knowsSys(buyer, s.id)) return;
-      if (!mine.some((o) => { return dist(o, s) <= SCOPE_RANGE; })) return;
+      if (!mine.some((o) => { return dist(o, s) <= near; })) return;
       const worth = valueTo(buyer, s);
       if (worth <= 0) return;
       const score = worth / mapPrice(s);

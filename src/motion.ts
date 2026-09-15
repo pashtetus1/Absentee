@@ -16,20 +16,20 @@
 // ходовой не работает вовсе, там правит марка межзвёздного перехода
 // (markSpeedOf), и она же решает, добьёт ли корабль до цели.
 
-import { POPS_PER_LIFE, SCOPE_RANGE, engMult, pickCaptain, seatsOf } from "./data";
+import { POPS_PER_LIFE, engMult, pickCaptain, seatsOf } from "./data";
 import { loadUp } from "./fleet";
 import { dockShip } from "./docks";
-import { markLevelOf, markSpeedOf, within } from "./galaxy";
+import { markLevelOf, markSpeedOf } from "./galaxy";
 import { partMark } from "./data";
 import { landPart, takeFuel } from "./market";
 import { rnd } from "./rng";
 import { yardAt } from "./shipyard";
-import { knowsSys, learnSys, sayAt } from "./charts";
+import { sayAt } from "./charts";
 import { S, U, corps, dateStr, docks, gates, say, shipyards, staged, systems, voyages } from "./state";
 import { ensurePortal, fuelCost, newGate, routeKey, syncRoutes, useRoute } from "./travel";
 import { popsWord, rnd6 } from "./util";
 import { makeWorld, openBranch } from "./world";
-import type { Gate, Sat, Ship, Sys, Voyage, Yard } from "./types";
+import type { Gate, Ship, Sys, Voyage, Yard } from "./types";
 
 /** Скорость межзвёздного корабля: по марке детали на борту; нет детали (под
  *  воротами у портального корабля набор, а не двигатель) — по марке хозяина. */
@@ -171,10 +171,21 @@ export function arriveShip(sh: Ship, s: Sys): void {
     return;
   }
   if (sh.kind === "sat") {
-    sh.sat.live = true; sh.sat.building = false;
+    // Спутник встал — и с этого месяца СМОТРИТ. Разом он ничего не открывает:
+    // звёзды находятся по одной и годами (scanSats в charts.ts).
+    sh.sat.live = true; sh.sat.building = false; sh.sat.scan = 0;
     sayAt(s.id, "<b>" + corps[sh.corp].name + "</b> вывела спутник на орбиту " + s.name +
-        (sh.sat.laser ? " (с боевым лазером)" : "") + ".");
-    scanFrom(sh.sat, s);
+        ": телескоп Mk" + sh.sat.mark + ", видит на " + sh.sat.range +
+        (sh.sat.laser ? ", с боевым лазером" : "") + ".");
+    return;
+  }
+  if (sh.kind === "sat") {
+    // Спутник встал — и с этого месяца СМОТРИТ. Разом он ничего не открывает:
+    // звёзды находятся по одной и годами (scanSats в charts.ts).
+    sh.sat.live = true; sh.sat.building = false; sh.sat.scan = 0;
+    sayAt(s.id, "<b>" + corps[sh.corp].name + "</b> вывела спутник на орбиту " + s.name +
+        ": телескоп Mk" + sh.sat.mark + ", видит на " + sh.sat.range +
+        (sh.sat.laser ? ", с боевым лазером" : "") + ".");
     return;
   }
   if (sh.kind === "mine") {
@@ -192,22 +203,6 @@ export function arriveShip(sh: Ship, s: Sys): void {
     sayAt(s.id, "<b>" + corps[sh.corp].name + "</b> основала колонию на " + sh.body.name + " (" + sh.body.type.name +
         ", предел " + w.cap + "). Филиалы: " + w.branches.map((br) => { return corps[br.corp].name; }).join(", ") + ".");
   }
-}
-
-/** Спутник встал и посмотрел вокруг: все звёзды в пределах телескопа
- *  становятся известны — НЕ ВСЕМ, а хозяину спутника. Это и есть главное
- *  правило новой карты: знание частное. Остальные конторы узнают о звезде,
- *  только купив карту, а государство — когда её знают трое (charts.ts).
- *
- *  Больше спутник ничего не делает и никуда не денется — так и висит там, где
- *  его оставили, и когда придут бои, будет чем его сбить. */
-export function scanFrom(sat: Sat, s: Sys): void {
-  const c = corps[sat.owner];
-  const found = within(s.id, SCOPE_RANGE).filter((n) => { return !knowsSys(c, n); });
-  sat.found = found.length;
-  found.forEach((n) => { learnSys(c, n, "Нашла её " + c.name + "."); });
-  sayAt(s.id, "<b>" + c.name + "</b>: телескоп с орбиты " + s.name +
-        (found.length ? " разглядел звёзд: " + found.length + "." : " не нашёл ничего нового."));
 }
 
 export function arriveVoyage(v: Voyage): void {

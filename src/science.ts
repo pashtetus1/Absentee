@@ -1,6 +1,6 @@
 // ===================== наука =====================
 
-import { PTYPES, SCOPE_RANGE, bestHullMade, colOf, compOf, isEngine, isHull, markOf, roomOfKey } from "./data";
+import { PTYPES, bestHullMade, bestScopeMade, colOf, compOf, isEngine, isHull, isScope, markOf, ownSight, roomOfKey, sightOfKey } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
 import { knowsSys } from "./charts";
 import { isRealm } from "./realm";
@@ -102,19 +102,21 @@ export function pickTarget(c: Corp): string | null {
                       staged.some((st) => { return st.fuelWait > 0; });
       worth = waiting ? 4.5 : (galaxyRange() > 0 ? 3.2 : 1.2);
     }
-    else if (f.key === "scope") {
-      // Телескоп — глаза партии. Пока его не делает никто, галактика состоит
-      // из одной звезды: колонизировать нечего, возить некуда, марки перехода
-      // бесполезны. Поэтому первый телескоп ценится как первый двигатель, а
-      // дальше — по тому, много ли ещё тьмы вокруг обжитого.
+    else if (isScope(f.key)) {
+      // Телескоп — глаза партии. Пока первой ступени не делает никто, галактика
+      // состоит из одной звезды: колонизировать нечего, возить некуда, марки
+      // перехода бесполезны. Поэтому первый телескоп ценится как первый
+      // двигатель, а дальше — по тому, много ли тьмы достанет НОВАЯ ступень.
       // Тьма считается СВОЯ: сколько звёзд эта контора не знает, а могла бы
       // разглядеть со своих систем. Чужой спутник ей ничего не показал.
+      const sight = sightOfKey(f.key);
+      if (sight <= ownSight(c)) return;                  // так далеко уже видим сами
       let dark = 0;
       systems.forEach((s) => {
         if (!knowsSys(c, s.id)) return;
-        dark += within(s.id, SCOPE_RANGE).filter((n) => { return !knowsSys(c, n); }).length;
+        dark += within(s.id, sight).filter((n) => { return !knowsSys(c, n); }).length;
       });
-      worth = !anyMakes("scope") ? 3.6 : dark ? 1.4 + Math.min(10, dark) * 0.28 : 0.3;
+      worth = !bestScopeMade() ? 3.6 : dark ? 1.4 + Math.min(10, dark) * 0.28 : 0.3;
     }
     else if (f.key === "laser") {
       // Боевой лазер пока не делает ничего: бои — отдельная ветка. Но разбой в
