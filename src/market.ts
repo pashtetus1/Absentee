@@ -4,10 +4,10 @@
 // торге, но сама по себе она никого ни к чему не обязывает.
 
 import { COMPS, compOf, pickCaptain, shipNeed, vtype } from "./data";
-import { corpBuyShip, takeDock } from "./docks";
+import { addLot, lotsOf, unflyLot } from "./freight";
 import { bestEngineAt } from "./tech";
 import { freeRocks, releaseOrder } from "./orders";
-import { L, S, corps, dateStr, docks, market, patLive, patents, projects, proposals, say, shipyards, systems, tickCache, voyages, worlds } from "./state";
+import { L, S, corps, dateStr, docks, freight, market, patLive, patents, projects, proposals, say, shipyards, systems, tickCache, voyages, worlds } from "./state";
 import { canTravel, fuelCost, needWith, routeSpeed, travelExtra } from "./travel";
 import { clamp } from "./util";
 import { addStock, firstStockSys, stockAt, totalStock } from "./world";
@@ -31,7 +31,8 @@ export function repriceMarket(): void {
     projects.forEach((pr) => { want += Math.max(0, (pr.need[f.key] || 0) - (pr.got[f.key] || 0)); });
     // купленное и уже едущее — не спрос, а поставка: без этой поправки цена
     // годами карабкалась к потолку, пока грузовики были в пути
-    voyages.forEach((v) => { if (v.kind === "parts" && v.k === f.key) want -= v.qty; });
+    voyages.forEach((v) => { lotsOf(v).forEach((l) => { if (l.k === f.key) want--; }); });
+    freight.forEach((l) => { if (l.k === f.key) want--; });   // купленное на погрузке — тоже поставка
     want = Math.max(0, want);
     m.last = m.price;
     m.price = clamp(m.price * clamp(1 + 0.05 * (want - stock) / (want + stock + 2), 0.95, 1.06),
@@ -301,9 +302,10 @@ function giveTo(buyer: Corp, dest: number, to: Consign, acct: FlyAcct, part: Par
 /** Рейс с деталью долетел: закрыть счёт летящего и выдать деталь тому, кому
  *  она куплена. Второй конец у покупки один, и он здесь. */
 export function landPart(v: Voyage): void {
-  const part: Part = { k:v.k, from:v.corp };
-  if (v.acct && v.acct.fly) v.acct.fly[part.k] = Math.max(0, (v.acct.fly[part.k] || 0) - 1);
-  giveTo(corps[v.forCorp], v.to as number, v.consign, v.acct, part);
+  lotsOf(v).forEach((l) => {
+    unflyLot(l);
+    giveTo(corps[l.owner], l.dest, l.consign, l.acct, { k:l.k, from:l.from });
+  });
 }
 
 // Покупка = договор о цене плюс ДОСТАВКА. Если деталь лежит в другой системе,
@@ -344,39 +346,11 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
   addStock(seller, sysFrom, k, -1); seller.cash += price; seller.sold++;
   S.treasury += full - price; S.trades++; S.turnover += full; buyer.bought++;
   if (sysFrom === dest) { giveTo(buyer, dest, to, acct, { k:k, from:seller.id }); return true; }
-  const undo = (): boolean => {
-    addStock(seller, sysFrom, k, 1); seller.cash -= price; S.treasury -= full - price;
-    S.trades--; S.turnover -= full;
-    return false;
-  };
-  // Грузовик — настоящий корабль, с корпусом, трюмом и ходовым двигателем, а
-  // под движками ещё и с прыжковым: берётся со стоянки продавца в системе
-  // погрузки, а нет — собирается из деталей, что лежат тут же. Раньше деталь
-  // летела между звёздами сама по себе, без корабля и без двигателя, и была
-  // единственным рейсом в игре, у которого нечем было определить скорость.
-  const extra = travelExtra(sysFrom, dest);
-  // платит за грузовик ПОКУПАТЕЛЬ: деталь нужна ему, и корабль остаётся его —
-  // встанет на стоянку у него дома и повезёт следующую покупку
-  const dk = takeDock(buyer, null, sysFrom, "cargo", needWith(vtype("cargo"), extra));
-  let shipParts: Part[] = dk ? dk.parts : null;
-  if (!shipParts) {
-    const at = seller.branches.map((b) => { return b.world; }).find((w) => { return w.sys === sysFrom; })
-            || worlds.find((w) => { return w.sys === sysFrom; });
-    const buy = at ? shipNeed(vtype("cargo"), bestEngineAt(sysFrom), extra) : null;
-    shipParts = buy ? corpBuyShip(buyer, at, buy) : null;
-  }
-  if (!shipParts) return undo();                                          // везти нечем
-  // грузовик заправляется там, где грузится: топливо покупается у отправителя
-  if (!takeFuel(buyer, sysFrom, "sfuel", true, fuelCost(sysFrom, dest))) {   // нечем везти
-    if (dk) docks.push(dk); else shipParts.forEach((p) => { addStock(buyer, sysFrom, p.k, 1); });
-    return undo();
-  }
-  if (acct) { if (!acct.fly) acct.fly = {}; acct.fly[k] = (acct.fly[k] || 0) + 1; }
-  voyages.push({ kind:"parts", sysFrom:sysFrom, to:dest, k:k, qty:1, corp:seller.id, parts:shipParts, shipOwner:buyer.id,
-                 color:corps[seller.id].color, forCorp:buyer.id, acct:acct, consign:to,
-                 t:0, dur:(140 + rnd() * 50) / routeSpeed(sysFrom, dest, seller.id, shipParts), born:dateStr(),
-                 captain:dk ? dk.captain : pickCaptain() });
-  S.hauled++;
+  // Деталь из другой системы ложится НА ПОГРУЗКУ и ждёт грузовик (freight.ts).
+  // Раньше грузовик находился или собирался прямо здесь, в тот же месяц: со
+  // стоянки — будто он уже у причала, а без неё — из деталей со складов, мимо
+  // верфи. И на каждую деталь свой рейс со своим баком.
+  addLot(buyer, k, seller.id, sysFrom, dest, to, acct);
   return true;
 }
 
@@ -390,8 +364,7 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
 // не заменяется никогда. Поэтому рейс, который не долетел, обязан пройти
 // ЧЕРЕЗ эту дверь, а не через voyages.splice напрямую.
 export function unfly(v: Voyage): void {
-  if (!v.acct || !v.acct.fly || !v.k) return;
-  v.acct.fly[v.k] = Math.max(0, (v.acct.fly[v.k] || 0) - 1);   // ровно то, что прибавили при покупке
+  lotsOf(v).forEach(unflyLot);                    // ровно то, что прибавили при покупке
 }
 
 export function trade(): void {

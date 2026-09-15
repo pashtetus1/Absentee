@@ -30,7 +30,7 @@ import { ENGKEYS } from "./data";
 import { rngAt, seedOf, setRng } from "./rng";
 import { seqOf, setSeq } from "./shipyard";
 import { DEVS, ensureDev } from "./tech";
-import { L, S, U, cam, clear, corps, docks, feed, fill, flash, gates, hits, market, patents, shipMarket,
+import { L, S, U, cam, clear, corps, docks, feed, fill, flash, gates, hits, market, patents, shipMarket, freight,
          projects, proposals, purses, resetTickCache, say, shipyards, staged, systems, voyages, worlds } from "./state";
 
 /** Где лежит партия. Рычаги хранятся отдельно и по-старому (levers.ts): они
@@ -183,13 +183,14 @@ function decode(text: string): Record<string, unknown> {
 // после перезапуска, например, пропали стоянки.
 const LISTS: Record<string, unknown[]> = {
   corps: corps, systems: systems, worlds: worlds, voyages: voyages, projects: projects,
-  docks: docks, shipyards: shipyards, proposals: proposals, staged: staged, feed: feed
+  docks: docks, shipyards: shipyards, proposals: proposals, staged: staged, feed: feed, freight: freight
 };
 const TABLES: Record<string, object> = { market: market, patents: patents, gates: gates, purses: purses, shipMarket: shipMarket };
-// Таблицы, которых в сохранениях старых сборок ещё нет. Их отсутствие — не
-// чужие правила, а партия, отложенная до появления таблицы: разворачивается с
-// пустой, и цены добираются по ходу, как в новой партии.
-const LATER = new Set(["shipMarket"]);
+// Таблицы и списки, которых в сохранениях старых сборок ещё нет. Их отсутствие —
+// не чужие правила, а партия, отложенная до их появления: разворачивается с
+// пустыми, и всё добирается по ходу, как в новой партии. Рейсы с деталью в
+// старом виде (одна деталь прямо на рейсе) долетают через lotsOf (freight.ts).
+const LATER = new Set(["shipMarket", "freight"]);
 
 /** Партия в виде строки: ровно то, что ложится в localStorage. */
 export function gameText(): string {
@@ -216,7 +217,7 @@ export function restore(text: string): void {
   need(g && typeof g === "object", "пустая запись");
   need(typeof g.seed === "number" && typeof g.at === "number" && typeof g.seq === "number", "нет генератора");
   need(g.S && g.L && g.view && g.cam && Array.isArray(g.devs), "неполная запись");
-  Object.keys(LISTS).forEach((k) => need(Array.isArray(g[k]), "нет списка " + k));
+  Object.keys(LISTS).forEach((k) => need((LATER.has(k) && g[k] === undefined) || Array.isArray(g[k]), "нет списка " + k));
   Object.keys(TABLES).forEach((k) => need((LATER.has(k) && g[k] === undefined) || (g[k] && typeof g[k] === "object"), "нет таблицы " + k));
   const gs = g.S as Record<string, unknown>, gl = g.L as Record<string, unknown>;
   need(gs.move && typeof (gs.move as { key: string }).key === "string", "нет способа перелёта");
@@ -229,7 +230,7 @@ export function restore(text: string): void {
   Object.keys(S).forEach((k) => { (S as Record<string, unknown>)[k] = gs[k]; });
   Object.keys(L).forEach((k) => { (L as Record<string, unknown>)[k] = gl[k]; });
 
-  Object.keys(LISTS).forEach((k) => { fill(LISTS[k], g[k] as unknown[]); });
+  Object.keys(LISTS).forEach((k) => { fill(LISTS[k], (g[k] || []) as unknown[]); });
   Object.keys(TABLES).forEach((k) => {
     const live = TABLES[k] as Record<string, unknown>, saved = (g[k] || {}) as Record<string, unknown>;
     clear(live);

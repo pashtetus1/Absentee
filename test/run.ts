@@ -17,7 +17,7 @@
 
 import { load } from "./harness.ts";
 
-import type { Corp, FlyAcct, Pop, Snapshot, Voyage, World } from "../src/types.ts";
+import type { Corp, FlyAcct, Lot, Pop, Snapshot, Voyage, World } from "../src/types.ts";
 
 // Тесты метят уже посчитанные рейсы, чтобы один и тот же не попал в счёт
 // дважды. Пометка нужна только здесь, поэтому и живёт здесь, а не в типах
@@ -683,7 +683,9 @@ test("грузовик с деталями долетает и отдаёт гр
     st.voyages.forEach((v) => {
       if (v.kind !== "parts") return;
       assert(v.t <= 1.001, "грузовик пролетел мимо: t=" + v.t.toFixed(2));
-      assert(!!v.consign && !!v.acct, "у грузовика нет получателя");
+      assert(!!v.lots && v.lots.length > 0, "грузовик летит пустым");
+      assert(v.lots.length <= 2, "в одном трюме " + v.lots.length + " деталей");
+      v.lots.forEach((l) => assert(!!l.consign && !!l.acct, "у детали в грузовике нет получателя"));
     });
   });
 });
@@ -1262,15 +1264,19 @@ test("к началу перелётов кто-то уже вне закона"
 test("покупатель не заказывает то, что уже летит", () => {
   const sim = load("dist/index.html", { seed: 3 });
   runYears(sim, 300, (st) => {
+    // В счёт идёт всё купленное и не доставленное: в трюме, в порожнем перегоне
+    // за ним и на погрузке. Счёт — заказ, подписка или предложение верфи: одна
+    // компания законно везёт одну и ту же деталь в одну систему по двум счетам.
+    const accts: FlyAcct[] = [];
     const per: Record<string, number> = {};
-    st.voyages.forEach((v) => {
-      if (v.kind !== "parts") return;
-      // счёт — заказ, подписка или предложение верфи: одна компания законно везёт
-      // одну и ту же деталь в одну систему по двум счетам сразу
-      const key = (v.acct ? "acct" + st.voyages.indexOf(v) + ":" : v.forCorp + "|") + v.k + "|" + v.to;
+    const count = (l: Lot): void => {
+      let i = accts.indexOf(l.acct); if (i < 0) { accts.push(l.acct); i = accts.length - 1; }
+      const key = i + "|" + l.k + "|" + l.dest;
       per[key] = (per[key] || 0) + 1;
-      assert(per[key] <= 3, "к " + st.corps[v.forCorp].name + " одновременно летит " + per[key] + " раз «" + v.k + "»");
-    });
+      assert(per[key] <= 3, "к " + st.corps[l.owner].name + " одновременно едет " + per[key] + " раз «" + l.k + "»");
+    };
+    st.voyages.forEach((v) => { (v.lots || (v.next && v.next.lots) || []).forEach(count); });
+    st.freight.forEach(count);
     assert(st.voyages.filter((v) => v.kind === "parts").length <= 40,
            "в воздухе " + st.voyages.filter((v) => v.kind === "parts").length + " грузовиков с деталями");
   });
@@ -1287,13 +1293,16 @@ test("перехваченная деталь не вешает счёт лет�
     const sim = load("dist/index.html", { seed });
     const st = runYears(sim, 300);
     // сколько на самом деле в воздухе по каждому счёту
+    // летящим считается и лежащее на погрузке, и едущее в порожнем перегоне за ним
     const air = new Map<FlyAcct, Record<string, number>>();
-    st.voyages.forEach((v) => {
-      if (v.kind !== "parts" || !v.acct) return;
-      const r = air.get(v.acct) || {};
-      r[v.k] = (r[v.k] || 0) + 1;
-      air.set(v.acct, r);
-    });
+    const add = (l: Lot): void => {
+      if (!l.acct) return;
+      const r = air.get(l.acct) || {};
+      r[l.k] = (r[l.k] || 0) + 1;
+      air.set(l.acct, r);
+    };
+    st.voyages.forEach((v) => { (v.lots || (v.next && v.next.lots) || []).forEach(add); });
+    st.freight.forEach(add);
     const check = (acct: FlyAcct, who: string): void => {
       if (!acct.fly) return;
       const r = air.get(acct) || {};

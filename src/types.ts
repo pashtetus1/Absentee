@@ -232,6 +232,10 @@ export interface FlyAcct { fly?: Record<string, number>; }
  *  это и есть тот самый заказ, подписка или предложение.
  */
 export type Consign = "stock" | "order" | "project" | "proposal";
+/** Купленная деталь на пути к покупателю: лежит на погрузке (freight) или уже
+ *  в трюме. Чья (owner), что (k), кем сделана (from), откуда (sys) и куда (dest),
+ *  кому достанется (consign) и в чей счёт летит (acct). at — месяц покупки. */
+export interface Lot { owner: number; k: string; from: number; sys: number; dest: number; consign: Consign; acct: FlyAcct; at: number; }
 
 /** Одна купленная деталь: что (k), у кого (from), почём. */
 export interface Part { k: string; from: number; price?: number; sys?: number; }
@@ -378,7 +382,10 @@ export interface Voyage {
   upgrade?: boolean;              // портальный идёт переделывать ворота, а не прокладывать маршрут
   /** Порожний перегон (kind "empty"): за чем корабль идёт. Груз уже оплачен и
    *  отложен у погрузки; по прилёте уходит рейсом этого вида (fleet.ts). */
-  next?: { kind: string; from: World; to: World; qty: number; relief?: number };
+  next?: { kind: string; from: World; to: any; qty: number; relief?: number; lots?: Lot[]; forCorp?: number };
+  /** Детали в трюме грузовика (kind "parts"). У рейсов из старых сохранений их
+   *  нет — там одна деталь в k, consign и acct (freight.ts, lotsOf). */
+  lots?: Lot[];
   dest?: Dest; vent?: Venture; body?: Planet;
   backers?: { corp: number; sum: number }[];
 }
@@ -439,6 +446,8 @@ export interface Snapshot {
   market: Record<string, MarketRow>; patents: Record<string, Patent>;
   /** Биржа кораблей: множитель к стоимости деталей по «система:тип». */
   shipMarket: Record<string, ShipRow>;
+  /** Купленные детали, которые ждут корабль на погрузке. */
+  freight: Lot[];
   voyages: Voyage[]; projects: Project[]; docks: Dock[];
   shipyards: Shipyard[]; proposals: Proposal[]; staged: Staged[];
   /** Казна каждого отделившегося государства; родная лежит в treasury. */

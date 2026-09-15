@@ -14,7 +14,7 @@
 //     эти поля не читает и не пишет.
 
 import { MONTHS } from "./data";
-import type { Chosen, Corp, Dock, Gate, Hit, MarketRow, ShipRow, Move, Patent, Planet, Project, Sys, TickCache, Voyage, World } from "./types";
+import type { Chosen, Corp, Dock, Gate, Hit, Lot, MarketRow, ShipRow, Move, Patent, Planet, Project, Sys, TickCache, Voyage, World } from "./types";
 
 import type { ApproveMode, Proposal, Shipyard } from "./types";
 
@@ -23,6 +23,7 @@ import type { Staged } from "./types";
 export const corps: Corp[] = [], systems: Sys[] = [], voyages: Voyage[] = [];
 export const worlds: World[] = [], projects: Project[] = [], docks: Dock[] = [];
 export const shipyards: Shipyard[] = [], proposals: Proposal[] = [];
+export const freight: Lot[] = [];               // купленные детали на погрузке, ждут корабль (freight.ts)
 export const staged: Staged[] = [];              // прыжковые у точки старта, ждут топлива
 export const feed: { d: string; t: string }[] = [];
 export const hits: Hit[] = [];                   // куда можно ткнуть на текущем кадре

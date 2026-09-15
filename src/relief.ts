@@ -5,6 +5,7 @@ import { corpBuyShip } from "./docks";
 import { bestOffer, buildCost, cargoTo, launch, takeOffer } from "./fleet";
 import { GIVE_OVER, dispatch, surplusWorld } from "./food";
 import { fuelBill, takeFuel, unfly } from "./market";
+import { lotsOf } from "./freight";
 import { rnd } from "./rng";
 import { onOrder, orderTransport } from "./shipyard";
 import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
@@ -187,7 +188,11 @@ export function piracy(): void {
           loot = "готовая платформа";
         }
       }
-      else { addStock(p, ps.id, v.k, v.qty); loot = compOf(v.k).short; }
+      else {
+        const lots = lotsOf(v);
+        lots.forEach((l) => { addStock(p, ps.id, l.k, 1); });
+        loot = lots.map((l) => compOf(l.k).short).join(", ");
+      }
       S.raids++;
       if (U.pick && U.pick.data === v) U.pick = null;
       say("<b>" + p.name + "</b> перехватила рейс командира " + v.captain + " у " + ps.name + ": взято " + loot + ".");

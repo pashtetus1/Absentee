@@ -139,11 +139,17 @@ export function vtype(k: string): VType{ for (let i=0;i<VTYPES.length;i++) if (V
 // и число на борту не значило ничего.
 export const POPS_PER_LIFE = 1;
 export const FOOD_PER_HOLD = 20;
+// Детали в трюм — до двух, и можно одну: заказу часто нужна ровно одна деталь
+// своего типа. Но выгоднее везти пару — горючее жжёт рейс, а не деталь
+// (freight.ts).
+export const PARTS_PER_HOLD = 2;
 function countOf(parts: Part[], k: string): number {
   return (parts || []).reduce((a, p) => a + (p.k === k ? 1 : 0), 0);
 }
 /** Сколько человечков везёт корабль с такими деталями. */
 export function seatsOf(parts: Part[]): number { return countOf(parts, "life") * POPS_PER_LIFE; }
+/** Сколько деталей влезает в корабль с такими деталями. */
+export function partsRoomOf(parts: Part[]): number { return countOf(parts, "hold") * PARTS_PER_HOLD; }
 /** Сколько еды везёт корабль с такими деталями. */
 export function holdOf(parts: Part[]): number { return countOf(parts, "hold") * FOOD_PER_HOLD; }
 /** Сколько везёт корабль этого типа, собранный по рецепту. */

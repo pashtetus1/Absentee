@@ -11,7 +11,7 @@ import { bindUI } from "./render/ui";
 import { build } from "./setup";
 import { seedOf } from "./rng";
 import { gameText, restore } from "./save";
-import { L, S, U, corps, docks, feed, gates, headless, market, shipMarket, patents, projects, proposals, purses, shipyards, staged, systems, voyages, worlds } from "./state";
+import { L, S, U, corps, docks, feed, gates, headless, market, shipMarket, freight, patents, projects, proposals, purses, shipyards, staged, systems, voyages, worlds } from "./state";
 import { ENGINES, speedOf } from "./tech";
 import { step } from "./tick";
 import { harvestOf, yieldPerFarmer } from "./labour";
@@ -33,7 +33,7 @@ export function setApproval(mode: ApproveMode): void { L.approve = mode; }
 
 export function state(): Snapshot {
   return { tick: S.tick, treasury: S.treasury, corps: corps, worlds: worlds, systems: systems,
-           move: S.move, gates: gates, market: market, shipMarket: shipMarket, patents: patents, voyages: voyages, projects: projects, shipyards: shipyards, proposals: proposals, staged: staged,
+           move: S.move, gates: gates, market: market, shipMarket: shipMarket, freight: freight, patents: patents, voyages: voyages, projects: projects, shipyards: shipyards, proposals: proposals, staged: staged,
            purses: purses, taxAway: S.taxAway,
            trades: S.trades, shipped: S.shipped, movedPops: S.movedPops, refusals: S.refusals, dropped: S.dropped,
            hauled: S.hauled, burned: S.burned, raids: S.raids, lost: S.lost, docks: docks, feed: feed };

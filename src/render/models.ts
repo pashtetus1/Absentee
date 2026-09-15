@@ -7,6 +7,7 @@
 import { vis } from "../clock";
 import { compOf } from "../data";
 import { dockValue } from "../docks";
+import { lotsOf } from "../freight";
 import { realmCharge, realmColor } from "../realm";
 import { corps, systems } from "../state";
 import { Build, Dock, Part, Ship, Shipyard, Sys, Voyage } from "../types";
@@ -129,7 +130,7 @@ export function voyageLines(v: Voyage): string[] {             // рейс ме�
     return [(v.kind === "gate" ? (v.upgrade ? "Портальный, переделка · " : "Портальный · ") : "Прыжковый · ") + corps[v.corp].name,
             "→ " + systems[v.to].name + " · " + eta(v.t, v.dur)];
   if (v.kind === "parts")
-    return ["Грузовик · " + compOf(v.k).name.toLowerCase() + " для " + corps[v.forCorp].name,
+    return ["Грузовик · " + lotsOf(v).map((l) => compOf(l.k).short).join(", ") + " для " + corps[v.forCorp].name,
             systems[v.sysFrom].name + " → " + systems[v.to].name + " · " + eta(v.t, v.dur)];
   if (v.kind === "food")
     return ["Хлебовоз · " + v.qty + " еды" + (v.relief !== undefined ? " · помощь от " + corps[v.relief].name : ""),
@@ -144,6 +145,9 @@ export function voyageLines(v: Voyage): string[] {             // рейс ме�
   if (v.kind === "pops")
     return ["Переселенцы · " + popsWord(v.qty), v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
   // Порожний перегон к погрузке: за чем идёт и кому потом повезёт.
+  if (v.kind === "empty" && v.next && v.next.kind === "parts")
+    return ["Грузовик · порожним за деталями (" + v.next.qty + ") для " + corps[v.next.forCorp].name,
+            v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
   if (v.kind === "empty" && v.next)
     return [(v.next.kind === "pops" ? "Переселенческий" : "Хлебовоз") + " · порожним за " +
             (v.next.kind === "pops" ? popsWord(v.next.qty) : v.next.qty + " еды") + " для " + v.next.to.body.name,
@@ -325,7 +329,7 @@ export function windowLines(o: Ship | Voyage, isVoyage: boolean): string[] {
   const head = isVoyage ? voyageLines(v) : shipLines(sh);
   const owner = isVoyage ? (v.forCorp !== undefined ? v.forCorp : v.corp) : sh.corp;
   let lines = head.concat(["командир " + o.captain]);
-  if (isVoyage && v.kind === "parts") lines.push("везёт: " + compOf(v.k).short + " — " + corps[v.corp].name);
+  if (isVoyage && v.kind === "parts") lines.push("везёт: " + lotsOf(v).map((l) => compOf(l.k).short + " — " + corps[l.from].name).join("; "));
   const mk = makersOfParts(o.parts, owner);
   if (mk.length) lines = lines.concat(["из чего собран:"]).concat(mk);
   return lines;

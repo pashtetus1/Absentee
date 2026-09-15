@@ -9,6 +9,7 @@
 
 import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype, btype } from "../data";
 import { dockValue, partsValue, shipFactor } from "../docks";
+import { lotsOf } from "../freight";
 import { galaxyRange, within } from "../galaxy";
 import { cutOf, buyPrice, harvestOf } from "../labour";
 import { HOME, isRealm, manyRealms, realmName, realmOf, treasuryOf } from "../realm";
@@ -154,14 +155,15 @@ export function inspector(): void {
     return;
   }
   if (U.pick.kind === "cargo" && d.kind === "parts") {
-    const fc = compOf(d.k), buyer = corps[d.forCorp], sellerC = corps[d.corp];
+    const lots = lotsOf(d), buyer = corps[d.forCorp];
     box.innerHTML = '<div class="card"><h3>Грузовик с деталями</h3>' +
-      '<div class="sub">везёт ' + fc.name.toLowerCase() + ' из ' + systems[d.sysFrom].name + ' в ' +
+      '<div class="sub">везёт ' + lots.length + ' дет. из ' + systems[d.sysFrom].name + ' в ' +
       systems[d.to].name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
-      '<div class="part"><i class="dot" style="background:' + sellerC.color + '"></i><span class="pn">продал</span><span class="pw">' + sellerC.name + '</span></div>' +
+      lots.map((l) => '<div class="part"><i class="dot" style="background:' + corps[l.from].color + '"></i><span class="pn">' +
+        compOf(l.k).name.toLowerCase() + '</span><span class="pw">продал ' + corps[l.from].name + '</span></div>').join("") +
       '<div class="part"><i class="dot" style="background:' + buyer.color + '"></i><span class="pn">купил и везёт</span><span class="pw">' + buyer.name + '</span></div>' +
       '<div class="sub" style="margin:6px 0 0">Рейс сжёг межзвёздного топлива: ' +
-      fuelCost(d.sysFrom, d.to) + '.</div>' +
+      fuelCost(d.sysFrom, d.to) + (lots.length > 1 ? ' — одно на ' + lots.length + ' детали.' : '.') + '</div>' +
       '<div class="sub" style="margin:7px 0 2px">Грузовик собран из:</div>' + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
@@ -180,11 +182,12 @@ export function inspector(): void {
     return;
   }
   if (U.pick.kind === "cargo" && d.kind === "empty" && d.next) {
-    const n = d.next;
+    const n = d.next, parts = n.kind === "parts";
     box.innerHTML = '<div class="card"><h3>' + (n.kind === "pops" ? "Переселенческий" : "Грузовик") + ' · порожний перегон</h3>' +
       '<div class="sub">идёт с ' + d.from.body.name + ' на ' + d.to.body.name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
-      '<div class="sub" style="margin:0 0 4px">Там примет ' + (n.kind === "pops" ? popsWord(n.qty) : n.qty + " еды") +
-      ' — уже оплачено и ждёт — и повезёт на ' + n.to.body.name + '.</div>' +
+      '<div class="sub" style="margin:0 0 4px">Там примет ' +
+      (parts ? n.qty + " дет. для " + corps[n.forCorp].name : n.kind === "pops" ? popsWord(n.qty) : n.qty + " еды") +
+      ' — уже оплачено и ждёт — и повезёт ' + (parts ? 'в ' + systems[n.to].name : 'на ' + n.to.body.name) + '.</div>' +
       engLine(d.parts) + partsList(d.parts, -1) + '</div>';
     return;
   }

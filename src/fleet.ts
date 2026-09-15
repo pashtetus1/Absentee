@@ -22,6 +22,7 @@
 import { engMult, vtype } from "./data";
 import { dockValue, fits, wantShip } from "./docks";
 import { dispatch } from "./food";
+import { sendParts } from "./freight";
 import { fuelBill, govFuel, takeFuel } from "./market";
 import { nearestYard, orderWait, slotPrice, yardWait } from "./shipyard";
 import { L, corps, docks, market, say, voyages } from "./state";
@@ -133,6 +134,11 @@ export function launch(d: Dock, kind: string, from: World, to: World, qty: numbe
 /** Порожний перегон дошёл до погрузки: берёт груз и уходит к получателю. */
 export function loadUp(v: Voyage): void {
   const n = v.next;
+  if (n.kind === "parts") {
+    sendParts(n.lots, v.parts, v.captain);
+    say("Командир " + v.captain + " принял " + n.lots.length + " дет. в " + n.from.body.name + " для " + corps[n.forCorp].name + ".");
+    return;
+  }
   const nv = dispatch(n.from, n.to, n.kind, n.qty, v.parts);
   nv.captain = v.captain;
   if (n.relief !== undefined) nv.relief = n.relief;
