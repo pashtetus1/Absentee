@@ -143,6 +143,11 @@ export function voyageLines(v: Voyage): string[] {             // рейс ме�
             systems[v.sysFrom].name + " → " + systems[v.to].name + " · " + eta(v.t, v.dur)];
   if (v.kind === "pops")
     return ["Переселенцы · " + popsWord(v.qty), v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
+  // Порожний перегон к погрузке: за чем идёт и кому потом повезёт.
+  if (v.kind === "empty" && v.next)
+    return [(v.next.kind === "pops" ? "Переселенческий" : "Хлебовоз") + " · порожним за " +
+            (v.next.kind === "pops" ? popsWord(v.next.qty) : v.next.qty + " еды") + " для " + v.next.to.body.name,
+            v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
   return ["Рейс · " + v.kind, eta(v.t, v.dur)];     // незнакомый вид рейса подписывается, а не роняет кадр
 }
 // Без клика — только имя командира, мелко и тускло. Полное окно с деталями

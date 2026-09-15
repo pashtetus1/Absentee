@@ -376,6 +376,9 @@ export interface Voyage {
   cargo?: string;                 // что за груз у платформы или модуля
   jumpTo?: number;                // паром везёт прыжковый к точке старта: куда прыгать оттуда
   upgrade?: boolean;              // портальный идёт переделывать ворота, а не прокладывать маршрут
+  /** Порожний перегон (kind "empty"): за чем корабль идёт. Груз уже оплачен и
+   *  отложен у погрузки; по прилёте уходит рейсом этого вида (fleet.ts). */
+  next?: { kind: string; from: World; to: World; qty: number; relief?: number };
   dest?: Dest; vent?: Venture; body?: Planet;
   backers?: { corp: number; sum: number }[];
 }

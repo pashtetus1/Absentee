@@ -17,7 +17,7 @@
 // просить" лежит пустая полоса, в которой мир не делает ничего.
 
 import { engMult, holdOf, holdOfType, pickCaptain, shipNeed, vtype } from "./data";
-import { takeDock } from "./docks";
+import { bestOffer, buildCost, cargoOf, cargoTo, launch, takeOffer } from "./fleet";
 import { harvestOf } from "./labour";
 import { askPrice, fuelBill, govFuel, govFuelAvail } from "./market";
 import { HOME, payTreasury, realmOf, treasuryOf } from "./realm";
@@ -139,7 +139,8 @@ export function foodRun(): void {
     // дефиците и тут же просил у него же. Отсюда и брались встречные хлебовозы.
     const total = popOf(w), grown = harvestOf(w), deficit = total - grown;
     if (deficit <= 0.05) return;
-    const incoming = voyages.reduce((a, v) => { return a + (v.kind === "food" && v.to === w ? v.qty : 0); }, 0);
+    // в пути считается и корабль, который пока идёт за едой порожним: она уже куплена
+    const incoming = cargoTo("food", w).reduce((a, v) => a + cargoOf(v).qty, 0);
     // порог и партия под долгие рейсы: хлебовоз идёт годами, и заказывать
     // надо задолго до того, как склад опустеет
     if (w.food.stock + incoming > reserveOf(w) * ASK_UNDER) return;
@@ -160,9 +161,14 @@ export function foodRun(): void {
     topUp(w, price + fuelBill(fk, tanks) + 10);            // казна своего государства, если она есть
     if (w.gov.cash < price + 10) return;
     if (!govFuelAvail(w, src, fk, tanks)) return;          // без горючего хлебовоз не полетит
-    // сперва корабль со стоянки у поставщика, и только потом покупка нового
-    const dk = takeDock(null, w, src.sys, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
-    if (!dk) {
+    // Корабль — с биржи (из этой системы или из чужой: тогда он сперва идёт к
+    // поставщику порожним) или новый с верфи, смотря что выйдет дешевле вместе
+    // с ожиданием (fleet.ts). Хлебовоз за место в очереди не платит.
+    const payer = { world: w, corp: null as Corp };
+    const offer = bestOffer(payer, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)), src);
+    const recipe = shipNeed(vtype("cargo"), bestEngineAt(src.sys), travelExtra(src.sys, w.sys));
+    const build = recipe ? buildCost(payer, "cargo", recipe, src.sys, src, realmOf(w), false) : null;
+    if (!offer || (build !== null && build < offer.cost)) {
       // Готового нет — заказываем на верфи и ждём. Заказ висит, пока корабль не
       // сойдёт со стапеля: без этого голодная планета заказывала бы каждые
       // полгода, и верфь забивалась хлебовозами, которых никто не дождётся.
@@ -175,27 +181,26 @@ export function foodRun(): void {
       }
       return;
     }
-    const parts = dk.parts;
-    // Корабль со стоянки бывает чужим, и тогда его УЖЕ оплатили — между первой
-    // проверкой кассы и оплатой еды она успела похудеть. Поэтому считаем заново
-    // и разом: еда плюс заправка. Не хватило — корабль возвращается на стоянку,
-    // а мир ждёт следующего месяца. Пока этой проверки не было, касса мира
-    // уходила в минус, а на неотрицательность её кассы опирается весь код
-    // покупок. Везёт корабль по СВОИМ трюмам, а не по рецепту: со стоянки может
-    // прийти и двухтрюмный, и тогда заново проверяются и касса, и излишек.
-    const load = holdOf(parts), cost = load * src.food.price;
-    if (load <= 0 || src.food.stock - reserveOf(src) * GIVE_OVER < load ||
-        w.gov.cash < cost + fuelBill(fk, tanks) + 10) { docks.push(dk); return; }
+    const dk = offer.dock;
+    // Всё считается ДО того, как корабль взят: и корабль, и перегон, и еда, и
+    // заправка — разом. Пока проверка стояла после, касса мира уходила в минус,
+    // а на неотрицательность её кассы опирается весь код покупок. Везёт корабль
+    // по СВОИМ трюмам, а не по рецепту: со стоянки может прийти и двухтрюмный.
+    const load = holdOf(dk.parts), cost = load * src.food.price;
+    if (load <= 0 || src.food.stock - reserveOf(src) * GIVE_OVER < load) return;
+    const bill = cost + offer.price + offer.fuel + fuelBill(fk, tanks);
+    topUp(w, bill + 10);
+    if (w.gov.cash < bill + 10 || !takeOffer(payer, offer, src)) return;
     govFuel(w, src, fk, tanks);
     w.gov.cash -= cost; src.gov.cash += cost; src.food.stock -= load;
     // вывоз дорожит еду у поставщика: фермеру платят больше, в поле идут
     // люди, излишек растёт — так экспорт сам себя кормит
     src.food.price = Math.min(6, src.food.price * 1.04);
-    const vf = dispatch(src, w, "food", load, parts);
-    if (dk) vf.captain = dk.captain;                     // тот же корабль, тот же командир
+    launch(dk, "food", src, w, load);                     // тот же корабль, тот же командир
     S.shipped += load;
     say("Правительство " + w.body.name + " закупило " + load + " еды на " + src.body.name +
-        (dk ? " — на корабле со стоянки." : "."));
+        (dk.world === src ? " — на корабле со стоянки."
+                            : " — корабль со стоянки у " + dk.world.body.name + " идёт за ней порожним."));
   });
 }
 

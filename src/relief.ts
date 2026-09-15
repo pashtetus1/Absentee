@@ -1,16 +1,18 @@
 
 import { PIRATES, pirateName } from "./colony";
 import { compOf, holdOf, holdOfType, shipNeed, vtype } from "./data";
-import { corpBuyShip, takeDock } from "./docks";
+import { corpBuyShip } from "./docks";
+import { bestOffer, buildCost, cargoTo, launch, takeOffer } from "./fleet";
 import { GIVE_OVER, dispatch, surplusWorld } from "./food";
-import { takeFuel, unfly } from "./market";
+import { fuelBill, takeFuel, unfly } from "./market";
 import { rnd } from "./rng";
 import { onOrder, orderTransport } from "./shipyard";
 import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
 import { bestEngineAt } from "./tech";
 import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
 import { clamp, popsWord } from "./util";
-import { addStock, popOf, reserveOf } from "./world";
+import { addStock, popOf, reserveOf, stockAt } from "./world";
+import { realmOfCorp } from "./realm";
 import type { Corp, Pop, Rock, World } from "./types";
 
 export function corpRelief(): void {
@@ -19,7 +21,7 @@ export function corpRelief(): void {
     const total = popOf(w);
     if (w.food.short < 2 && w.food.stock > total * 4) return;         // не голодает
     if (w.reliefAt && S.tick - w.reliefAt < 24) return;
-    if (voyages.some((v) => { return v.kind === "food" && v.to === w; })) return;
+    if (cargoTo("food", w).length) return;                               // еда уже в пути или корабль идёт за ней
     // кто тут стоит и при деньгах: тот и платит
     let payer: Corp = null;
     w.branches.forEach((b) => { const c = corps[b.corp]; if (c.cash > 260 && (!payer || c.cash > payer.cash)) payer = c; });
@@ -32,10 +34,16 @@ export function corpRelief(): void {
     if (!pickSrc) return;
     const src = pickSrc.w;
     if (!canTravel(src.sys, w.sys)) return;
-    const price = qty * src.food.price, fk = src.sys === w.sys ? "fuel" : "sfuel";
+    const price = qty * src.food.price, fk = src.sys === w.sys ? "fuel" : "sfuel", tanks = fuelCost(src.sys, w.sys);
     if (payer.cash < price + 60) return;
-    const dk = takeDock(payer, null, src.sys, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)));
-    if (!dk) {
+    // Корабль выбирается так же, как у правительства (fleet.ts): биржа — здесь
+    // или за звёздами с порожним перегоном — или верфь. Частный хлебовоз — тоже
+    // хлебовоз, за место в очереди не платит.
+    const pay = { world: null as World, corp: payer };
+    const offer = bestOffer(pay, "cargo", needWith(vtype("cargo"), travelExtra(src.sys, w.sys)), src);
+    const recipe = shipNeed(vtype("cargo"), bestEngineAt(src.sys), travelExtra(src.sys, w.sys));
+    const build = recipe ? buildCost(pay, "cargo", recipe, src.sys, src, realmOfCorp(payer), false) : null;
+    if (!offer || (build !== null && build < offer.cost)) {
       if (!onOrder("cargo", null, payer)) {
         const buy = shipNeed(vtype("cargo"), bestEngineAt(src.sys), travelExtra(src.sys, w.sys));
         const bought = buy && corpBuyShip(payer, src, buy);
@@ -43,21 +51,21 @@ export function corpRelief(): void {
       }
       return;
     }
-    const parts = dk.parts;
-    // Та же дыра, что и у правительства: чужой корабль со стоянки уже оплачен,
-    // и на еду денег может не остаться. Проверяем по тому, что в кассе сейчас,
-    // и по трюмам самого корабля, а не рецепта.
-    const load = holdOf(parts), cost = load * src.food.price;
-    if (load <= 0 || src.food.stock - reserveOf(src) * GIVE_OVER < load || payer.cash < cost + 60) { docks.push(dk); return; }
-    if (!takeFuel(payer, src.sys, fk, true, fuelCost(src.sys, w.sys))) {   // нет горючего — вернуть детали
-      if (dk) docks.push(dk); else parts.forEach((p) => { addStock(corps[p.from], src.sys, p.k, 1); });
-      return;
-    }
+    const dk = offer.dock;
+    // Всё проверяется ДО того, как корабль взят: трюмы самого корабля, излишек у
+    // поставщика, горючее на рейс с грузом и касса на всё сразу. Иначе корабль
+    // был бы уже куплен, а рейс не вышел бы.
+    const load = holdOf(dk.parts), cost = load * src.food.price;
+    if (load <= 0 || src.food.stock - reserveOf(src) * GIVE_OVER < load) return;
+    if (!corps.some((s) => stockAt(s, src.sys, fk) > 0)) return;          // нет горючего на рейс
+    if (payer.cash < cost + offer.price + offer.fuel + fuelBill(fk, tanks) + 60) return;
+    if (!takeOffer(pay, offer, src)) return;
+    // корабль уже куплен — не вышел рейс, он остаётся на стоянке, но уже её
+    if (!takeFuel(payer, src.sys, fk, true, tanks)) { dk.corp = payer.id; dk.gov = null; docks.push(dk); return; }
     payer.cash -= cost; src.gov.cash += cost; src.food.stock -= load;
     src.food.price = Math.min(6, src.food.price * 1.04);
-    const v = dispatch(src, w, "food", load, parts);
-    if (dk) v.captain = dk.captain;
-    v.relief = payer.id; w.reliefAt = S.tick; S.shipped += load;
+    launch(dk, "food", src, w, load, payer.id);
+    w.reliefAt = S.tick; S.shipped += load;
     say("<b>" + payer.name + "</b> шлёт " + load + " еды на голодающий " + w.body.name + " — там её филиал.");
   });
 }
@@ -149,6 +157,8 @@ export function piracy(): void {
       const v = voyages[i];
       // прыжковый не перехватить — ни в прыжке, ни на перегоне к точке старта
       if (v.kind === "jump" || v.kind === "gate" || v.kind === "reloc") continue;
+      // порожний перегон брать незачем: груз ещё лежит у погрузки
+      if (v.kind === "empty") continue;
       const owner = v.kind === "parts" ? v.forCorp
                 : v.kind === "ferry" ? v.corp
                 : (v.relief !== undefined ? v.relief : -1);

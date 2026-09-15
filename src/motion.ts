@@ -11,6 +11,7 @@
 // (markSpeedOf), и она же решает, добьёт ли корабль до цели.
 
 import { POPS_PER_LIFE, engMult, pickCaptain, seatsOf } from "./data";
+import { loadUp } from "./fleet";
 import { dockShip } from "./docks";
 import { markLevelOf, markSpeedOf } from "./galaxy";
 import { partMark } from "./data";
@@ -237,6 +238,7 @@ export function arriveVoyage(v: Voyage): void {
     }
     return;
   }
+  if (v.kind === "empty") { loadUp(v); return; }   // дошёл до погрузки — дальше с грузом (fleet.ts)
   if (v.kind === "parts") { landPart(v); dockShip(v); return; }
   if (v.kind === "food") { v.to.food.stock += v.qty; dockShip(v); return; }
   if (v.kind === "pops") {

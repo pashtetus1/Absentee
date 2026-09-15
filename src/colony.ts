@@ -177,8 +177,11 @@ export function abandon(): void {
     // высыпалась бы на пустую планету, переселенцы приехали бы в никуда. Через
     // unfly, а не через voyages.splice напрямую: иначе покупатель будет вечно
     // ждать груз, который уже не летит (market.ts).
+    // Порожний перегон, посланный за грузом СЮДА, — такой же рейс сюда: груз
+    // уже оплачен и отложен у погрузки, и везти его теперь некому.
     for (let v = voyages.length - 1; v >= 0; v--) {
-      if (voyages[v].to !== w) continue;
+      const nx = voyages[v].next;
+      if (voyages[v].to !== w && !(nx && nx.to === w)) continue;
       if (U.pick && U.pick.data === voyages[v]) U.pick = null;
       unfly(voyages[v]); voyages.splice(v, 1);
     }

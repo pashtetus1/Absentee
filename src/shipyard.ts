@@ -184,6 +184,37 @@ export function orderTransport(kind: string, parts: Part[], sys: number,
   return true;
 }
 
+// ---- сколько ждать ------------------------------------------------------------
+// Оценка для выбора «купить на бирже или построить» (fleet.ts). Руки берутся
+// прошлого месяца; у верфи без работы их ноль, хотя появись заказ — она наймёт,
+// поэтому для пустой берётся половина того, что она попросила бы.
+export const WAIT_CAP = 600;
+
+function handsOf(y: Shipyard): number {
+  if (y.crew > 0.05) return y.crew;
+  const p = y.world.pop.prod;
+  const want = y.scrap ? Math.min(SCRAP_MAX, Math.max(SCRAP_MIN, p * SCRAP_SHARE))
+                       : Math.min(YARD_MAX, Math.max(YARD_MIN, p * YARD_SHARE));
+  return Math.max(0.05, want * 0.5);
+}
+/** Через сколько месяцев сойдёт со стапеля сборка такого типа, встань она сейчас. */
+export function yardWait(y: Shipyard, vt: VType): number {
+  const ahead = y.queue.reduce((a, b) => a + Math.max(0, b.left), 0);
+  return Math.min(WAIT_CAP, (ahead + vt.build * YARD_WORK) / handsOf(y));
+}
+/** Сколько ещё ждать уже заказанный транспорт этого заказчика; null — не заказан. */
+export function orderWait(kind: string, forWorld: World | null, forCorp: Corp | null): { yard: Shipyard; months: number } | null {
+  for (const y of shipyards) {
+    let acc = 0;
+    for (const b of y.queue) {
+      acc += Math.max(0, b.left);
+      if (b.vt.key === kind && (forCorp ? b.forCorp === forCorp.id : b.forWorld === forWorld && b.forCorp === undefined))
+        return { yard: y, months: Math.min(WAIT_CAP, acc / handsOf(y)) };
+    }
+  }
+  return null;
+}
+
 /** Уже стоит ли в чьей-нибудь очереди такой транспорт для этого заказчика.
  *
  *  Счётчик на планете (w.ordered) этого не ловил: частная помощь заказывает от

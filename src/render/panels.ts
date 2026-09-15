@@ -179,6 +179,15 @@ export function inspector(): void {
       engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
+  if (U.pick.kind === "cargo" && d.kind === "empty" && d.next) {
+    const n = d.next;
+    box.innerHTML = '<div class="card"><h3>' + (n.kind === "pops" ? "Переселенческий" : "Грузовик") + ' · порожний перегон</h3>' +
+      '<div class="sub">идёт с ' + d.from.body.name + ' на ' + d.to.body.name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
+      '<div class="sub" style="margin:0 0 4px">Там примет ' + (n.kind === "pops" ? popsWord(n.qty) : n.qty + " еды") +
+      ' — уже оплачено и ждёт — и повезёт на ' + n.to.body.name + '.</div>' +
+      engLine(d.parts) + partsList(d.parts, -1) + '</div>';
+    return;
+  }
   if (U.pick.kind === "cargo" && (d.kind === "food" || d.kind === "pops")) {
     box.innerHTML = '<div class="card"><h3>' + (d.kind === "food" ? "Грузовик" : "Переселенческий") + '</h3>' +
       '<div class="sub">везёт ' + (d.kind === "food" ? d.qty + " еды" : popsWord(d.qty)) +

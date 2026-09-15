@@ -1492,7 +1492,7 @@ test("в частной верфи не остаётся чужих сборок
 // Список видов держим здесь: появился новый — сначала научи ему voyageLines и
 // inspector, потом впиши сюда.
 test("видов рейсов ровно столько, сколько знает панель", () => {
-  const known = ["jump", "gate", "parts", "food", "pops", "ferry", "reloc"];
+  const known = ["jump", "gate", "parts", "food", "pops", "ferry", "reloc", "empty"];
   const seen = new Set<string>();
   for (const seed of [3, 8, 59]) {
     const sim = load("dist/index.html", { seed });

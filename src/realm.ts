@@ -37,6 +37,8 @@ export function realmOf(w: World): number { return w.free ? w.founder : HOME; }
  *  переселенческий идут от правительства мира-получателя, кроме частной
  *  помощи — та под флагом того, кто платит. */
 export function realmOfVoyage(v: Voyage): number {
+  // порожний перегон идёт под флагом того, за чьим грузом он послан
+  if (v.kind === "empty" && v.next) return realmOfVoyage(v.next as Voyage);
   if (v.kind === "food" || v.kind === "pops")
     return v.relief !== undefined ? realmOfCorp(corps[v.relief]) : realmOf(v.to as World);
   const id = v.forCorp !== undefined ? v.forCorp : v.corp;

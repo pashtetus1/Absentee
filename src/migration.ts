@@ -1,15 +1,16 @@
 
 import { seatsOf, seatsOfType, shipNeed, vtype } from "./data";
-import { takeDock } from "./docks";
+import { bestOffer, buildCost, cargoTo, launch, takeOffer } from "./fleet";
 import { dispatch, govBuyShip } from "./food";
-import { govFuel, govFuelAvail } from "./market";
+import { fuelBill, govFuel, govFuelAvail } from "./market";
+import { realmOf } from "./realm";
 import { onOrder, orderTransport } from "./shipyard";
 import { S, docks, say, voyages, worlds } from "./state";
 import { bestEngineAt } from "./tech";
 import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
 import { popsWord } from "./util";
 import { popOf } from "./world";
-import type { World } from "./types";
+import type { Corp, World } from "./types";
 
 // Из голодного мира уезжают только БЕЗРАБОТНЫЕ, и ни из какого — больше трети
 // мира за раз. Раньше недостача добиралась из поля всегда: 97% отъездов из
@@ -35,7 +36,7 @@ export function migrationRun(): void {
   const seats = seatsOfType(vtype("liner"));
   worlds.forEach((w) => {
     if (w.wantIn < seats || w.gov.cash < 90) return;
-    if (voyages.some((v) => { return v.kind === "pops" && v.to === w; })) return;
+    if (cargoTo("pops", w).length) return;          // уже летят или корабль идёт за ними
     let src: World = null, bs = 0;
     worlds.forEach((o) => {
       const can = leavers(o);
@@ -48,8 +49,14 @@ export function migrationRun(): void {
     // переселенческий строит и заправляет ПРИНИМАЮЩИЙ мир: у голодной колонии цехов нет
     const tanks2 = fuelCost(src.sys, w.sys);
     if (!govFuelAvail(w, w, fk2, tanks2)) return;
-    const dkl = takeDock(null, w, w.sys, "liner", needWith(vtype("liner"), travelExtra(src.sys, w.sys)));
-    if (!dkl) {
+    // Корабль нужен там, где садятся люди, — у src. Берётся с биржи (оттуда же
+    // или из-за звёзд с порожним перегоном) или строится у принимающего мира,
+    // что дешевле вместе с ожиданием (fleet.ts). За место в очереди не платит.
+    const payer = { world: w, corp: null as Corp };
+    const offer = bestOffer(payer, "liner", needWith(vtype("liner"), travelExtra(src.sys, w.sys)), src);
+    const recipe = shipNeed(vtype("liner"), bestEngineAt(w.sys), travelExtra(src.sys, w.sys));
+    const build = recipe ? buildCost(payer, "liner", recipe, w.sys, src, realmOf(w), false) : null;
+    if (!offer || (build !== null && build < offer.cost)) {
       if (!onOrder("liner", w, null)) {
         const buy = shipNeed(vtype("liner"), bestEngineAt(w.sys), travelExtra(src.sys, w.sys));
         const bought = buy && govBuyShip(w, w, buy);
@@ -57,18 +64,18 @@ export function migrationRun(): void {
       }
       return;
     }
-    const parts = dkl.parts;
+    const dkl = offer.dock;
     // Мест у корабля со стоянки может оказаться больше рецепта — тогда и людей
-    // нужно больше; не набирается полный — корабль ждёт на стоянке.
-    const qty = seatsOf(parts);
-    if (qty <= 0 || leavers(src) < qty || w.wantIn < qty) { docks.push(dkl); return; }
+    // нужно больше; не набирается полный — корабль остаётся на стоянке.
+    const qty = seatsOf(dkl.parts);
+    if (qty <= 0 || leavers(src) < qty || w.wantIn < qty) return;
+    if (w.gov.cash < offer.price + offer.fuel + fuelBill(fk2, tanks2) + 10 || !takeOffer(payer, offer, src)) return;
     govFuel(w, w, fk2, tanks2);
     const takeFree = Math.min(src.pop.free, qty);
     src.pop.free -= takeFree;
     src.pop.farm = Math.max(0, src.pop.farm - (qty - takeFree));
     src.wantOut -= qty;
-    const vp = dispatch(src, w, "pops", qty, parts);
-    if (dkl) vp.captain = dkl.captain;
+    launch(dkl, "pops", src, w, qty);             // люди уже на погрузке и ждут корабль
     S.movedPops += qty;
     say("С " + src.body.name + " на " + w.body.name + " уходят переселенцы: " + popsWord(qty) + ".");
   });
