@@ -1,7 +1,8 @@
 // ===================== заказы, консорциумы, филиалы =====================
 
 import { knowsSys, sayAt, seenByState } from "./charts";
-import { armFam, bestArmMade, bestScopeMade, scopeMark, shipNeed, sightOfKey, vtype, MARKSPEED } from "./data";
+import { shipHp } from "./arms";
+import { armFam, bestArmMade, ownScope, ownSight, scopeMark, shipNeed, sightOfKey, vtype, MARKSPEED } from "./data";
 import { galaxyRange, rangeOf, within, markLevelOf } from "./galaxy";
 import { rnd } from "./rng";
 import { YARD_WORK, nearestYard, paySlot, slotPrice, yardAt } from "./shipyard";
@@ -91,9 +92,8 @@ export function expandTarget(c: Corp): { from: number; to: number; upgrade?: boo
 // него не хуже нынешнего. Осилила контора следующую ступень — ставит второй,
 // рядом со своим же: он видит дальше, и смотреть ему есть куда.
 export function satTarget(c: Corp): { dst: number; opens: number } | null {
-  const sk = bestScopeMade();
-  if (!sk) return null;                          // телескопов не делает никто
-  const sight = sightOfKey(sk);
+  const sight = ownSight(c);
+  if (!sight) return null;                       // своих телескопов не делает — и спутника не будет
   let out: { dst: number; opens: number } = null, top = 0;
   systems.forEach((s) => {
     if (!knowsSys(c, s.id) || !reachable(s.id)) return;
@@ -106,21 +106,34 @@ export function satTarget(c: Corp): { dst: number; opens: number } | null {
   return out;
 }
 
-/** Ставить ли на спутник оружие, и тогда что дописать к набору.
+/** Что контора кладёт в свой спутник СВЕРХ корпуса и ходового: телескоп и,
+ *  если решит, оружие. null — телескопа своего нет, и спутника не будет.
+ *
+ *  ОБЕ ДЕТАЛИ СВОИ. Не лучшие в галактике, а лучшие, какие умеет сама контора:
+ *  спутник — её глаза, и видит он ровно настолько, насколько она дошла своей
+ *  наукой. Отсюда и весь торг картами: не осилил телескоп — покупай карту у
+ *  того, кто осилил.
  *
  *  Оружие берётся ТО ЖЕ, что у военных кораблей, — энергетическое (семейство
  *  beam, arms.ts): своего «спутникового лазера» в игре нет и не должно быть,
- *  два лучемёта на одну идею были бы дублем. Ставят лучшую ступень, какую в
- *  галактике умеют делать.
- *
- *  Берут его не все и не всегда: место в корпусе оно занимает, и корпус под
- *  него нужен следующей ступени. Смелая контора вооружает спутник, как только
- *  оружие вообще появилось; остальные — когда по галактике пошёл разбой. */
-export function satArms(c: Corp): Record<string, number> | null {
+ *  два лучемёта на одну идею были бы дублем. Вооружают не все и не всегда:
+ *  место в корпусе оно занимает, и корпус под него нужен следующей ступени.
+ *  Смелая контора вооружает спутник, как только научилась делать оружие,
+ *  остальные — когда по галактике пошёл разбой. */
+export function satKit(c: Corp): Record<string, number> | null {
+  const sc = ownScope(c);
+  if (!sc) return null;
+  const kit: Record<string, number> = {}; kit[sc] = 1;
+  // ГЛАЗ СВОЙ, РУЖЬЁ ПОКУПНОЕ, и это не непоследовательность. Телескоп — то,
+  // чем контора видит, и видеть чужими глазами она не может: дальнозоркость её
+  // спутников обязана быть её собственной наукой. Оружие — обычный товар, как
+  // корпус и двигатель: его покупают у того, кто делает лучше. Будь и оно
+  // «только своё», спутники честных контор не носили бы оружия НИКОГДА —
+  // лучемёты в этой игре исследует почти одна вольница, — и бойня под носом
+  // осталась бы их частным делом.
   const beam = bestArmMade("beam");
-  if (!beam) return null;
-  if (c.nerve < 1.05 && !corps.some((o) => { return o.pirate; })) return null;
-  const out: Record<string, number> = {}; out[beam] = 1; return out;
+  if (beam && (c.nerve >= 1.05 || corps.some((o) => { return o.pirate; }))) kit[beam] = 1;
+  return kit;
 }
 
 /** Сложить два довеска к набору: вооружение и то, что требует дорога. */
@@ -191,10 +204,12 @@ export function reviewOrders(): void {
     // воротами: под движками прокладывать нечего.
     const kinds = [vtype("mine"), vtype("sat")];
     if (S.move.key === "gates") kinds.push(vtype("gate"));
+    const kit = satKit(c);
     kinds.forEach((vt) => {
-      if (!buildable(vt)) return;
+      if (!buildable(vt, vt.key === "sat" ? kit : undefined)) return;
       if (vt.key === "mine" && !anyRock(c)) return;
-      if (vt.key === "sat" && !satTarget(c)) return;         // всё, что видно отсюда, уже видно
+      // Спутник — только со своим телескопом и только если он что-то откроет.
+      if (vt.key === "sat" && (!kit || !satTarget(c))) return;
       if (vt.key === "gate") {
         // Цель нужна не только затем, чтобы знать, куда лететь: набор считается
         // ПОД ДОРОГУ до неё. Пока корпуса на межзвёздный набор не хватает,
@@ -209,7 +224,7 @@ export function reviewOrders(): void {
       let score = vt.key === "sat" ? 50 : vt.key === "gate" ? 46
                 : (vt.yield * 0.55 * vt.term) / Math.max(20, orderCost(vt));
       let own = 0, all = 0;
-      const need = shipNeed(vt, eng);
+      const need = shipNeed(vt, eng, vt.key === "sat" ? kit : undefined);
       Object.keys(need).forEach((k) => { all += need[k]; if (canBuild(c, k)) own += need[k]; });
       score *= 1 + own / all * 0.6;
       if (score > top) { top = score; best = vt; }
@@ -217,7 +232,8 @@ export function reviewOrders(): void {
     if (!best || rnd() > clamp(0.55 / c.nerve, 0.2, 0.9)) return;
     // Место назначения выбирается СЕЙЧАС, а не когда комплект собран: детали
     // надо свозить в конкретную систему, и заранее должно быть ясно, в какую.
-    const o = { type:best.key, need:shipNeed(best, eng), got:{}, parts:[] as Part[], born:dateStr() } as Order;
+    const o = { type:best.key, need:shipNeed(best, eng, best.key === "sat" ? kit : undefined),
+                got:{}, parts:[] as Part[], born:dateStr() } as Order;
     if (best.key === "mine") {
       let pickS: Sys = null, top2 = -1;
       systems.forEach((s) => {
@@ -252,9 +268,10 @@ export function reviewOrders(): void {
       if (!st) return;
       const ys = nearestYard(baseSys(c, st.dst), c);
       if (!ys) { c.needYard = true; return; }
-      // Набор спутника: телескоп, ходовой, корпус — и сверх того лазер, если
-      // контора берётся вооружать, и межзвёздная деталь, если лететь за звёзды.
-      const needSat = shipNeed(best, eng, addNeed(satArms(c), travelExtra(ys.world.sys, st.dst)));
+      // Набор спутника: свой телескоп, ходовой, корпус — и сверх того своё
+      // оружие, если контора берётся вооружать, и межзвёздная деталь, если
+      // лететь за звёзды.
+      const needSat = shipNeed(best, eng, addNeed(kit, travelExtra(ys.world.sys, st.dst)));
       if (!needSat) return;
       if (c.cash < orderCost(best) + slotPrice(ys, best)) return;
       o.need = needSat; o.sys = ys.world.sys; o.yard = ys; o.dst = st.dst;
@@ -434,6 +451,7 @@ export function assemble(): void {
       const sat: Sat = { sys:o.dst, owner:c.id, color:c.color, ang:spot.ang, r:spot.r,
                          parts:o.parts.slice(), born:dateStr(), found:0, scan:0,
                          mark:sp ? scopeMark(sp.k) : 1, range:sp ? sightOfKey(sp.k) : 0,
+                         hp:shipHp(o.parts),
                          armed:o.parts.some((pt) => { return armFam(pt.k) === "beam"; }),
                          live:false, building:true };
       ds.sats.push(sat);

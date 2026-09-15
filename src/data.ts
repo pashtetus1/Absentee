@@ -96,7 +96,7 @@ export const COMPS: Comp[] = [
 export const SCOPEKEYS = ["scope1", "scope2", "scope3", "scope4"];
 export function isScope(k: string): boolean{ return SCOPEKEYS.indexOf(k) >= 0; }
 /** Докуда видит эта ступень; 0 — это не телескоп. */
-export function sightOfKey(k: string): number { const c = compOf(k); return (c && c.sight) || 0; }
+export function sightOfKey(k: string | null): number { const c = k ? compOf(k) : null; return (c && c.sight) || 0; }
 /** Номер ступени телескопа: 1..4; 0 — не телескоп. */
 export function scopeMark(k: string): number { return SCOPEKEYS.indexOf(k) + 1; }
 /** Дальность телескопа, который стоит на этих деталях; 0 — телескопа нет и
@@ -114,12 +114,19 @@ export function bestScopeMade(): string | null {
   SCOPEKEYS.forEach((k) => { if (corps.some((c) => { return canBuild(c, k); })) out = k; });
   return out;
 }
-/** Докуда видит лучший телескоп этой конторы; 0 — ни одного не умеет. */
-export function ownSight(c: Corp): number {
-  let best = 0;
-  SCOPEKEYS.forEach((k) => { if (canBuild(c, k)) best = Math.max(best, sightOfKey(k)); });
-  return best;
+/** Лучшая ступень телескопа, которую контора умеет делать САМА; null — ни
+ *  одной. Спутник несёт именно её, а не лучшую в галактике: телескоп у него
+ *  СВОЙ. Купить чужой глаз нельзя — точнее, деталь-то продадут, но спутник в
+ *  этой игре не сборный товар, а то, чем контора смотрит сама, и дальнозоркость
+ *  её спутников обязана быть её собственным достижением. Отсюда и весь смысл
+ *  карт: не осилил телескоп — покупай карту у того, кто осилил. */
+export function ownScope(c: Corp): string | null {
+  let out: string | null = null;
+  SCOPEKEYS.forEach((k) => { if (canBuild(c, k)) out = k; });
+  return out;
 }
+/** Докуда видит лучший телескоп этой конторы; 0 — ни одного не умеет. */
+export function ownSight(c: Corp): number { return sightOfKey(ownScope(c)); }
 // ---- военные детали ----------------------------------------------------
 // Пять семейств по ПЯТЬ ступеней. Устроены они той же лестницей, что корпуса и
 // ходовые двигатели, и это не для единообразия: лестница означает, что четвёртую
@@ -186,6 +193,13 @@ export function armPower(parts: { k: string }[], kind: string): number {
 }
 /** Лучшая ступень семейства, которую в галактике хоть кто-то умеет делать;
  *  null — не умеет никто. */
+/** Лучшая ступень военной детали, которую контора умеет делать САМА; null —
+ *  ни одной. Тем и вооружают спутник: своим. */
+export function ownArm(c: Corp, kind: string): string | null {
+  let out: string | null = null;
+  (ARMKEYS[kind] || []).forEach((k) => { if (canBuild(c, k)) out = k; });
+  return out;
+}
 export function bestArmMade(kind: string): string | null {
   let out: string | null = null;
   (ARMKEYS[kind] || []).forEach((k) => { if (corps.some((c) => { return canBuild(c, k); })) out = k; });
@@ -449,13 +463,12 @@ export function shipNeed(vt: VType, eng: string | null,
     if (!mk) return null;
     n[mk] = (n[mk] || 0) + 1;
   }
-  // спутник несёт лучший телескоп, какой в галактике умеют делать: смотреть
-  // дальше, чем умеет лучшая ступень, всё равно нечем
-  if (vt.key === "sat") {
-    const sc = bestScopeMade();
-    if (!sc) return null;
-    n[sc] = (n[sc] || 0) + 1;
-  }
+  // У СПУТНИКА ТЕЛЕСКОПА ЗДЕСЬ НЕТ, хотя без телескопа он не спутник. Его
+  // кладёт заказчик (satKit в orders.ts), потому что ступень берётся СВОЯ —
+  // лучшая, какую умеет сама контора, а не лучшая в галактике. Портальный
+  // набор ниже — другое дело: ворота стоят на маршруте и служат всем, их и
+  // покупают у того, кто делает лучше.
+
   if (extra) Object.keys(extra).forEach((k) => { n[k] = (n[k] || 0) + extra[k]; });
   // сам корпус занимает место, поэтому в лестнице ищется ступень на деталь
   // больше, чем их набралось

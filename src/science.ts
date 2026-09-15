@@ -1,6 +1,6 @@
 // ===================== наука =====================
 
-import { PTYPES, armOf, bestHullMade, bestScopeMade, colOf, compOf, isArm, isEngine, isHull, isScope, markOf, ownSight, roomOfKey, sightOfKey } from "./data";
+import { PTYPES, armOf, bestHullMade, colOf, compOf, isArm, isEngine, isHull, isScope, markOf, ownSight, roomOfKey, sightOfKey } from "./data";
 import { ensureDesign, isDesign } from "./arms";
 import { galaxyRange, rangeOf, within } from "./galaxy";
 import { knowsSys } from "./charts";
@@ -135,20 +135,21 @@ export function pickTarget(c: Corp): string | null {
       worth = waiting ? 4.5 : (galaxyRange() > 0 ? 3.2 : 1.2);
     }
     else if (isScope(f.key)) {
-      // Телескоп — глаза партии. Пока первой ступени не делает никто, галактика
-      // состоит из одной звезды: колонизировать нечего, возить некуда, марки
-      // перехода бесполезны. Поэтому первый телескоп ценится как первый
-      // двигатель, а дальше — по тому, много ли тьмы достанет НОВАЯ ступень.
+      // Телескоп — глаза конторы, и глаза СВОИ: спутник несёт ту ступень,
+      // которую она умеет делать сама (satKit в orders.ts). Поэтому, пока у
+      // конторы нет ни одной, она слепа целиком — не видит ничего, кроме того,
+      // что купит картой, — и первая ступень стоит для неё как первый
+      // двигатель. Дальше — по тому, много ли тьмы достанет НОВАЯ ступень.
       // Тьма считается СВОЯ: сколько звёзд эта контора не знает, а могла бы
       // разглядеть со своих систем. Чужой спутник ей ничего не показал.
-      const sight = sightOfKey(f.key);
-      if (sight <= ownSight(c)) return;                  // так далеко уже видим сами
+      const sight = sightOfKey(f.key), own = ownSight(c);
+      if (sight <= own) return;                          // так далеко уже видим сами
       let dark = 0;
       systems.forEach((s) => {
         if (!knowsSys(c, s.id)) return;
         dark += within(s.id, sight).filter((n) => { return !knowsSys(c, n); }).length;
       });
-      worth = !bestScopeMade() ? 3.6 : dark ? 1.4 + Math.min(10, dark) * 0.28 : 0.3;
+      worth = !own ? 3.6 : dark ? 1.4 + Math.min(10, dark) * 0.28 : 0.3;
     }
     else if (compOf(f.key)) worth = f.key === "drill" || f.key === "hold" ? 2.2 : 1.8;
     else {

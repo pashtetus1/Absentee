@@ -9,7 +9,7 @@
 
 import { SCAN_MONTHS, STATE_EYES, knownCount, knowsSys, mapPrice, seenByState } from "../charts";
 import { ARMFAMS, ARMKEYS, COLTECH, COMPS, MARKS, colOf, compOf, hullOf, markName, moveName, roomOfKey, vtype, btype } from "../data";
-import { DESIGNS, RAIDER, designLine, designMakers, designOf, groundMult } from "../arms";
+import { DESIGNS, RAIDER, designLine, designMakers, designOf, groundMult, shipDmg, shipHp } from "../arms";
 import { armyLine, policeLine } from "../army";
 import { force, sideColor } from "../ground";
 import { dockValue, partsValue, shipFactor } from "../docks";
@@ -27,7 +27,7 @@ import { fmt, popsWord, dist } from "../util";
 import { popOf } from "../world";
 import { buildAim, buildDone, buildState, cargoName, queueEta } from "./models";
 import { seenSys } from "./scene";
-import type { Build, Fight, Ground, Part, Warship, World } from "../types";
+import type { Build, Fight, Fighter, Ground, Part, Warship, World } from "../types";
 
 export type Ctl = HTMLElement & { value: any; textContent: any; disabled: boolean; checked: boolean };
 export function el(id: string): Ctl { return document.getElementById(id) as Ctl; }
@@ -135,9 +135,9 @@ export function warshipCard(s: Warship): string {
 
 /** Карточка боя: обе стороны по кораблям, с полосками прочности. */
 export function fightCard(f: Fight): string {
-  const line = (x: { name: string; color: string; hp: number; hpMax: number; dmg: number; prey?: boolean }): string =>
+  const line = (x: Fighter): string =>
     '<div class="row"><div class="rhead"><i class="dot" style="background:' + x.color + '"></i>' +
-    '<span class="rname">' + x.name + (x.prey ? ' · мирный' : '') + '</span>' +
+    '<span class="rname">' + x.name + (x.prey ? ' · мирный' : x.sat ? ' · с орбиты' : '') + '</span>' +
     '<span class="rmeta">' + (x.hp > 0 ? Math.round(x.hp * 10) / 10 + '/' + Math.round(x.hpMax * 10) / 10 : 'сбит') + '</span></div>' +
     '<div class="bar"><i style="width:' + Math.max(0, x.hp / x.hpMax * 100) + '%;background:' + x.color + '"></i></div>' +
     '<div class="rmeta">урон ' + x.dmg.toFixed(1) + '/мес</div></div>';
@@ -330,10 +330,13 @@ export function inspector(): void {
       '<div class="part"><span class="pn">нашёл звёзд</span><span class="pw">' + d.found + '</span></div>' +
       '<div class="part"><span class="pn">ищет следующую</span><span class="pw">' +
       (left / 12).toFixed(1) + ' лет осталось</span></div>' +
+      (d.armed ? '<div class="part"><span class="pn">прочность</span><span class="pw">' +
+        (Math.round(d.hp * 10) / 10) + '/' + (Math.round(shipHp(d.parts) * 10) / 10) +
+        ' · урон ' + shipDmg(d.parts).toFixed(1) + '/мес</span></div>' : '') +
       '<div class="part"><span class="pn">эту систему знают</span><span class="pw">' + knowers.length +
       ' из ' + corps.length + '</span></div>' +
-      (d.armed ? '<div class="sub" style="margin:6px 0 0">Оружие на борту есть, но спутник в бою пока ' +
-                 'не участвует: он висит и смотрит. Место в корпусе и деньги оно занимает уже сейчас.</div>' : '') +
+      (d.armed ? '<div class="sub" style="margin:6px 0 0">Бойня под носом — его дело: спутник бьёт с орбиты ' +
+                 'по тем, кто напал в этом круге, и уйти из боя не может. Собьют — телескоп потерян.</div>' : '') +
       partsList(d.parts, d.owner) + '</div>';
     return;
   }
