@@ -27,8 +27,9 @@ export interface Harnessed extends Core {
    *  уже врала числами (урожай, состав корабля), и поймать это можно только
    *  прочитав то, что она выдала. Пусто, если блока нет или он не заполнялся. */
   __html(id: string): string;
-  /** Нажать кнопку: вызвать то, что игра повесила на click этого элемента. */
-  __click(id: string): void;
+  /** Нажать кнопку: вызвать то, что игра повесила на click этого элемента.
+   *  Для холста передают ещё и координаты клика (clientX, clientY). */
+  __click(id: string, at?: { clientX: number; clientY: number }): void;
 }
 
 interface Options {
@@ -156,10 +157,10 @@ export function load(file: string, { withDom = false, seed = null, store = {}, a
     api.__frame = () => { const fn = sandbox.__frame; sandbox.__frame = null; if (fn) fn(ts += 16); };
   }
   api.__html = (id: string): string => String((nodes[id] && nodes[id].innerHTML) || "");
-  api.__click = (id: string): void => {
+  api.__click = (id: string, at?: { clientX: number; clientY: number }): void => {
     const fn = nodes[id] && nodes[id].__on.click;
     if (!fn) throw new Error("у #" + id + " нет обработчика click");
-    fn({ target: nodes[id] });
+    fn({ target: nodes[id], ...(at || {}) });
   };
   return api;
 }

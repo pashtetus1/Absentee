@@ -1545,6 +1545,49 @@ test("сцена рисуется и после того, как государ�
   assert(drawn > 0, "за триста лет ни одного отделения — герб рисовать не над чем");
 });
 
+// Панель выбранного рейса зовётся из step(): упади она на новом виде рейса —
+// встала бы вся партия, а не только окно (так уже было с перегоном и прыжковым).
+// Порожний перегон и грузовик с несколькими деталями выбираются здесь честным
+// кликом по холсту: координаты считаются так же, как их рисует сцена.
+test("панель рейса разбирает порожний перегон и грузовик с деталями", () => {
+  const sim = load("dist/index.html", { withDom: true, seed: 1 });
+  let empty = false, parts = false;
+  const P = (o: { ang: number; r: number }) => ({ x: 420 + Math.cos(o.ang) * o.r, y: 340 + Math.sin(o.ang) * o.r });
+  for (let i = 0; i < 300 * 12 && !(empty && parts); i++) {
+    sim.step();
+    const st = sim.state();
+    if (!empty) {
+      const v = st.voyages.find((x) => x.kind === "empty" && x.from.sys === x.to.sys && x.t > 0.2 && x.t < 0.8);
+      if (v) {
+        sim.setView("system", v.from.sys); sim.__frame();
+        const s = st.systems[v.from.sys];
+        let far = 0;
+        s.bodies.forEach((o) => { far = Math.max(far, o.r + o.rad); });
+        s.rocks.forEach((o) => { far = Math.max(far, o.r + o.s); });
+        const k = Math.min(1, (340 - 28) / Math.max(1, far)), u = v.tp === undefined ? v.t : v.tp;
+        const a = P(v.from.body), b = P(v.to.body), x = a.x + (b.x - a.x) * u, y = a.y + (b.y - a.y) * u;
+        sim.__click("view", { clientX: 420 + (x - 420) * k, clientY: 340 + (y - 340) * k });
+        if (/порожний перегон/.test(sim.__html("inspect"))) { sim.step(); empty = true; }
+      }
+    }
+    if (!parts) {
+      const v = st.voyages.find((x) => x.kind === "parts" && x.t > 0.2 && x.t < 0.8);
+      if (v) {
+        sim.setView("map"); sim.__frame();
+        const A = st.systems[v.sysFrom], B = st.systems[v.to], u = v.tp === undefined ? v.t : v.tp;
+        const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy) || 1;
+        const bend = Math.min(34, len * 0.09) * (((A.id + B.id) % 2) ? 1 : -1);
+        const cpx = (A.x + B.x) / 2 - dy / len * bend, cpy = (A.y + B.y) / 2 + dx / len * bend;
+        sim.__click("view", { clientX: (1-u)*(1-u)*A.x + 2*(1-u)*u*cpx + u*u*B.x,
+                              clientY: (1-u)*(1-u)*A.y + 2*(1-u)*u*cpy + u*u*B.y });
+        if (/Грузовик с деталями/.test(sim.__html("inspect"))) { sim.step(); parts = true; }
+      }
+    }
+  }
+  assert(empty, "за триста лет не удалось выбрать ни одного порожнего перегона");
+  assert(parts, "за триста лет не удалось выбрать ни одного грузовика с деталями");
+});
+
 test("панель показывает всю очередь верфи, с порядком и сроками", () => {
   const sim = load("dist/index.html", { withDom: true, seed: 1 });
   let html = "";
