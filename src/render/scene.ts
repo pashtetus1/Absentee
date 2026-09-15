@@ -2,27 +2,58 @@
 import { vis } from "../clock";
 import { MARKRANGE } from "../data";
 import { galaxyRange, within } from "../galaxy";
-import { manyRealms, realmOf, realmOfCorp, realmOfShip, realmOfVoyage } from "../realm";
+import { HOME, manyRealms, realmOf, realmOfCorp, realmOfShip, realmOfVoyage } from "../realm";
 import { yardAt } from "../shipyard";
 import { S, U, cam, corps, docks, gates, hits, shipyards, systems, voyages } from "../state";
 import { gatesAt, inNet, otherEnd, portalAng, portalFor, spread } from "../travel";
 import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
 import { CH, CW, advanceFrame, cx, glow, last, setSysK, setUiz, uiz } from "./canvas";
-import { advance, caption, crest, dockLines, flame, grow, posOf, rift, rock, ship, star, tiny, warped, windowLines, yardLines, yardPos } from "./models";
-import type { Rock, Sys } from "../types";
+import { advance, caption, crest, dockLines, flame, grow, posOf, rift, rock, scrapYard, ship, star, tiny, warped, windowLines, yardLines, yardPos } from "./models";
+import type { Rock, Sys, Voyage } from "../types";
 
 // Куда смотрит створ: в сторону звёзд, к которым ведёт. Готовый створ стоит
 // там, где встал; строящийся маршрут показывается на отведённом месте.
 function gateAng(from: number, to: number): number{ return portalAng(from, to); }
 
+// Межзвёздный рейс виден внутри системы первые и последние 15% пути: уход от
+// планеты к створу и выход из створа к цели.
+const LEG = 0.15;
+function endsOf(v: Voyage): { from: number; to: number } {
+  return v.sysFrom !== undefined ? { from: v.sysFrom, to: v.to as number } : { from: v.from.sys, to: v.to.sys };
+}
+/** Какую долю своего отрезка межзвёздный рейс прошёл В ЭТОЙ системе; null —
+ *  здесь его сейчас не видно. Внутрисистемные сюда не относятся. */
+function legIn(v: Voyage, sid: number): number | null {
+  const e = endsOf(v);
+  if (e.from === e.to) return null;
+  const t = clamp(vis(v), 0, 1);
+  if (sid === e.from && t < LEG) return t / LEG;
+  if (sid === e.to && t > 1 - LEG) return (t - (1 - LEG)) / LEG;
+  return null;
+}
+
+/** Есть ли в системе чужое государство: хоть одна вещь, над которой висел бы
+ *  щит не родной звезды. Смотрится ровно то, что сцена рисует со щитом, — мир,
+ *  станция, корабль, рейс в пределах системы, — иначе золотые звёзды то
+ *  всплывали бы без видимой причины, то пропадали при чужаке на экране. */
+function strangersIn(s: Sys): boolean {
+  return s.bodies.some((b) => b.world && realmOf(b.world) !== HOME) ||
+    s.stations.some((st) => realmOfCorp(corps[st.vent.lead]) !== HOME) ||
+    s.ships.some((sh) => realmOfShip(sh) !== HOME) ||
+    voyages.some((v) => realmOfVoyage(v) !== HOME &&
+      (v.sysFrom === undefined && v.from.sys === s.id && v.to.sys === s.id || legIn(v, s.id) !== null));
+}
+
 export function drawSystem(s: Sys): void {
   const mx = CW / 2, my = CH / 2;
   // Гербы появляются на сцене только после первого отделения: пока государство
   // одно, щит над каждой планетой и каждым корабликом отвечает на вопрос,
-  // которого никто не задавал. Считается ОДИН раз на кадр — иначе перебор
-  // контор пришёлся бы на каждый нарисованный кружок.
-  const flags = manyRealms();
+  // которого никто не задавал. И даже после — только там, где чужое государство
+  // ЕСТЬ: в своей системе, куда никто чужой не заходит, золотая звезда над
+  // каждым кружком отвечает на тот же незаданный вопрос. Считается ОДИН раз на
+  // кадр — иначе перебор контор пришёлся бы на каждый нарисованный кружок.
+  const flags = manyRealms() && strangersIn(s);
   hits.length = 0;
   cx.fillStyle = "#080d19"; cx.fillRect(0, 0, CW, CH);
 
@@ -169,7 +200,8 @@ export function drawSystem(s: Sys): void {
     // сплошных кружков (планеты, стоянки, предприятия) форма читается сразу.
     // Захваты загораются по одному: готовность видна и без дуги.
     const idle = yard.owner >= 0 ? corps[yard.owner].color : "#2b3557";
-    for (let k = 0; k < 3; k++) {
+    if (yard.scrap) scrapYard(x, y, yard.ang, idle, head, done, yard.crew > 0);
+    else for (let k = 0; k < 3; k++) {
       const a = yard.ang * 2 + glow * 0.2 + k * 2.0944;
       const cxo = Math.cos(a), cyo = Math.sin(a);
       const lit = head && k / 3 < done;
@@ -246,7 +278,7 @@ export function drawSystem(s: Sys): void {
     hits.push({ x:x, y:y, r:12, kind:"cargo", data:v });
   });
 
-  // Межзвёздные рейсы, пока они ещё ВНУТРИ этой системы. Первые 15% пути —
+  // Межзвёздные рейсы, пока они ещё ВНУТРИ этой системы (legIn). Первые 15% пути —
   // уход от планеты к своему створу, последние 15% — выход из створа к цели.
   // Раньше корабль правил в пустой край в сторону нужной звезды: ворота стояли
   // отдельно, корабль летел мимо них, и переход выглядел так, будто портал
@@ -258,28 +290,21 @@ export function drawSystem(s: Sys): void {
     const a = gateAng(s.id, via === undefined ? to : via);
     return { x:mx + Math.cos(a) * s.gateR, y:my + Math.sin(a) * s.gateR };
   };
-  const LEG = 0.15;
   voyages.forEach((v) => {
-    const fromSys = v.sysFrom !== undefined ? v.sysFrom : v.from.sys;
-    const toSys = v.sysFrom !== undefined ? v.to : v.to.sys;
-    if (fromSys === toSys) return;                        // внутрисистемные уже нарисованы
-    let t = clamp(vis(v), 0, 1), leg = null, a, b;
-    if (s.id === fromSys && t < LEG) {
-      const origin = v.sysFrom !== undefined ? s.bodies[0] : v.from.body;
-      a = posOf(origin, mx, my);
-      b = edge(toSys);
-      leg = t / LEG;
-    } else if (s.id === toSys && t > 1 - LEG) {
-      const target = v.sysFrom !== undefined ? s.bodies[0] : v.to.body;
-      a = edge(fromSys);
-      b = posOf(target, mx, my);
-      leg = (t - (1 - LEG)) / LEG;
-    }
+    const leg = legIn(v, s.id);                           // внутрисистемные уже нарисованы
     if (leg === null) return;
+    const ends = endsOf(v), out = s.id === ends.from;
+    let a, b;
+    if (out) {
+      a = posOf(v.sysFrom !== undefined ? s.bodies[0] : v.from.body, mx, my);
+      b = edge(ends.to);
+    } else {
+      a = edge(ends.from);
+      b = posOf(v.sysFrom !== undefined ? s.bodies[0] : v.to.body, mx, my);
+    }
     const x = a.x + (b.x - a.x) * leg, y = a.y + (b.y - a.y) * leg;
     const rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
     const isJump = v.kind === "jump" || v.kind === "gate" || v.kind === "reloc";
-    const out = s.id === fromSys;
     if (S.move.key === "drives") {
       // Под движками у края нет створа — корабль сам рвёт пространство. На
       // вылете перед ним раскрывается дыра, он вытягивается и уходит в неё;
@@ -314,7 +339,15 @@ export function nodeR(s: Sys): number { return 5 + Math.min(5, (s.mines + s.bodi
 export function seenSys(s: Sys): boolean { return s.unlocked || within(s.id, Math.max(galaxyRange(), MARKRANGE[0])).some((n) => { return systems[n].unlocked; }); }
 
 export function drawMap(): void {
-  const flags = manyRealms();          // как и в системе: щиты только после первого отделения
+  // Как и в системе: щиты только после первого отделения и только там, где
+  // чужое государство есть. Звезда считается чужой, если на ней лежит хоть один
+  // мир не родного государства; рейс несёт щит, если он сам чужой или летит
+  // от такой звезды или к ней — рядом с чужим гербом видно, чей свой.
+  const flags = manyRealms();
+  const alien: Record<number, boolean> = {};
+  if (flags) systems.forEach((s) => {
+    alien[s.id] = s.bodies.some((b) => b.world && realmOf(b.world) !== HOME);
+  });
   hits.length = 0;
   cx.fillStyle = "#080d19"; cx.fillRect(0, 0, CW, CH);
   // Пятьдесят звёзд в один экран не влезают читаемо, поэтому карта таскается
@@ -389,7 +422,8 @@ export function drawMap(): void {
     const szm = 6.5 * uiz * grow(k, 0.08, 0.08);
     if (szm > 0.12) {
       flame(x, y, szm, rot); ship(isJump ? "jump" : "cargo", x, y, szm, rot, v.color);
-      if (flags) crest(x, y - 2.9 * szm, 0.7 * szm, realmOfVoyage(v));
+      const rv = flags ? realmOfVoyage(v) : HOME;
+      if (flags && (rv !== HOME || alien[a.id] || alien[b.id])) crest(x, y - 2.9 * szm, 0.7 * szm, rv);
     }
     // на карте рейсов десятки — подпись только у выбранного и у того, над
     // которым мышь, иначе карта превращается в кашу из окошек
@@ -459,8 +493,9 @@ export function drawMap(): void {
     // несколько на одну звезду: отделившаяся планета не уводит из государства
     // соседнюю по системе, и на карте это самое важное, что о звезде можно
     // знать. Ряд идёт ВЫШЕ пипок филиалов (r + 13), иначе первая из них —
-    // она смотрит ровно вверх — накрыла бы щит.
-    if (flags && ws.length) {
+    // она смотрит ровно вверх — накрыла бы щит. У звезды, где все миры свои,
+    // ряда нет: одна золотая звезда над ней ничего не различает.
+    if (alien[s.id]) {
       const mine: number[] = [];
       ws.forEach((b) => { const r2 = realmOf(b.world); if (mine.indexOf(r2) < 0) mine.push(r2); });
       mine.forEach((r2, i) => {

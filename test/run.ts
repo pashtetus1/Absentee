@@ -1496,15 +1496,18 @@ test("код отрисовки не падает на заглушках DOM", 
 // Гербы рисуются только тогда, когда государств стало несколько, — то есть
 // этот кусок отрисовки на первых кадрах партии не исполняется вовсе, и обычная
 // проверка сцены его не трогает. Здесь партия крутится до отделения и дальше.
+// И смотрит в систему, где отделившийся мир ЕСТЬ: в чисто своей щиты не рисуются
+// и после отделения, так что последняя колония могла бы не дать ни одного.
 test("сцена рисуется и после того, как государств стало несколько", () => {
   const sim = load("dist/index.html", { withDom: true, seed: 57 });
   let drawn = 0;
   for (let i = 0; i < 300 * 12; i++) {
     sim.step();
     const st = sim.state();
-    sim.setView(i % 2 ? "map" : "system", st.worlds[st.worlds.length - 1].sys);
+    const look = st.worlds.find((w) => w.free) || st.worlds[st.worlds.length - 1];
+    sim.setView(i % 2 ? "map" : "system", look.sys);
     sim.__frame();
-    if (st.corps.some((c) => c.crest !== undefined)) drawn++;
+    if (st.worlds.some((w) => w.free)) drawn++;
   }
   assert(drawn > 0, "за триста лет ни одного отделения — герб рисовать не над чем");
 });

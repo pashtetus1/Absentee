@@ -184,6 +184,78 @@ export function yardPos(y: Shipyard, mx: number, my: number): { x: number; y: nu
   return { x: p.x + Math.cos(a) * off, y: p.y + Math.sin(a) * off };
 }
 
+// Стапель из мусора. Настоящая верфь — три ровных крана с круглыми захватами,
+// разнесённые на треть круга и плавно вращающиеся; стапель обязан отличаться с
+// одного взгляда, иначе игрок не поймёт, почему у него очередь стоит годами.
+// Отличается ФОРМОЙ, а не цветом: цвет по-прежнему говорит, чей он (журнал:
+// форма — что это, цвет — чьё это). Захватов те же три — по ним читается
+// готовность, — но собраны они из того, что нашлось: разной длины, разнесены
+// неровно, погнуты в колене, и на концах рубленые скобы вместо кругляшей.
+// Проворачивается он рывками, вокруг болтаются обломки, из которых его
+// собирали, а пока на нём есть люди и идёт сборка, на рабочем захвате
+// вспыхивает сварка. Всё дрожание — от glow и ни грамма от rnd(): отрисовка не
+// смеет сдвигать генератор партии.
+const SCRAP_OFF = [0, 2.3, 4.25], SCRAP_LEN = [11, 8.3, 10], SCRAP_BEND = [0.55, -0.45, 0.35];
+export function scrapYard(x: number, y: number, ang: number, idle: string,
+                          head: Build | undefined, done: number, manned: boolean): void {
+  // Обломки — позади захватов и тусклые: это мусор, а не часть стапеля.
+  // Через один — обрезок балки и кривая пластина: треугольник читался бы
+  // стрелкой, кругляш — ещё одним астероидом.
+  cx.globalAlpha = 0.75;
+  for (let i = 0; i < 5; i++) {
+    const a = ang * 3 + i * 1.2566 + Math.sin(i * 1.7) * 0.5 - glow * 0.07;
+    const rr = 14 + (i * 7 % 3) * 1.6, sz = 1.3 + (i % 3) * 0.4;
+    const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+    const c = Math.cos(glow * (0.5 + i * 0.23) + i), s = Math.sin(glow * (0.5 + i * 0.23) + i);
+    if (i % 2 === 0) {
+      cx.beginPath();
+      cx.moveTo(px - c * 1.8 * sz, py - s * 1.8 * sz); cx.lineTo(px + c * 1.8 * sz, py + s * 1.8 * sz);
+      cx.strokeStyle = "#6f675d"; cx.lineWidth = 1.1; cx.lineCap = "butt"; cx.stroke();
+      continue;
+    }
+    const pts = [-1.2, -0.5, 0.8, -0.9, 1.1, 0.5, -0.5, 0.8];
+    const out: number[] = [];
+    for (let j = 0; j < pts.length; j += 2) {
+      out.push(px + (pts[j] * c - pts[j+1] * s) * sz, py + (pts[j] * s + pts[j+1] * c) * sz);
+    }
+    cx.fillStyle = "#5a606c"; poly(out);
+  }
+  cx.globalAlpha = 1;
+  // рывок: две трети оборотного шага стоит, потом резко доворачивается
+  const t = glow * 0.5, f = t - Math.floor(t);
+  const turn = (Math.floor(t) + (f < 0.7 ? 0 : (1 - Math.cos((f - 0.7) / 0.3 * Math.PI)) / 2)) * 0.4;
+  const work = head && head.left > 0 && manned ? Math.min(2, Math.floor(done * 3)) : -1;
+  for (let k = 0; k < 3; k++) {
+    const a = ang * 2 + turn + SCRAP_OFF[k], len = SCRAP_LEN[k], knee = 3.5 + (len - 3.5) * 0.5;
+    const kx = x + Math.cos(a) * knee, ky = y + Math.sin(a) * knee;
+    const b = a + SCRAP_BEND[k], bc = Math.cos(b), bs = Math.sin(b);
+    const tx = kx + bc * (len - knee), ty = ky + bs * (len - knee);
+    const col = head && k / 3 < done ? head.color : idle;
+    cx.beginPath();
+    cx.moveTo(x + Math.cos(a) * 3.5, y + Math.sin(a) * 3.5); cx.lineTo(kx, ky); cx.lineTo(tx, ty);
+    cx.strokeStyle = col; cx.lineWidth = 1.6; cx.lineCap = "round"; cx.lineJoin = "round"; cx.stroke();
+    // скоба: квадрат 2h, продолжающий погнутую половину за кончик
+    const h = 1.8;
+    cx.fillStyle = col;
+    poly([tx - h * bs,              ty + h * bc,
+          tx + 2 * h * bc - h * bs, ty + 2 * h * bs + h * bc,
+          tx + 2 * h * bc + h * bs, ty + 2 * h * bs - h * bc,
+          tx + h * bs,              ty - h * bc]);
+    if (k !== work) continue;
+    const fl = Math.sin(glow * 23 + k) * Math.sin(glow * 7.3);
+    if (fl < 0.15) continue;
+    const sx = tx + bc * h, sy = ty + bs * h;
+    cx.globalAlpha = Math.min(1, fl + 0.3);
+    cx.beginPath(); cx.arc(sx, sy, 0.9 + fl, 0, 6.2832); cx.fillStyle = "#fff3c4"; cx.fill();
+    for (let q = 0; q < 3; q++) {
+      const sa = glow * 5.1 + q * 2.1, sl = 2 + fl * 2.5;
+      cx.beginPath(); cx.moveTo(sx, sy); cx.lineTo(sx + Math.cos(sa) * sl, sy + Math.sin(sa) * sl);
+      cx.strokeStyle = "#ffd27a"; cx.lineWidth = 0.7; cx.stroke();
+    }
+    cx.globalAlpha = 1;
+  }
+}
+
 /** Кому и куда пойдёт эта сборка. Одна фраза на все виды кораблей: в очереди
  *  из пяти позиций «Артель · грузовик» ничего не отвечает на главный вопрос —
  *  зачем он строится. У транспорта это хозяин (компания или казна мира), у
