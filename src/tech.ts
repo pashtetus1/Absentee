@@ -10,7 +10,8 @@
 // на компании и на корабле его не было видно: два одинаковых грузовика летели
 // с разной скоростью, и объяснить это, глядя на корабль, было нечем.
 
-import { COLTECH, COMPS, ENGKEYS, HULLKEYS, MARKS, clsOf, colOf, compOf, isEngine, isHull, markOf, roomOfKey } from "./data";
+import { ARMKEYS, COLTECH, COMPS, ENGKEYS, HULLKEYS, MARKS, armOf, clsOf, colOf, compOf, isEngine, isHull, markOf, roomOfKey } from "./data";
+import { DESIGNS, designOf } from "./arms";
 import { anyMakes, canBuild, corps, patents, tickCache } from "./state";
 import { stockAt } from "./world";
 import type { ColTech, Corp, Dev, Engine, Tech, World } from "./types";
@@ -130,6 +131,12 @@ export function markStep(k: string): { fam: string; n: number } | null {
   if (m) return { fam:"move", n:m.mark };
   if (isEngine(k)) return { fam:"eng", n:ENGKEYS.indexOf(k) + 1 };
   if (isHull(k)) return { fam:"hull", n:HULLKEYS.indexOf(k) + 1 };
+  // Военные детали — такая же лестница: пятую ступень не взять, не осилив
+  // четвёртую, патента на ступень нет, а сама ступень расходится по галактике,
+  // когда кто-то ушёл на две вперёд. Монополию военное дело даёт не здесь, а
+  // на ЧЕРТЕЖЕ: он патентуется, как любая обычная технология.
+  const a = armOf(k);
+  if (a) return { fam:"arm_" + a.kind, n:a.lvl };
   const d = devOf(k);
   if (d) return { fam:"dev_" + d.cls, n:d.mark };
   return null;
@@ -140,6 +147,7 @@ export function stepKey(fam: string, n: number): string | null {
   if (fam === "move") return MARKS[n - 1] ? MARKS[n - 1].key : null;
   if (fam === "eng") return ENGKEYS[n - 1] || null;
   if (fam === "hull") return HULLKEYS[n - 1] || null;
+  if (fam.slice(0, 4) === "arm_") { const row = ARMKEYS[fam.slice(4)]; return (row && row[n - 1]) || null; }
   const k = devKey(fam.slice(4), n);
   return devOf(k) ? k : null;
 }
@@ -154,5 +162,10 @@ export function prevStep(k: string): string | null {
 // ENGINES сюда НЕ добавляются: это те же записи, что уже пришли в COMPS, и
 // вторым вхождением компания вкладывалась бы в один двигатель дважды.
 // MARKS сюда тоже НЕ добавляются: с тех пор как марка — деталь, она уже в COMPS.
-export function allTech(): Tech[] { return ([] as Tech[]).concat(COMPS, COLTECH, DEVS); }
-export function techOf(k: string): ColTech{ return compOf(k) || colOf(k) || markOf(k) || engOf(k) || devOf(k); }
+// Чертежи сюда входят наравне с деталями: в них вкладываются теми же деньгами,
+// их так же патентуют и так же догоняют. «Самоделка» вольницы (поколение 0)
+// не входит — её не исследуют, она достаётся всякому, кто взялся за оружие.
+export function allTech(): Tech[] {
+  return ([] as Tech[]).concat(COMPS, COLTECH, DEVS, DESIGNS.filter((d) => { return d.gen > 0; }));
+}
+export function techOf(k: string): ColTech{ return compOf(k) || colOf(k) || markOf(k) || engOf(k) || devOf(k) || designOf(k); }

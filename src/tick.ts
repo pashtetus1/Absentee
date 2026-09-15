@@ -1,5 +1,8 @@
 
 import { markTick } from "./clock";
+import { armyRun, warOrders } from "./army";
+import { battleRun } from "./battle";
+import { groundRun } from "./ground";
 import { abandon, despair } from "./colony";
 import { repriceShips } from "./docks";
 import { economy, ventureIncome } from "./economy";
@@ -27,8 +30,13 @@ export function step(): void {
   produce(); repriceShips(); trade(); freightRun(); stalledOrders(); stalledProjects();
   if (S.tick % 3 === 0) { patentsExpire(); tickCache.dev = new Map(); tickCache.devBest = null; }
   if (S.tick % 6 === 0) { foodRun(); corpRelief(); migrationRun(); despair(); }
-  piracy();
-  if (S.tick % 12 === 0) { reviewOrders(); reviewProjects(); reviewProposals(); branchTrade(); events(); }
+  // Война идёт в таком порядке: сперва наземные битвы (они решают, чей мир),
+  // потом бюджет и покупки генерала, потом вольница выходит на промысел, и уже
+  // потом бои в космосе. Бой ОБЯЗАН считаться до moveShips: рейс, за который
+  // дерутся, стоит, и порядок между «его догнали» и «он долетел» решается
+  // именно здесь.
+  groundRun(); armyRun(); piracy(); battleRun();
+  if (S.tick % 12 === 0) { reviewOrders(); reviewProjects(); reviewProposals(); branchTrade(); events(); warOrders(); }
   assemble(); moveShips(); ventureIncome();
   // Мир, где не осталось людей, перестаёт быть миром. Метём в КОНЦЕ месяца, а
   // не сразу после labour: населением за месяц двигает не только убыль, но и

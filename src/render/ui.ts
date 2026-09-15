@@ -7,7 +7,8 @@ import { drop, hold, keep, resume } from "../save";
 import { seedOf } from "../rng";
 import { build } from "../setup";
 import { decideById } from "../shipyard";
-import { L, U, Y, cam, hits, patents, proposals, resetCam, systems, worlds } from "../state";
+import { L, U, Y, cam, grounds, hits, patents, proposals, resetCam, systems, worlds } from "../state";
+import { showBattle } from "./war";
 import { allTech, techOf } from "../tech";
 import { step } from "../tick";
 import { clamp } from "../util";
@@ -53,6 +54,13 @@ export function pathint(): void {
     : L.patTerm >= 50 ? "Долгий патент: держатель технологии колонизации решает, кто вообще расселяется."
     : "Держатель успевает нажиться, но конкуренты копят знание к сроку.";
 }
+export function armyhint(): void {
+  el("armyhint").textContent = L.army === 0
+    ? "Государство не содержит войска: ни арсеналов в колониях, ни полиции на путях. Порядок держится тем, что компании охраняют себя сами."
+    : L.army < 180
+    ? "Генерал закупает наземное оружие в арсеналы тех колоний, которым грозит восстание, и держит небольшую полицию."
+    : "Хватает и на арсеналы, и на казённые корабли. Чертежи для них берут у компаний — за лицензию.";
+}
 export function feehint(): void {
   const p = Math.round(L.tradeFee * 100);
   el("feehint").textContent = p === 0
@@ -69,6 +77,7 @@ export function syncControls(): void {
   el("pat").value = L.patTerm; el("patval").textContent = L.patTerm + " лет";
   el("fee").value = Math.round(L.tradeFee * 100);
   el("feeval").textContent = Math.round(L.tradeFee * 100) + "%";
+  el("army").value = L.army; el("armyval").textContent = L.army;
   el("speed").textContent = "×" + L.speed;
   el("subfield").value = L.subKey;
 }
@@ -116,6 +125,11 @@ export function bindUI(): void {
   cv.width = CW * dpr; cv.height = CH * dpr;
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+  // экран -> холст, без всяких масштабов: в этих координатах живёт накладка
+  function rawPos(e: { clientX: number; clientY: number }): { x: number; y: number; } {
+    const rect = cv.getBoundingClientRect();
+    return { x:(e.clientX - rect.left) / rect.width * CW, y:(e.clientY - rect.top) / rect.height * CH };
+  }
   // экран -> координаты сцены (на карте ещё и через камеру)
   function scenePos(e: { clientX: number; clientY: number }): { x: number; y: number; } {
     const rect = cv.getBoundingClientRect();
@@ -174,14 +188,27 @@ export function bindUI(): void {
 
   cv.addEventListener("click", (e: MouseEvent) => {
     if (moved > 4) { moved = 0; return; }          // это было перетаскивание
+    // Накладка с наземной битвой лежит ПОВЕРХ сцены, и клик по ней не должен
+    // проваливаться в то, что под ней: там планеты и корабли, по которым игрок
+    // не целился. Крестик при этом считается в экранных координатах — накладка
+    // рисуется без масштаба сцены.
+    const raw = rawPos(e);
+    if (U.battle && raw.y > CH * 0.5) {
+      const close = hits.filter((h) => { return h.kind === "warclose"; })[0];
+      if (close && Math.hypot(raw.x - close.x, raw.y - close.y) <= close.r) showBattle(null);
+      return;
+    }
     const p = scenePos(e);
     let best: Hit = null, bd = 1e9;
     hits.forEach((h) => {
+      if (h.kind === "warclose") return;
       const d = Math.sqrt((p.x - h.x) * (p.x - h.x) + (p.y - h.y) * (p.y - h.y));
       if (d <= h.r && d < bd) { bd = d; best = h; }
     });
     if (!best) return;
     if (best.kind === "sys" && U.view.mode === "map") { open(best.data.id); return; }
+    // Клинки на планете — не выбор объекта, а дверь: открывают схему боя.
+    if (best.kind === "war") { showBattle(best.data); U.pick = best; panels(); return; }
     U.pick = best; panels();
   });
 
@@ -207,6 +234,22 @@ export function bindUI(): void {
     L.tradeFee = +(e.target as Ctl).value / 100;
     el("feeval").textContent = Math.round(L.tradeFee * 100) + "%"; feehint(); saveLevers();
   });
+  el("army").addEventListener("input", (e: Event) => {
+    L.army = +(e.target as Ctl).value;
+    el("armyval").textContent = L.army; armyhint(); saveLevers();
+  });
+  // Кнопка «смотреть битву» есть и в карточке планеты, и в списке дел: обе
+  // ведут в одно и то же место, поэтому слушаем оба блока одним обработчиком.
+  const openWar = (e: Event): void => {
+    const b = (e.target as HTMLElement).closest(".showwar") as HTMLElement;
+    if (!b) return;
+    const g = grounds[+b.getAttribute("data-war")];
+    if (!g) return;
+    U.view = { mode:"system", sys:g.world.sys };
+    showBattle(g);
+    scene();
+  };
+  el("inspect").addEventListener("click", openWar);
   el("play").addEventListener("click", togglePause);
   // Прилипшую снизу кнопку на айфоне НАКРЫВАЕТ нижняя панель браузера.
   // position:fixed отсчитывается от layout-вьюпорта, а тот у мобильного
@@ -260,6 +303,11 @@ export function bindUI(): void {
   el("reset").addEventListener("click", () => { fresh(seedOf()); });
   el("badnew").addEventListener("click", () => { fresh(seedFromUrl()); });
   el("ventures").addEventListener("click", (e) => {
+    // Одна кнопка на блок: в списке дел живут и строки систем, и строки боёв.
+    // Второй addEventListener сюда вешать нельзя — стенд держит по одному
+    // обработчику на событие, и тест на клик по системе перестал бы что-либо
+    // проверять, молча.
+    if ((e.target as HTMLElement).closest(".showwar")) { openWar(e); return; }
     const row = (e.target as HTMLElement).closest(".clickrow");
     if (row) open(+row.getAttribute("data-sys"));
   });
@@ -307,7 +355,8 @@ export function bindUI(): void {
 // Рычаги сюда попадают из сохранения, поэтому ползунки синхронизируются
 // ПОСЛЕ, а не до: иначе на экране стояли бы прошлые числа.
 function live(): void {
-  seedToUrl(); syncControls(); scene(); taxhint(); subhint(); pathint(); feehint();
+  seedToUrl(); syncControls(); scene(); taxhint(); subhint(); pathint(); feehint(); armyhint();
+  showBattle(null);
   // Предложения, с которыми партия пришла, уже виденные: иначе первый же ход
   // после разворачивания встал бы на паузу из-за решения, принятого вчера.
   seenProposals = proposals.filter((p) => p.state === "pending").length;
@@ -357,7 +406,7 @@ function fresh(seed?: number): void {
 // Поэтому всё, что трогает партию, на это время заперто; «Заново» — нет, это
 // единственный выход отсюда.
 const LOCKED = ["play", "speed", "map", "tomap", "zin", "zout", "zfit",
-                "tax", "sub", "pat", "fee", "subfield"];
+                "tax", "sub", "pat", "fee", "army", "subfield"];
 function lock(on: boolean): void { LOCKED.forEach((id) => { el(id).disabled = on; }); }
 
 /** Полоса во всю ширину вместо игры. Громко — и нарочно: молчаливое
