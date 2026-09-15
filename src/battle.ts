@@ -25,7 +25,7 @@ import { rnd } from "./rng";
 import { S, U, corps, dateStr, fights, say, systems, voyages, warships } from "./state";
 import { clamp, popsWord } from "./util";
 import { addStock } from "./world";
-import type { Corp, Fight, Fighter, Rock, Voyage, Warship } from "./types";
+import type { Corp, Fight, Fighter, Rock, Sat, Voyage, Warship } from "./types";
 
 /** Сколько месяцев бой идёт, пока кто-нибудь не выйдет из него сам. Девять, и
  *  это число про ЗАДЕРЖКУ: пока идёт бой, рейс стоит, а рейсы в этой игре везут
@@ -87,6 +87,39 @@ function preyFighter(v: Voyage): Fighter {
            parts:v.parts || [], prey:true };
 }
 
+/** Докуда достаёт спутник. То же, что зона охоты вольницы (HUNT): бой у
+ *  соседней звезды спутнику не виден и не по зубам, а бойня «под самым носом»
+ *  — это ровно тот круг, в котором вольница и промышляет. */
+export const SAT_REACH = 45;
+
+/** Вооружённые спутники, которые достают до этого боя, — по обе стороны.
+ *
+ *  Спутник — боец НЕПОДВИЖНЫЙ. Он не гонится за рейдером и не выходит из боя,
+ *  когда становится горячо: он там, где его поставили, и либо отобьётся, либо
+ *  его разберут на детали. Оттого лучемёт на спутнике перестал быть заделом на
+ *  будущее: он защищает не абстрактную систему, а собственные глаза конторы.
+ *
+ *  За ЖЕРТВУ встают спутники её государства: система — их, и разбой в ней их
+ *  дело. За НАПАДАЮЩИХ — спутники самой вольницы: она ставит их у логова и
+ *  смотрит ими, где что летит, а заодно прикрывает промысел орбитальной
+ *  батареей. Чужое государство в чужую драку не лезет ни с той, ни с другой
+ *  стороны. */
+export function satsFor(f: { x: number; y: number }, side: (owner: number) => boolean): Sat[] {
+  const out: Sat[] = [];
+  systems.forEach((s) => {
+    if (Math.hypot(s.x - f.x, s.y - f.y) > SAT_REACH) return;
+    s.sats.forEach((sat) => {
+      if (!sat.live || !sat.armed || sat.hp <= 0) return;
+      if (side(sat.owner)) out.push(sat);
+    });
+  });
+  return out;
+}
+function satFighter(sat: Sat): Fighter {
+  return { owner:sat.owner, name:"спутник " + systems[sat.sys].name, color:sat.color,
+           hp:sat.hp, hpMax:shipHp(sat.parts), dmg:shipDmg(sat.parts), parts:sat.parts, sat:sat };
+}
+
 /** Кто вступится за этот рейс: охрана его хозяина и полиция его государства,
  *  стоящие на одном из концов пути. Дальше конца пути никто не успевает —
  *  потому охрана и имеет смысл ровно там, где её поставили. */
@@ -117,14 +150,24 @@ export function startFight(raiders: Warship[], v: Voyage): Fight | null {
   const b = v.sysFrom !== undefined ? systems[v.to as number] : systems[(v.to as { sys: number }).sys];
   const t = clamp(v.t, 0, 1);
   const guards = guardsFor(v);
+  const at = { x:a.x + (b.x - a.x) * t, y:a.y + (b.y - a.y) * t };
+  const raider = raiders[0].owner, realm = realmOfVoyage(v);
+  const mine = satsFor(at, (o) => { return o === raider; });
+  const sats = satsFor(at, (o) => {
+    const c = corps[o];
+    return !!c && o !== raider && !c.pirate && realmOfCorp(c) === realm;
+  });
   const f: Fight = {
-    id:++seq, sys:a.id, x:a.x + (b.x - a.x) * t, y:a.y + (b.y - a.y) * t,
-    att:raiders.map(fighterOf),
+    id:++seq, sys:a.id, x:at.x, y:at.y,
+    att:raiders.map(fighterOf).concat(mine.map(satFighter)),
     // ОХРАНА СТОИТ ПЕРВОЙ, жертва последней, и это не порядок в списке, а всё,
     // ради чего охрану держат: залп идёт по первому живому (volley), то есть
     // пробиться к трюму можно, только разобравшись с теми, кто его прикрывает.
     // Поставь жертву первой — и конвой стал бы украшением.
-    def:guards.map(fighterOf).concat([preyFighter(v)]),
+    // Спутники стоят МЕЖДУ охраной и жертвой: охрана нанята закрывать трюм
+    // собой и умирает первой, а спутник — сооружение, он прикрывает уже тем,
+    // что стоит здесь и стреляет.
+    def:guards.map(fighterOf).concat(sats.map(satFighter)).concat([preyFighter(v)]),
     raider:raiders[0].owner, prey:v, left:FIGHT_LEN, total:FIGHT_LEN, log:[]
   };
   raiders.forEach((s) => { s.fight = f.id; });
@@ -134,7 +177,10 @@ export function startFight(raiders: Warship[], v: Voyage): Fight | null {
   S.battles++;
   const who = corps[f.raider] ? corps[f.raider].name : "неизвестные";
   say("<b>" + who + "</b> вышла на рейс командира " + (v.captain || "?") + " у " + a.name + ": " +
-      (guards.length ? "его прикрывают, завязался бой." : "прикрыть его некому."));
+      (guards.length ? "его прикрывают, завязался бой."
+     : sats.length ? "охраны нет, но бьют спутники с орбиты."
+     : "прикрыть его некому.") +
+      (mine.length ? " С орбиты ей помогают свои спутники." : ""));
   note(f, "бой начался: " + f.att.length + " против " + f.def.length + ".");
   return f;
 }
@@ -204,6 +250,19 @@ export function battleRun(): void {
  *  две разные вещи, и одна из них врёт. */
 function sync(f: Fight): void {
   f.att.concat(f.def).forEach((x) => {
+    // Спутник сбит: конторе выбило глаз. Он не «чинится» и не остаётся мёртвой
+    // точкой на орбите — его снимают с неба вовсе, и система, которую он
+    // держал, снова свободна под чужой спутник.
+    if (x.sat) {
+      x.sat.hp = Math.max(0, x.hp);
+      if (x.hp > 0) return;
+      const s = systems[x.sat.sys];
+      s.sats = s.sats.filter((o) => { return o !== x.sat; });
+      if (U.pick && U.pick.data === x.sat) U.pick = null;
+      S.downed++;
+      say("Спутник <b>" + corps[x.sat.owner].name + "</b> у " + s.name + " сбит: телескоп потерян.");
+      return;
+    }
     if (!x.ship) return;
     x.ship.hp = Math.max(0, x.hp);
     if (x.hp > 0) return;
@@ -228,6 +287,13 @@ export function plunder(p: Corp, v: Voyage, f?: Fight): void {
   else if (v.kind === "ferry") {
     v.parts.forEach((pt) => { addStock(p, ps.id, pt.k, 1); });
     if (v.cargo === "colony") { v.body.claimed = false; loot = "колониальный модуль"; }
+    else if (v.cargo === "sat") {
+      // Спутник числился в системе с закладки, чтобы туда не полетел второй
+      // (orders.ts); сбитый — не встанет, и место снова свободно.
+      const ss = systems[v.to as number];
+      ss.sats = ss.sats.filter((x) => { return x !== v.sat; });
+      loot = "готовый спутник";
+    }
     else {
       if (v.dest && v.dest.ref) (v.dest.ref as Rock).taken = false;
       const ds = systems[v.to as number];

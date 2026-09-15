@@ -13,6 +13,7 @@ import { labour } from "./labour";
 import { stalledOrders, stalledProjects, trade } from "./market";
 import { migrationRun } from "./migration";
 import { moveShips } from "./motion";
+import { mapTrade, scanSats } from "./charts";
 import { assemble, branchTrade, reviewOrders, reviewProjects } from "./orders";
 import { corpRelief, events, piracy } from "./relief";
 import { keep } from "./save";
@@ -36,8 +37,12 @@ export function step(): void {
   // дерутся, стоит, и порядок между «его догнали» и «он долетел» решается
   // именно здесь.
   groundRun(); armyRun(); piracy(); battleRun();
-  if (S.tick % 12 === 0) { reviewOrders(); reviewProjects(); reviewProposals(); branchTrade(); events(); warOrders(); }
-  assemble(); moveShips(); ventureIncome();
+  // Карты продают раз в год и до заказов: купленная карта — это новые цели,
+  // и решать, что строить, контора должна уже с ней на руках.
+  if (S.tick % 12 === 0) { mapTrade(); reviewOrders(); reviewProjects(); reviewProposals(); branchTrade(); events(); warOrders(); }
+  // Спутники смотрят КАЖДЫЙ месяц и находят по звезде за четыре года: это
+  // самая медленная вещь в партии, и считать её раз в год нельзя.
+  assemble(); moveShips(); scanSats(); ventureIncome();
   // Мир, где не осталось людей, перестаёт быть миром. Метём в КОНЦЕ месяца, а
   // не сразу после labour: населением за месяц двигает не только убыль, но и
   // переселение, эпидемия и прилетевший рейс, и только здесь оно уже не

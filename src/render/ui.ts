@@ -1,5 +1,6 @@
 // ===================== вид и управление =====================
 
+import { seenByState } from "../charts";
 import { setTickMs, tickMs } from "../clock";
 import { markName, markOf, moveName } from "../data";
 import { loadLevers, saveLevers } from "../levers";
@@ -23,8 +24,13 @@ export function scene(): void {
   el("tomap").style.display = map ? "none" : "inline-block";
   el("sname").textContent = map ? "Галактика" : systems[U.view.sys].name;
   if (map) {
-    const op = systems.filter((s) => { return s.unlocked; }).length;
-    el("smeta").textContent = "открыто систем " + op + " из " + systems.length + " · миров " + worlds.length + " · " + moveName();
+    // «Видно» — не «открыто»: карта государства кончается там, где кончается
+    // его знание, и миров в ведомости ровно столько же, сколько в видимых
+    // системах. Сколько всего звёзд в галактике, государству неизвестно, и
+    // писать «из пятидесяти» значило бы соврать ему в первой же строке.
+    const op = systems.filter((s) => { return seenByState(s.id); }).length;
+    const ws = worlds.filter((w) => { return seenByState(w.sys); }).length;
+    el("smeta").textContent = "видно систем " + op + " · миров " + ws + " · " + moveName();
   } else {
     const s = systems[U.view.sys];
     el("smeta").textContent = "планет " + s.bodies.length + " · " +

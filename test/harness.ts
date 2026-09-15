@@ -102,7 +102,7 @@ export function load(file: string, { withDom = false, seed = null, store = {}, a
       // отдаём настоящие заглушки канвасов: пусть код отрисовки исполнится
       querySelectorAll(sel: string) {
         if (!/ikon/.test(sel)) return [];
-        return ["jump", "mine", "colony", "cargo"].map((kind) => {
+        return ["jump", "mine", "colony", "cargo", "sat", "satgun"].map((kind) => {
           const el = stubElement();
           el.getContext = stubContext;
           el.getAttribute = () => kind;

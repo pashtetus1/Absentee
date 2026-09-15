@@ -199,7 +199,7 @@ export function drawFight(f: Fight, x: number, y: number, k: number): void {
   });
   f.def.forEach((d, i) => {
     if (d.hp <= 0) return;
-    ship(d.prey ? "cargo" : "war", x + gap + i * 7 * k, y + gap * 0.4 + i * 3 * k, 6 * k, -1.5708, d.color);
+    ship(d.prey ? "cargo" : d.sat ? "satgun" : "war", x + gap + i * 7 * k, y + gap * 0.4 + i * 3 * k, 6 * k, -1.5708, d.color);
   });
   // Кольцо вокруг всего этого: показывает, что тут не просто корабли, а бой.
   cx.beginPath(); cx.arc(x, y, gap * 1.9, 0, 6.2832);

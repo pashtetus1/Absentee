@@ -1,5 +1,6 @@
 
 import { vis } from "../clock";
+import { seenByState } from "../charts";
 import { MARKRANGE, hullScale } from "../data";
 import { galaxyRange, within } from "../galaxy";
 import { HOME, manyRealms, realmOf, realmOfCorp, realmOfShip, realmOfVoyage } from "../realm";
@@ -41,6 +42,7 @@ function legIn(v: Voyage, sid: number): number | null {
 function strangersIn(s: Sys): boolean {
   return s.bodies.some((b) => b.world && realmOf(b.world) !== HOME) ||
     s.stations.some((st) => realmOfCorp(corps[st.vent.lead]) !== HOME) ||
+    s.sats.some((st) => st.live && realmOfCorp(corps[st.owner]) !== HOME) ||
     s.ships.some((sh) => realmOfShip(sh) !== HOME) ||
     voyages.some((v) => realmOfVoyage(v) !== HOME &&
       (v.sysFrom === undefined && v.from.sys === s.id && v.to.sys === s.id || legIn(v, s.id) !== null));
@@ -194,6 +196,18 @@ export function drawSystem(s: Sys): void {
     hits.push({ x:x, y:y, r:9, kind:"vent", data:st.vent });
   });
 
+  // Вставший спутник — не кораблик: он никуда не летит и не полетит больше
+  // никогда. Висит там, где его оставили, цветом хозяина, с подписью «телескоп»
+  // или «телескоп, лазер». Тот, что ещё в пути, рисуется корабликом ниже.
+  s.sats.forEach((sat) => {
+    if (!sat.live) return;
+    const p = posOf(sat, mx, my);
+    ship(sat.armed ? "satgun" : "sat", p.x, p.y, 7, sat.ang + 1.5708, sat.color);
+    if (flags) crest(p.x, p.y - 14, 4.6, realmOfCorp(corps[sat.owner]));
+    tiny(p.x, p.y + 12, "телескоп Mk" + sat.mark + (sat.armed ? ", лучемёт" : ""), "#7f8cb4");
+    hits.push({ x:p.x, y:p.y, r:11, kind:"sat", data:sat });
+  });
+
   // Верфь вращается вокруг СВОЕЙ планеты, выше дорожек стоянки. Рисуется
   // голова очереди с дугой готовности; сколько ждёт следом — числом рядом.
   shipyards.filter((y) => y.world.sys === s.id).forEach((yard) => {
@@ -335,9 +349,10 @@ export function drawSystem(s: Sys): void {
     const rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
     // Клик по такому рейсу открывает окно межзвёздного корабля (kind
     // "jumpship"), а РИСУЕТСЯ он тем, чем является: стреловидный корпус —
-    // только у портального, первопроходец — обычный грузовик.
-    const isJump = v.kind === "jump" || v.kind === "gate" || v.kind === "reloc";
-    const glyph = v.kind === "gate" || (v.kind === "reloc" && v.cargo === "gate") ? "jump" : "cargo";
+    // только у портального, спутник — спутником, остальное — грузовиком.
+    const isJump = v.kind === "gate" || v.kind === "reloc";
+    const glyph = v.kind === "gate" || (v.kind === "reloc" && v.cargo === "gate") ? "jump"
+                : v.cargo === "sat" ? "sat" : "cargo";
     const hull = hullScale(v.parts);
     if (S.move.key === "drives") {
       // Под движками у края нет створа — корабль сам рвёт пространство. На
@@ -370,7 +385,13 @@ export function drawSystem(s: Sys): void {
 }
 
 export function nodeR(s: Sys): number { return 5 + Math.min(5, (s.mines + s.bodies.filter((b) => { return b.world; }).length) * 1.2); }
-export function seenSys(s: Sys): boolean { return s.unlocked || within(s.id, Math.max(galaxyRange(), MARKRANGE[0])).some((n) => { return systems[n].unlocked; }); }
+/** Видно ли звезду ИГРОКУ. Ровно одно правило и никаких поблажек: государство
+ *  видит систему, когда её карта есть у трёх контор (charts.ts). Никаких
+ *  «далёких точек на краю» больше нет — карта государства обрывается там, где
+ *  кончается его знание, и за этим краем пустой фон. Раньше тут светилась
+ *  россыпь недостижимых звёзд, и она отвечала на вопрос, которого государство
+ *  задать не может: оно не знает, что они есть. */
+export function seenSys(s: Sys): boolean { return seenByState(s.id); }
 
 export function drawMap(): void {
   // Как и в системе: щиты только после первого отделения и только там, где
@@ -394,11 +415,11 @@ export function drawMap(): void {
   const range = galaxyRange();
   if (range > 0) {
     systems.forEach((s) => {
-      if (!s.unlocked) return;
+      if (!seenSys(s)) return;
       within(s.id, range).forEach((n) => {
-        if (systems[n].unlocked && n < s.id) return;
+        if (!seenSys(systems[n]) || n < s.id) return;      // за край карты линий не проводят
         cx.beginPath(); cx.moveTo(s.x, s.y); cx.lineTo(systems[n].x, systems[n].y);
-        cx.strokeStyle = systems[n].unlocked ? "#212b45" : "#1a2340";
+        cx.strokeStyle = "#212b45";
         cx.setLineDash([2 * uiz, 5 * uiz]); cx.lineWidth = uiz; cx.stroke(); cx.setLineDash([]);
       });
     });
@@ -407,7 +428,7 @@ export function drawMap(): void {
   // пунктиром: портальный корабль ещё в пути.
   Object.keys(gates).forEach((k) => {
     const g = gates[k], a = systems[g.a], b = systems[g.b];
-    if (!a || !b) return;
+    if (!a || !b || !seenSys(a) || !seenSys(b)) return;
     cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y);
     if (g.built) { cx.strokeStyle = "#5b6bb0"; cx.lineWidth = 2 * uiz; cx.stroke(); }
     else {
@@ -421,12 +442,16 @@ export function drawMap(): void {
     // несут sysFrom/to; хлебовозы и переселенцы — между мирами
     if (v.sysFrom !== undefined) { a = systems[v.sysFrom]; b = systems[v.to]; }
     else { a = systems[v.from.sys]; b = systems[v.to.sys]; if (a === b) return; }
+    // Рейс за край карты не рисуется: он ушёл туда, где для государства нет
+    // ничего. Корабль пропадает из виду — и это правда, а не пропуск.
+    if (!seenSys(a) || !seenSys(b)) return;
     const k = clamp(vis(v), 0, 1);
     // Клик по такому рейсу открывает окно межзвёздного корабля (kind
     // "jumpship"), а РИСУЕТСЯ он тем, чем является: стреловидный корпус —
-    // только у портального, первопроходец — обычный грузовик.
-    const isJump = v.kind === "jump" || v.kind === "gate" || v.kind === "reloc";
-    const glyph = v.kind === "gate" || (v.kind === "reloc" && v.cargo === "gate") ? "jump" : "cargo";
+    // только у портального, спутник — спутником, остальное — грузовиком.
+    const isJump = v.kind === "gate" || v.kind === "reloc";
+    const glyph = v.kind === "gate" || (v.kind === "reloc" && v.cargo === "gate") ? "jump"
+                : v.cargo === "sat" ? "sat" : "cargo";
     // Прыжок идёт ДУГОЙ, а не по линейке: прямая между звёздами читается как
     // чертёж, дуга — как полёт. Изгиб тем сильнее, чем длиннее перегон, а
     // сторона постоянна для пары звёзд, чтобы встречные не сливались в нить.
@@ -482,21 +507,10 @@ export function drawMap(): void {
     // при приближении узлы расходились, а не разбухали в пятна. Зона охоты
     // вольницы (45) ужиматься НЕ должна — это настоящее расстояние в космосе.
     const r = nodeR(s) * uiz;
-    if (!seenSys(s)) {
-      // Далёкая звезда обязана быть ВИДНА: карта из пятидесяти точек, где
-      // сорок три почти сливаются с фоном, читается как пустая, и тогда
-      // непонятно даже, работает ли зум. Видно — но недостижимо.
-      cx.beginPath(); cx.arc(s.x, s.y, 2.6 * uiz, 0, 6.2832); cx.fillStyle = "#46527a"; cx.fill();
-      return;
-    }
-    if (!s.unlocked) {
-      cx.beginPath(); cx.arc(s.x, s.y, 8 * uiz, 0, 6.2832);
-      cx.strokeStyle = "#3a4460"; cx.setLineDash([2 * uiz, 4 * uiz]); cx.lineWidth = 1.2 * uiz; cx.stroke(); cx.setLineDash([]);
-      cx.font = "500 " + (10.5 * uiz) + "px system-ui, sans-serif"; cx.fillStyle = "#4e5872";
-      cx.textAlign = "center"; cx.textBaseline = "top";
-      cx.fillText("неизведанная", s.x, s.y + 13 * uiz);
-      return;
-    }
+    // Звезды, которой государство не знает, на карте НЕТ ВОВСЕ — ни точки, ни
+    // кольца, ни подписи «неизведанная». Это и есть главное правило карты: она
+    // показывает не галактику, а то, что государству известно про галактику.
+    if (!seenSys(s)) return;
     if (s.pulse > 0) {
       cx.beginPath(); cx.arc(s.x, s.y, r + (6 + (1 - s.pulse) * 22) * uiz, 0, 6.2832);
       cx.strokeStyle = "#9aa8ff"; cx.globalAlpha = s.pulse * 0.7; cx.lineWidth = 1.6 * uiz; cx.stroke(); cx.globalAlpha = 1;
@@ -511,6 +525,24 @@ export function drawMap(): void {
       cx.strokeStyle = "#ff5c5c"; cx.globalAlpha = 0.35; cx.setLineDash([4 * uiz, 6 * uiz]); cx.lineWidth = 1.2 * uiz;
       cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
     }
+    // Звезда со спутником: квадратик цвета хозяина сбоку от узла — та же ось
+    // опознания, что у филиалов на планете и у платформ на камнях. Отсюда на
+    // карте видно, ЧЕМ открыта галактика и кто смотрел. Вокруг такой звезды —
+    // бледный круг дальности телескопа: он и объясняет, почему карта кончается
+    // именно здесь, и почему следующий спутник ставят туда, а не сюда.
+    const live = s.sats.filter((sat) => { return sat.live; });
+    if (live.length) {
+      // Круг — по ДАЛЬНОЗОРКОСТИ лучшего телескопа в системе: у Mk1 он мал, у
+      // Mk4 накрывает пол-экрана, и разницу между ступенями видно сразу.
+      const sight = live.reduce((a, sat) => { return Math.max(a, sat.range); }, 0);
+      cx.beginPath(); cx.arc(s.x, s.y, sight, 0, 6.2832);
+      cx.strokeStyle = "#2a3c66"; cx.globalAlpha = 0.5; cx.lineWidth = uiz;
+      cx.setLineDash([1.5 * uiz, 6 * uiz]); cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
+    }
+    live.forEach((sat, i) => {
+      cx.fillStyle = sat.color;
+      cx.fillRect(s.x + (r + 4 + i * 4) * uiz - 1.5 * uiz, s.y - r - 4 * uiz, 3 * uiz, 3 * uiz);
+    });
     const gs = gatesAt(s.id);
     if (gs.some((g) => { return g.built; })) {   // в сети: до неё долетит хлебовоз
       cx.beginPath(); cx.arc(s.x, s.y, r + 6 * uiz, 0, 6.2832);

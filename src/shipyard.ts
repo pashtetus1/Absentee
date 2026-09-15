@@ -24,6 +24,7 @@
 // выглядела сломанной. Срок жизни в игровых месяцах для решения, которое ждёт
 // ЧЕЛОВЕКА, — ошибка меры: тут время идёт по настенным часам, а не по тику.
 
+import { sayAt, seenByState } from "./charts";
 import { vtype } from "./data";
 import { HOME, isRealm, realmOf, realmOfCorp } from "./realm";
 import { rnd } from "./rng";
@@ -315,7 +316,7 @@ export function edgeYards(): void {
     w.edgeYard = undefined;
     if (w.yard) return;                 // пока строили, верфь взялась откуда-то ещё
     foundYard(w, [], owner, true);
-    say("<b>У " + w.body.name + " встал свой стапель</b> — не верфь, а урезанная её " +
+    sayAt(w.sys, "<b>У " + w.body.name + " встал свой стапель</b> — не верфь, а урезанная её " +
         "версия, собранная из мусора: строит то же самое, только в разы дольше. " +
         "Хозяин «" + corps[owner].name + "».");
   });
@@ -355,6 +356,11 @@ export function reviewProposals(): void {
       // с филиалом на отделившемся мире могла бы перевести туда деньги родной
       // казны, ничего не нарушив ни одной проверкой.
       if (realmOf(x) !== HOME) return;
+      // И не в системе, которой государство не видит: предложение — разговор с
+      // ИГРОКОМ, а он про эту звезду не знает. Контора, спрятавшая находку,
+      // остаётся с ней один на один: казна ей там не построит ничего, пока
+      // карту не узнают трое (charts.ts).
+      if (!seenByState(x.sys)) return;
       if (x.yard || (act && act.state !== "pending") || (x.yardRetryAt || 0) > S.tick) return;
       if (x.pop.prod < 2) return;                 // без рабочих рук верфь стояла бы вечно
       if (x.pop.prod > top) { top = x.pop.prod; w = x; }

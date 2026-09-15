@@ -24,6 +24,9 @@ export function build(forcedMove?: string, seed?: number): void {
   fill(corps, TEMPLATE.map((t, i) => {
     const c = { id:i, name:t.name, color:t.color, craft:t.craft, nerve:t.nerve, apt:t.apt,
               cash:900, known:{}, spent:{}, stock:{}, target:null, order:null,
+              // Тиру знают все: тут все и живут. Дальше — только то, что
+              // разглядел свой спутник или купила сама (charts.ts).
+              maps:{ 0:true },
               branches:[], sold:0, bought:0, cool:0, embargo:{}, ask:{} } as Corp;
     allTech().forEach((f) => { c.spent[f.key] = 0; });
     // ask — во сколько раз компания просит выше ходовой цены. Характер здесь
@@ -58,11 +61,12 @@ export function build(forcedMove?: string, seed?: number): void {
 
   S.tick = 0; S.yearNow = 0; S.treasury = 320; S.jumped = false; S.trades = 0; S.turnover = 0; S.shipped = 0; S.movedPops = 0;
   S.refusals = 0; S.dropped = 0; S.moveKnown = false; S.hauled = 0; S.burned = 0; S.raids = 0; S.lost = 0;
-  S.pirateCount = 0; S.crestSeq = 0; S.taxAway = 0; clear(purses);
+  S.pirateCount = 0; S.crestSeq = 0; S.taxAway = 0; S.maps = 0; S.mapNo = 0; clear(purses);
   S.armyFund = 0; S.battles = 0; S.downed = 0; S.risings = 0;
   U.view = { mode:"system", sys:0 };
   foundYard(S.home, []);                     // стартовая верфь: общая и пустая
   say("Тира: восемнадцать человечков из тридцати двух возможных, пять компаний, одна верфь и ни одной освоенной детали.");
+  say("Что вокруг — неизвестно никому: звёзды открывают спутники с телескопом, и каждая контора видит только то, что разглядела сама.");
   say("Межзвёздный переход возможен, но какой именно — неизвестно: выяснится, когда кто-нибудь доведёт первую марку.");
 }
 

@@ -1,13 +1,15 @@
 // ===================== наука =====================
 
-import { PTYPES, armOf, bestHullMade, colOf, compOf, isArm, isEngine, isHull, markOf, roomOfKey } from "./data";
+import { PTYPES, armOf, bestHullMade, colOf, compOf, isArm, isEngine, isHull, isScope, markOf, ownSight, roomOfKey, sightOfKey } from "./data";
 import { ensureDesign, isDesign } from "./arms";
 import { galaxyRange, rangeOf, within } from "./galaxy";
+import { knowsSys } from "./charts";
 import { isRealm } from "./realm";
-import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
+import { L, S, Y, anyKnows, anyMakes, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
 import { allTech, bestEngineMade, devOf, engOf, ensureDev, markStep, ownEngine, ownHull, prevStep, stepKey, techOf } from "./tech";
 import type { Corp } from "./types";
 
+import { dist } from "./util";
 import { rnd } from "./rng";
 
 /** Склонность компании к технологии. У ходовых двигателей склонность одна на
@@ -38,7 +40,11 @@ export function pickTarget(c: Corp): string | null {
     if (pk && !knows(c, pk)) return;
     let worth;
     if (markOf(f.key)) {
-      // следующая марка стоит ровно столько, сколько звёзд она открывает
+      // Следующая марка стоит ровно столько, сколько звёзд она ПРИБЛИЖАЕТ:
+      // разглядённых в телескоп, но лежащих дальше нынешней дальности. Раньше
+      // тут считались закрытые звёзды — марка была и дорогой, и глазами разом;
+      // теперь глаза у спутника, и марка отвечает только за дорогу.
+      //
       // Сравнивать надо со СВОЕЙ дальностью, не с лучшей в галактике: чужой
       // патент на Mk1 не даёт тебе летать, а сравнение с ним гнало всех
       // исследовать Mk4 за 5800, пока ни один корабль не мог выйти из дома.
@@ -46,8 +52,9 @@ export function pickTarget(c: Corp): string | null {
       if (m.range <= have) return;                       // эту дальность уже имеем сами
       let gain = 0;
       systems.forEach((s) => {
-        if (!s.unlocked) return;
-        gain += within(s.id, m.range).filter((n) => { return !systems[n].unlocked; }).length;
+        if (!knowsSys(c, s.id) || !s.bodies.some((b) => { return b.world; })) return;
+        gain += within(s.id, m.range).filter((n) => {
+          return knowsSys(c, n) && dist(s, systems[n]) > have; }).length;
       });
       worth = 1.2 + Math.min(12, gain) * 0.45;
     }
@@ -127,11 +134,28 @@ export function pickTarget(c: Corp): string | null {
                       staged.some((st) => { return st.fuelWait > 0; });
       worth = waiting ? 4.5 : (galaxyRange() > 0 ? 3.2 : 1.2);
     }
+    else if (isScope(f.key)) {
+      // Телескоп — глаза конторы, и глаза СВОИ: спутник несёт ту ступень,
+      // которую она умеет делать сама (satKit в orders.ts). Поэтому, пока у
+      // конторы нет ни одной, она слепа целиком — не видит ничего, кроме того,
+      // что купит картой, — и первая ступень стоит для неё как первый
+      // двигатель. Дальше — по тому, много ли тьмы достанет НОВАЯ ступень.
+      // Тьма считается СВОЯ: сколько звёзд эта контора не знает, а могла бы
+      // разглядеть со своих систем. Чужой спутник ей ничего не показал.
+      const sight = sightOfKey(f.key), own = ownSight(c);
+      if (sight <= own) return;                          // так далеко уже видим сами
+      let dark = 0;
+      systems.forEach((s) => {
+        if (!knowsSys(c, s.id)) return;
+        dark += within(s.id, sight).filter((n) => { return !knowsSys(c, n); }).length;
+      });
+      worth = !own ? 3.6 : dark ? 1.4 + Math.min(10, dark) * 0.28 : 0.3;
+    }
     else if (compOf(f.key)) worth = f.key === "drill" || f.key === "hold" ? 2.2 : 1.8;
     else {
       let free = 0;
       systems.forEach((s) => {
-        if (!s.unlocked) return;
+        if (!knowsSys(c, s.id)) return;                    // о чужих находках контора не знает
         s.bodies.forEach((b) => { if (!b.world && b.type.tech === f.key) free++; });
       });
       worth = free ? 1.6 + free * 0.5 : 0.2;

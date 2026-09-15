@@ -24,6 +24,7 @@ export interface Comp extends Tech {
   work: number; base: number; glyph: string;
   mult?: number;                  // ходовой двигатель: множитель скорости внутри системы
   slots?: number;                 // корпус: сколько деталей держит, считая себя
+  sight?: number;                 // телескоп: докуда видит спутник с ним
   arm?: Arm;                      // военная деталь: чем бьёт, чем держит, чем высаживает
 }
 
@@ -107,8 +108,12 @@ export interface BType { key: string; name: string; short: string; jobs: number;
  *  comp — деталь, без которой этот способ не работает: прыжковый двигатель под
  *  движками, портальный набор под воротами. Деталь ЧУЖОГО способа в партии не
  *  нужна вообще, и наука обязана это знать — иначе компании годами вкладываются
- *  в то, что здесь никогда не полетит. */
-export interface Move { key: string; name: string; vt: string; comp: string; hint: string; }
+ *  в то, что здесь никогда не полетит.
+ *
+ *  Поля «каким кораблём открывают звезду» здесь БОЛЬШЕ НЕТ: звёзды не
+ *  открывают кораблями вовсе, их открывает спутник с телескопом (Sat). Способ
+ *  отвечает только за дорогу — как попасть туда, что уже видно. */
+export interface Move { key: string; name: string; comp: string; hint: string; }
 
 // ---- галактика --------------------------------------------------------
 
@@ -144,11 +149,11 @@ export interface Planet {
 
 export interface Sys {
   id: number; name: string; x: number; y: number;
-  unlocked: boolean;              // сюда уже кто-то долетел
+  unlocked: boolean;              // звезду разглядели в телескоп: видно, что в ней
   depth: number;                  // удалённость от родины, "переход N"
   pulse: number;
   bodies: Planet[]; rocks: Rock[]; ventures: Venture[];
-  ships: Ship[]; stations: Station[];
+  ships: Ship[]; stations: Station[]; sats: Sat[];
   mines: number;
   belt: boolean;                  // есть ли пояс астероидов
   gateR: number;                  // радиус последней орбиты — на ней стоят створы
@@ -228,6 +233,10 @@ export interface Corp {
   apt: Record<string, number>;           // склонность к каждой технологии
   cash: number;
   known: Record<string, boolean>;        // что уже освоено
+  /** Карты систем: какие звёзды контора знает. Знание ЧАСТНОЕ — своим спутником
+   *  или купленной картой (charts.ts); государство видит систему, только когда
+   *  её знают трое. Ключ — номер системы. */
+  maps: Record<number, boolean>;
   spent: Record<string, number>;         // сколько вложено в каждую технологию
   stock: Record<string, Record<string, number>>;   // склад с адресом: система -> деталь
   tot?: Record<string, number>;          // сумма склада, держится вместе с ним
@@ -301,8 +310,43 @@ export interface Project {
 
 // ---- то, что летает и работает ----------------------------------------
 
-/** Куда направляется корабль: астероид, планета, система. */
-export interface Dest { kind: string; ref: Rock | Planet; label: string; }
+/** Куда направляется корабль: астероид, планета, орбита спутника. Общее у
+ *  всех трёх — место в системе (ang, r), и ровно им пользуется отрисовка. */
+export interface Dest { kind: string; ref: Rock | Planet | Sat; label: string; }
+
+/** Спутник: не корабль, а СООРУЖЕНИЕ на орбите. Состав деталей у него один —
+ *  телескоп, и телескоп делает единственное, ради чего спутник нужен:
+ *  ищет закрытые звёзды вокруг своей системы. Ступеней телескопа четыре, и
+ *  дальность у ступени та же, что у марки перехода того же номера: куда
+ *  долетаешь, туда и видишь. Находит он их ПО ОДНОЙ и годами.
+ *  Вторым может стоять боевой лазер — может, а не обязан: пока он не делает
+ *  ничего, бои идут отдельной веткой, и спутник с ним отличается только ценой
+ *  и видом. Когда бои придут, вооружённые спутники уже будут стоять там, где
+ *  компании решили их поставить.
+ *
+ *  live/building — как у Venture: спутник числится в системе с того месяца,
+ *  как его заложили, чтобы второй туда не полетел, а работать начинает, когда
+ *  встанет на орбиту. found — сколько звёзд он открыл, встав. */
+export interface Sat {
+  sys: number; owner: number; color: string;
+  ang: number; r: number;               // где висит: своя орбита у звезды
+  parts: Part[]; born: string;
+  mark: number;                         // ступень телескопа, 1..4
+  range: number;                        // докуда видит: дальность своей ступени
+  /** Запас прочности, как у военного корабля (shipHp по его же деталям).
+   *  Держится МЕЖДУ боями: спутник не чинится сам, и вторая стычка застаёт его
+   *  таким, каким его оставила первая. */
+  hp: number;
+  /** На борту энергетическое оружие (семейство beam, arms.ts). Своего «лазера»
+   *  у спутника больше нет: пока бои шли другой веткой, он был отдельной
+   *  деталью, теперь ветки сошлись и оружие в игре одно. */
+  armed: boolean;
+  live: boolean; building: boolean;
+  /** Месяцев всматривается в очередную звезду. Спутник находит их ПО ОДНОЙ и
+   *  не сразу (SCAN_MONTHS в charts.ts): небо большое, а телескоп один. */
+  scan: number;
+  found: number;                        // сколько звёзд нашёл за свою жизнь
+}
 
 /** Платформа, вставшая на астероид: видимый след предприятия в системе. */
 export interface Station {
@@ -321,6 +365,7 @@ export interface Yard {
   vt: VType; lead: number; color: string; glyph: string;
   parts: Part[]; left: number; total: number;
   vent?: Venture; dest?: Dest; dst?: number;
+  sat?: Sat;                      // спутник: что именно собирают и куда оно встанет
   to?: number; fuelWait?: number;
   forWorld?: World;               // транспорт: чьей планете он достанется
   forCorp?: number;               // транспорт: чьей компании (иначе государственный)
@@ -380,7 +425,7 @@ export interface Ship {
   born: string; captain: string;
   parts: Part[];
   yard?: Shipyard;                // с какой верфи сошёл: оттуда и стартует
-  dest?: Dest; vent?: Venture;
+  dest?: Dest; vent?: Venture; sat?: Sat;
   body?: Planet; backers?: { corp: number; sum: number }[];
 }
 
@@ -408,14 +453,17 @@ export interface Warship {
   fight?: number;                 // номер боя, в котором он занят
 }
 
-/** Боец в космическом бою: военный корабль или сам мирный, за которым пришли.
- *  У мирного нет ни урона, ни ссылки на военный корабль — он тут жертва, а не
- *  участник, и именно это отсутствие значимо. */
+/** Боец в космическом бою: военный корабль, вооружённый СПУТНИК или сам
+ *  мирный, за которым пришли. У мирного нет ни урона, ни ссылки на корабль —
+ *  он тут жертва, а не участник, и именно это отсутствие значимо. Спутник —
+ *  участник неподвижный: он не догоняет и не отступает, он просто стоит в
+ *  своей системе и стреляет по тем, кто затеял бойню у него под носом. */
 export interface Fighter {
   owner: number; name: string; color: string;
   hp: number; hpMax: number; dmg: number;
   parts: Part[];
   ship?: Warship;                 // военный корабль, если это он
+  sat?: Sat;                      // спутник: стреляет с орбиты и никуда не уходит
   prey?: boolean;                 // сам мирный корабль
 }
 
@@ -499,7 +547,7 @@ export interface Voyage {
   /** Детали в трюме грузовика (kind "parts"). У рейсов из старых сохранений их
    *  нет — там одна деталь в k, consign и acct (freight.ts, lotsOf). */
   lots?: Lot[];
-  dest?: Dest; vent?: Venture; body?: Planet;
+  dest?: Dest; vent?: Venture; sat?: Sat; body?: Planet;
   backers?: { corp: number; sum: number }[];
   /** Номер боя, в котором рейс задержан. Пока он стоит, рейс НЕ движется: его
    *  держат на прицеле, и весь спор о том, дойдёт ли он вообще. */
@@ -580,6 +628,9 @@ export interface Snapshot {
   taxAway: number;
   trades: number; shipped: number; movedPops: number; refusals: number;
   dropped: number; hauled: number; burned: number; raids: number; lost: number;
+  /** Карт продано и отказов в карте: по этим двум видно, держат ли конторы
+   *  свои открытия при себе. */
+  maps: number; mapNo: number;
   feed: { d: string; t: string }[];
 }
 
@@ -600,11 +651,19 @@ export interface Core {
   consts: {
     COMPS: Comp[]; COLTECH: ColTech[]; PTYPES: PType[];
     VTYPES: VType[]; MOVES: Move[]; ENGINES: Engine[]; MARKS: Mark[]; BTYPES: BType[];
+    /** Дальности ступеней — одни на марки перехода и на телескопы; сколько
+     *  месяцев спутник ищет одну звезду; скольким конторам надо знать систему,
+     *  чтобы её увидело государство. */
+    MARKRANGE: number[]; SCAN_MONTHS: number; STATE_EYES: number;
     /** Военные детали: пять семейств по пять ступеней. */
     ARMS: Comp[];
     /** Чертежи, рождённые этой партией. Список живой: он растёт по ходу игры. */
     DESIGNS: Design[];
   };
+  /** Знает ли контора эту систему (карты частные, charts.ts). */
+  knowsSys(c: Corp, id: number): boolean;
+  /** Видит ли систему государство: её знают хотя бы три конторы. */
+  seenByState(id: number): boolean;
   speedOf(corpId: number): number;
   popOf(w: World): number;
   /** Урожай мира и выработка одного полевого фермера. Наружу выведены затем,

@@ -13,7 +13,7 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
   // belt и gate дописываются ниже: belt тянет случайное число, и перенос его
   // в литерал сдвинул бы весь поток — партии перестали бы воспроизводиться
   const s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
-            bodies:[], rocks:[], ventures:[], ships:[], stations:[], mines:0, portals:[] } as unknown as Sys;
+            bodies:[], rocks:[], ventures:[], ships:[], stations:[], sats:[], mines:0, portals:[] } as unknown as Sys;
   const np = i === 0 ? 4 : 2 + Math.floor(rnd() * 4);      // до пяти планет
   const types: PType[] = [], rs: number[] = [];
   for (let k = 0; k < np; k++) {
@@ -139,6 +139,15 @@ export function makeGalaxy(): void {
     if (p.x < 24 || p.x > CW - 24 || p.y < 24 || p.y > CH - 24) continue;
     const minD = 24 + r * 0.14;
     if (!pts.every((q) => { return dist(p, q) > minD; })) continue;
+    // И НЕ ОСТРОВОМ: звезда ставится только в досягаемости лучшей марки от
+    // какой-нибудь уже поставленной. Иначе генератор изредка (одна галактика
+    // из сорока) оставлял звезду, до которой нельзя долететь ни с одной другой,
+    // — а раз нельзя долететь, то и телескоп её не достанет (дальности у
+    // ступеней одни и те же), и в партии она не существует вовсе. Связность
+    // получается ПО ПОСТРОЕНИЮ: каждая новая точка цепляется к уже связному
+    // множеству, а первая и есть Тира.
+    const reach = MARKRANGE[MARKRANGE.length - 1];
+    if (!pts.some((q) => { return dist(p, q) <= reach; })) continue;
     pts.push(p);
   }
   fill(systems, pts.map((p, i) => {
@@ -148,9 +157,12 @@ export function makeGalaxy(): void {
   }));
 }
 
-// Соседство теперь не рисуется заранее, а считается дальностью портала:
-// "рядом" — значит, дотягивается техника, а не значит, что кто-то провёл
-// линию на карте. От марки к марке карта сама раскрывается кольцами.
+// Соседство теперь не рисуется заранее, а считается дальностью: "рядом" —
+// значит, дотягивается техника, а не значит, что кто-то провёл линию на карте.
+// Дальностей две, и они отвечают на разные вопросы: телескоп спутника
+// (SCOPE_RANGE) говорит, что вокруг ЕСТЬ, марка перехода — куда можно
+// ДОЛЕТЕТЬ. От спутника к спутнику карта раскрывается кольцами, от марки к
+// марке — догоняет дорога.
 export function within(i: number, range: number): number[] {
   const out = [];
   for (let j = 0; j < systems.length; j++)

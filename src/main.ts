@@ -5,8 +5,9 @@
 // Стенд запускает ядро без браузера: см. test/. Отдаём только чтение состояния
 // и шаг — отрисовка в тестах не участвует принципиально.
 
-import { ARMS, BTYPES, COLTECH, COMPS, MARKS, MOVES, PTYPES, VTYPES } from "./data";
+import { ARMS, BTYPES, COLTECH, COMPS, MARKRANGE, MARKS, MOVES, PTYPES, VTYPES } from "./data";
 import { DESIGNS } from "./arms";
+import { SCAN_MONTHS, STATE_EYES, knowsSys, seenByState } from "./charts";
 import { icon } from "./render/models";
 import { bindUI } from "./render/ui";
 import { build } from "./setup";
@@ -32,6 +33,11 @@ export { decideById as decide };
 
 export function setApproval(mode: ApproveMode): void { L.approve = mode; }
 
+// Стенду и тестам: кто что знает. Иначе проверить главное правило партии —
+// «государство видит систему только с трёх карт» — можно было бы лишь по
+// внутренностям контор, а это уже не договор, а подглядывание.
+export { knowsSys, seenByState };
+
 export function state(): Snapshot {
   return { tick: S.tick, treasury: S.treasury, corps: corps, worlds: worlds, systems: systems,
            move: S.move, gates: gates, market: market, shipMarket: shipMarket, freight: freight, patents: patents, voyages: voyages, projects: projects, shipyards: shipyards, proposals: proposals, staged: staged,
@@ -39,7 +45,8 @@ export function state(): Snapshot {
            warships: warships, fights: fights, grounds: grounds, designs: DESIGNS,
            armyFund: S.armyFund, battles: S.battles, downed: S.downed, risings: S.risings,
            trades: S.trades, shipped: S.shipped, movedPops: S.movedPops, refusals: S.refusals, dropped: S.dropped,
-           hauled: S.hauled, burned: S.burned, raids: S.raids, lost: S.lost, docks: docks, feed: feed };
+           hauled: S.hauled, burned: S.burned, raids: S.raids, lost: S.lost,
+           maps: S.maps, mapNo: S.mapNo, docks: docks, feed: feed };
 }
 
 export function setLever(k: string, v: number | string): void {
@@ -54,7 +61,8 @@ export function setLever(k: string, v: number | string): void {
 
 // MARKS больше не переприсваивается (чистится на месте), поэтому геттер,
 // который раньше ловил подмену массива, больше не нужен.
-export const consts = { COMPS, COLTECH, PTYPES, VTYPES, MOVES, ENGINES, MARKS, BTYPES, ARMS, DESIGNS };
+export const consts = { COMPS, COLTECH, PTYPES, VTYPES, MOVES, ENGINES, MARKS, BTYPES, ARMS, DESIGNS,
+                        MARKRANGE, SCAN_MONTHS, STATE_EYES };
 
 // для стенда: переключить вид, чтобы кадр отрисовал и карту, и систему
 export function setView(mode: string, sys?: number): void { U.view = { mode: mode, sys: sys || 0 }; }
