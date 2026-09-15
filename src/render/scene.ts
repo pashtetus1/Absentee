@@ -1,6 +1,6 @@
 
 import { vis } from "../clock";
-import { MARKRANGE } from "../data";
+import { MARKRANGE, hullScale } from "../data";
 import { galaxyRange, within } from "../galaxy";
 import { HOME, manyRealms, realmOf, realmOfCorp, realmOfShip, realmOfVoyage } from "../realm";
 import { yardAt } from "../shipyard";
@@ -214,7 +214,9 @@ export function drawSystem(s: Sys): void {
     }
     if (head) {
       cx.globalAlpha = 0.4 + done * 0.6;
-      ship(head.glyph, x, y, 5.4, 0, head.color);
+      // Размер — по ступени корпуса, как у всех кораблей: у стапеля видно, что
+      // собирают не хлебовоз Mk1, а что-то просторнее.
+      ship(head.glyph, x, y, 5.4 * hullScale(head.parts), 0, head.color);
       cx.globalAlpha = 1;
     }
     if (yard.queue.length > 1) tiny(x + 15, y - 9, "+" + (yard.queue.length - 1), "#6f7c9e");
@@ -230,17 +232,20 @@ export function drawSystem(s: Sys): void {
     // вылет и прилёт: корабль вырастает из точки у родной планеты и сжимается
     // в точку у цели; так видно, что он ОТТУДА и что он ТУДА сел
     const g = grow(clamp(vis(sh), 0, 1));
+    // Корабль тем крупнее, чем просторнее его корпус (hullScale, data.ts):
+    // ступень видно на глаз, не открывая карточку.
+    const hs = sh.size * hullScale(sh.parts);
     if (g > 0.02) {
-      flame(sh.x, sh.y, sh.size * g, sh.ang);
-      ship(sh.glyph, sh.x, sh.y, sh.size * g, sh.ang, sh.color);
+      flame(sh.x, sh.y, hs * g, sh.ang);
+      ship(sh.glyph, sh.x, sh.y, hs * g, sh.ang, sh.color);
       // Флаг растёт и тает вместе с кораблём: щит, висящий над точкой, из
       // которой корабль ещё не вышел, читался бы как отдельная вещь. Отступ
       // отсчитывается от РАЗМЕРА корпуса — иначе щит ложится кораблю на нос.
-      if (flags) crest(sh.x, sh.y - (sh.size + 9) * g, 4.2 * g, realmOfShip(sh));
+      if (flags) crest(sh.x, sh.y - (hs + 9) * g, 4.2 * g, realmOfShip(sh));
     }
     if (U.pick && U.pick.data === sh) caption(sh.x, sh.y, windowLines(sh, false), sh.color);
     else tiny(sh.x, sh.y, sh.captain, sh.color);
-    hits.push({ x:sh.x, y:sh.y, r:13, kind:"ship", data:sh });
+    hits.push({ x:sh.x, y:sh.y, r:11 + hs * 0.25, kind:"ship", data:sh });
   });
 
   // стоянка: отработанные транспортники висят на орбите своего мира, тускло
@@ -256,11 +261,12 @@ export function drawSystem(s: Sys): void {
     const a = d.ang + glow * (0.26 - lane * 0.05), off = b.rad + 13 + lane * 4;
     const x = p.x + Math.cos(a) * off, y = p.y + Math.sin(a) * off;
     cx.globalAlpha = 0.55;
-    ship("cargo", x, y, 3.4, a + 1.5708, d.corp >= 0 ? corps[d.corp].color : "#8894ae");
+    const ds = 3.4 * hullScale(d.parts);
+    ship("cargo", x, y, ds, a + 1.5708, d.corp >= 0 ? corps[d.corp].color : "#8894ae");
     cx.globalAlpha = 1;
     if (U.pick && U.pick.data === d) caption(x, y, dockLines(d), d.corp >= 0 ? corps[d.corp].color : "#8894ae");
     else tiny(x, y, d.captain, "#5d6881");
-    hits.push({ x:x, y:y, r:8, kind:"dock", data:d });
+    hits.push({ x:x, y:y, r:6 + ds, kind:"dock", data:d });
   });
 
   voyages.forEach((v) => {
@@ -268,7 +274,7 @@ export function drawSystem(s: Sys): void {
     const a = posOf(v.from.body, mx, my), b = posOf(v.to.body, mx, my), k = clamp(vis(v), 0, 1);
     const x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k;
     const rotc = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;   // носом к цели, как все
-    const gc = 6 * grow(k);
+    const gc = 6 * hullScale(v.parts) * grow(k);
     if (gc > 0.12) {
       flame(x, y, gc, rotc); ship("cargo", x, y, gc, rotc, v.color);
       if (flags) crest(x, y - 2.9 * gc, 0.7 * gc, realmOfVoyage(v));
@@ -304,7 +310,12 @@ export function drawSystem(s: Sys): void {
     }
     const x = a.x + (b.x - a.x) * leg, y = a.y + (b.y - a.y) * leg;
     const rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
+    // Клик по такому рейсу открывает окно межзвёздного корабля (kind
+    // "jumpship"), а РИСУЕТСЯ он тем, чем является: стреловидный корпус —
+    // только у портального, первопроходец — обычный грузовик.
     const isJump = v.kind === "jump" || v.kind === "gate" || v.kind === "reloc";
+    const glyph = v.kind === "gate" || (v.kind === "reloc" && v.cargo === "gate") ? "jump" : "cargo";
+    const hull = hullScale(v.parts);
     if (S.move.key === "drives") {
       // Под движками у края нет створа — корабль сам рвёт пространство. На
       // вылете перед ним раскрывается дыра, он вытягивается и уходит в неё;
@@ -313,18 +324,18 @@ export function drawSystem(s: Sys): void {
       const open = out ? clamp((leg - 0.5) / 0.3, 0, 1) : 1 - clamp((leg - 0.1) / 0.35, 0, 1);
       const pull = out ? clamp((leg - 0.62) / 0.38, 0, 1) : 1 - clamp(leg / 0.3, 0, 1);
       rift(out ? b.x : a.x, out ? b.y : a.y, 15, open);
-      const sz = 6.5 * (out ? grow(leg, 0.45, 0.12) : grow(leg, 0.1, 0.45));
+      const sz = 6.5 * hull * (out ? grow(leg, 0.45, 0.12) : grow(leg, 0.1, 0.45));
       if (sz > 0.12) {
-        warped(isJump ? "jump" : "cargo", x, y, sz, rot, v.color, pull);
+        warped(glyph, x, y, sz, rot, v.color, pull);
         if (flags) crest(x, y - 2.9 * sz, 0.7 * sz * (1 - pull), realmOfVoyage(v));
       }
     } else {
       // вылет — растёт из точки у планеты, прилёт — сжимается в точку у цели;
       // со стороны створа корабль не анимируется: он там просто уходит
-      const sz = 6.5 * (out ? grow(leg, 0.45, 0) : grow(leg, 0, 0.45));
+      const sz = 6.5 * hull * (out ? grow(leg, 0.45, 0) : grow(leg, 0, 0.45));
       if (sz > 0.12) {
         flame(x, y, sz, rot);
-        ship(isJump ? "jump" : "cargo", x, y, sz, rot, v.color);
+        ship(glyph, x, y, sz, rot, v.color);
         if (flags) crest(x, y - 2.9 * sz, 0.7 * sz, realmOfVoyage(v));
       }
     }
@@ -388,7 +399,11 @@ export function drawMap(): void {
     if (v.sysFrom !== undefined) { a = systems[v.sysFrom]; b = systems[v.to]; }
     else { a = systems[v.from.sys]; b = systems[v.to.sys]; if (a === b) return; }
     const k = clamp(vis(v), 0, 1);
+    // Клик по такому рейсу открывает окно межзвёздного корабля (kind
+    // "jumpship"), а РИСУЕТСЯ он тем, чем является: стреловидный корпус —
+    // только у портального, первопроходец — обычный грузовик.
     const isJump = v.kind === "jump" || v.kind === "gate" || v.kind === "reloc";
+    const glyph = v.kind === "gate" || (v.kind === "reloc" && v.cargo === "gate") ? "jump" : "cargo";
     // Прыжок идёт ДУГОЙ, а не по линейке: прямая между звёздами читается как
     // чертёж, дуга — как полёт. Изгиб тем сильнее, чем длиннее перегон, а
     // сторона постоянна для пары звёзд, чтобы встречные не сливались в нить.
@@ -419,9 +434,9 @@ export function drawMap(): void {
     // те же взлёт и посадка, что в системе: из точки у звезды-отправителя и в
     // точку у звезды-получателя — иначе одно и то же движение выглядит
     // по-разному на двух видах
-    const szm = 6.5 * uiz * grow(k, 0.08, 0.08);
+    const szm = 6.5 * uiz * hullScale(v.parts) * grow(k, 0.08, 0.08);
     if (szm > 0.12) {
-      flame(x, y, szm, rot); ship(isJump ? "jump" : "cargo", x, y, szm, rot, v.color);
+      flame(x, y, szm, rot); ship(glyph, x, y, szm, rot, v.color);
       const rv = flags ? realmOfVoyage(v) : HOME;
       if (flags && (rv !== HOME || alien[a.id] || alien[b.id])) crest(x, y - 2.9 * szm, 0.7 * szm, rv);
     }

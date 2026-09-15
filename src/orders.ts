@@ -6,7 +6,7 @@ import { rnd } from "./rng";
 import { YARD_WORK, nearestYard, paySlot, slotPrice, yardAt } from "./shipyard";
 import { S, anyMakes, canBuild, corps, dateStr, fill, gates, market, projects, say, systems, voyages, worlds } from "./state";
 import { bestEngineMade } from "./tech";
-import { gateOf, newGate, reachable, routeKey } from "./travel";
+import { gateOf, newGate, reachable, routeKey, travelExtra } from "./travel";
 import { clamp, dist } from "./util";
 import { addStock, hasBranch, openBranch, popOf } from "./world";
 import type { Corp, Order, Part, Planet, Rock, Sys, VType } from "./types";
@@ -14,11 +14,17 @@ import type { Corp, Order, Part, Planet, Rock, Sys, VType } from "./types";
 export function freeRocks(s: Sys): Rock[]{ return s.rocks.filter((r) => { return !r.taken; }); }
 // Заказ не начинают, пока нет горючего, на котором это полетит: иначе корабль
 // собирают, а потом он десятилетиями стоит у стапеля и ест деньги впустую.
-export function buildable(vt: VType): boolean {
+export function buildable(vt: VType, extra?: Record<string, number>): boolean {
   const fuelKey = (vt.key === "mine" || vt.key === "colony") ? "fuel" : "sfuel";
   if (!anyMakes(fuelKey)) return false;
   if (!bestEngineMade()) return false;     // без ходового двигателя корабль не тронется с места
-  return Object.keys(vt.need).every((k) => { return anyMakes(k); });
+  // Набор считается целиком (shipNeed): в нём и ходовой, и межзвёздная деталь,
+  // и КОРПУС, в который всё это должно влезть. Без корпуса нужной вместимости
+  // корабля не будет, сколько бы ни было прочих деталей, — и раньше эта
+  // проверка смотрела только на таблицу типа, где корпуса больше нет.
+  const need = shipNeed(vt, bestEngineMade(), extra);
+  if (!need) return false;
+  return Object.keys(need).every((k) => { return anyMakes(k); });
 }
 export function anyRock(): boolean{ return systems.some((s) => { return s.unlocked && reachable(s.id) && freeRocks(s).length; }); }
 // Ближайшая закрытая звезда, до которой ДОТЯГИВАЕТСЯ марка этой компании.
@@ -48,8 +54,9 @@ export function jumpTarget(c: Corp): { from: number; to: number; upgrade?: boole
 }
 
 // Цель у экспансии одна на оба способа: ближайшая закрытая звезда, до которой
-// дотягивается марка. Разница только в том, ЧТО туда летит — прыжковый корабль
-// или портальный, который на этом маршруте останется воротами.
+// дотягивается марка. Разница только в том, ЧТО туда летит — грузовик с
+// прыжковым двигателем, который её просто откроет, или портальный корабль,
+// который на этом маршруте останется воротами.
 export function expandTarget(c: Corp): { from: number; to: number; upgrade?: boolean } | null{ return jumpTarget(c); }
 
 // Переделка створов на старшую марку. Створ ведёт корабль со скоростью СВОЕГО
@@ -103,7 +110,15 @@ export function reviewOrders(): void {
     [vtype("mine"), vtype(S.move.vt)].forEach((vt) => {
       if (!buildable(vt)) return;
       if (vt.key === "mine" && !anyRock()) return;
-      if (vt.key !== "mine" && (!hasColonyAnywhere(c) || !(expandTarget(c) || upgradeTarget(c)))) return;
+      if (vt.key !== "mine") {
+        // Цель нужна не только затем, чтобы знать, куда лететь: набор считается
+        // ПОД ДОРОГУ до неё. Пока корпуса на межзвёздный набор не хватает,
+        // экспансия не рассматривается вовсе — иначе она, как самая дорогая по
+        // очкам, выигрывала бы выбор каждый месяц и не давала компании занять
+        // руки хотя бы жилой.
+        const jt = expandTarget(c) || upgradeTarget(c);
+        if (!hasColonyAnywhere(c) || !jt || !buildable(vt, travelExtra(jt.from, jt.to))) return;
+      }
       let score = vt.key !== "mine" ? 46 : (vt.yield * 0.55 * vt.term) / Math.max(20, orderCost(vt));
       let own = 0, all = 0;
       const need = shipNeed(vt, eng);
@@ -119,6 +134,11 @@ export function reviewOrders(): void {
       let pickS: Sys = null, top2 = -1;
       systems.forEach((s) => {
         if (!s.unlocked || !reachable(s.id) || !freeRocks(s).length) return;
+        // Платформа в чужую систему идёт своим ходом и под движками везёт
+        // прыжковый двигатель: система, под которую набор не собрать, целью
+        // не считается — иначе компания каждый месяц занимала бы астероид и
+        // тут же его отпускала.
+        if (!shipNeed(best, eng, travelExtra(baseSys(c, s.id), s.id))) return;
         const score = 1 / (1 + s.depth * 0.25);
         if (score > top2) { top2 = score; pickS = s; }
       });
@@ -133,10 +153,23 @@ export function reviewOrders(): void {
       // именно тут очередь перестаёт пополняться тем, без чего можно жить.
       if (c.cash < orderCost(best) + slotPrice(ym, best)) { o.rock.taken = false; return; }
       o.dst = pickS.id; o.sys = ym.world.sys; o.yard = ym;   // собирают на верфи, везут к астероиду
+      // Платформа в чужую систему идёт своим ходом, и под движками ей нужен
+      // прыжковый двигатель — как любому кораблю, уходящему за звёзды. Значит,
+      // и корпус попросторнее: набор пересчитывается под ДОРОГУ, а не под тип.
+      const needFar = shipNeed(best, eng, travelExtra(o.sys, o.dst));
+      if (!needFar) { o.rock.taken = false; return; }
+      o.need = needFar;
     } else {
       const jt = jumpTarget(c) || upgradeTarget(c);
       if (!jt) return;
       const yj = nearestYard(jt.from, c);        // jumpTarget уже отсеял старты без верфи
+      // Под движками к закрытой звезде идёт обычный грузовик, и прыжковый
+      // двигатель ему кладут по той же дороге, что и всем: в тесный корпус
+      // такой набор не влезет, и пока никто не осилил корпус Mk2, экспансии
+      // не будет вовсе. Под воротами набор кладёт сам shipNeed.
+      const needJump = shipNeed(best, eng, travelExtra(jt.from, jt.to));
+      if (!needJump) return;
+      o.need = needJump;
       o.sys = yj.world.sys; o.yard = yj; o.from = jt.from; o.to = jt.to;
       // Маршрут занимается сразу, а не по прилёте: пока портальный корабль
       // собирают и ведут к старту, никто другой на этот же створ не тратится.
@@ -203,10 +236,16 @@ export function reviewProjects(): void {
     if (!target) return;
     const yc = nearestYard(baseSys(c, target.s.id), c);
     if (!yc) { c.needYard = true; return; }
+    // Набор считается ДО того, как деньги списаны, а планета занята: модуль в
+    // чужую систему везёт ещё и прыжковый двигатель, и в тесный корпус он не
+    // влезет. Стой эта проверка ниже, подписка съедала бы деньги и держала
+    // планету занятой, пока кто-нибудь не осилит корпус попросторнее.
+    const needCol = shipNeed(vtype("colony"), eng, travelExtra(yc.world.sys, target.s.id));
+    if (!needCol) return;                             // корпуса под такой модуль пока нет
     const cost = colonyCost(target.s), put = Math.min(c.cash * 0.45, cost);
     c.cash -= put; target.b.claimed = true;
     projects.push({ lead:c.id, body:target.b, dst:target.s.id, sys:yc.world.sys, yard:yc, cost:cost, purse:put,
-                    need:shipNeed(vtype("colony"), eng), got:{}, parts:[],
+                    need:needCol, got:{}, parts:[],
                     backers:[{ corp:c.id, sum:put }], age:0, born:dateStr() });
     say("<b>" + c.name + "</b> открыла подписку на колонию " + target.b.name +
         " (" + target.b.type.name + "), нужно " + cost + ".");
@@ -260,7 +299,10 @@ export function assemble(): void {
     // компания копит на место, нельзя. Не хватает — комплект ждёт на складе.
     const price = slotPrice(yard, vt);
     if (!paySlot(yard, price, (sum) => { if (c.cash < sum) return false; c.cash -= sum; return true; })) return;
-    if (vt.key === "jump" || vt.key === "gate") {
+    // Заказ с точкой старта — это уход за звёзды: портальный корабль под
+    // воротами или грузовик-первопроходец под движками. У транспорта на
+    // стоянку и у платформы точки старта нет.
+    if (o.from !== undefined) {
       // цель могла открыться, пока свозили детали — тогда летим к другой
       let to = o.to, from = o.from;
       if (!o.upgrade && systems[to].unlocked) {

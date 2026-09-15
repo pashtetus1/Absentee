@@ -7,7 +7,7 @@
 // value нарочно any: в разметку кладут и числа, браузер сам приводит их к
 // строке, и String() вокруг каждого присваивания ничего бы не поймал.
 
-import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype, btype } from "../data";
+import { COLTECH, COMPS, MARKS, colOf, compOf, hullOf, markName, moveName, roomOfKey, vtype, btype } from "../data";
 import { dockValue, partsValue, shipFactor } from "../docks";
 import { lotsOf } from "../freight";
 import { galaxyRange, within } from "../galaxy";
@@ -35,6 +35,16 @@ export function engLine(parts: Part[]): string {
     .sort((x, y) => { return y.mult - x.mult; })[0];
   return '<div class="part"><span class="pn">ходовой двигатель</span><span class="pw">' +
          (e ? e.short + ' · скорость ×' + e.mult.toFixed(1) : 'нет') + '</span></div>';
+}
+/** Корпус и его места. Отдельной строкой — потому что вместимость теперь
+ *  решает, какой корабль вообще можно собрать, а по списку деталей это не
+ *  читается: «корпус Mk2» ничего не говорит о том, сколько в него влезло. */
+export function hullLine(parts: Part[]): string {
+  const h = hullOf(parts || []);
+  if (!h) return '';
+  const room = roomOfKey(h), used = (parts || []).length;
+  return '<div class="part"><span class="pn">корпус</span><span class="pw">' +
+         compOf(h).short + ' · мест ' + room + ', занято ' + used + '</span></div>';
 }
 export function partsList(parts: Part[], ownerId: number): string {
   if (!parts || !parts.length) return '<div class="empty">Состав неизвестен.</div>';
@@ -151,7 +161,7 @@ export function inspector(): void {
       // дёшево здесь корабли или дорого прямо сейчас.
       '<div class="part"><span class="pn">биржа ' + systems[d.sys].name + '</span><span class="pw">×' + shipFactor(d.sys, d.kind).toFixed(2) +
       ' от деталей (' + Math.round(partsValue(d.parts)) + ')</span></div>' +
-      '<div class="sub" style="margin:7px 0 2px">Из чего собран:</div>' + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
+      '<div class="sub" style="margin:7px 0 2px">Из чего собран:</div>' + hullLine(d.parts) + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
   if (U.pick.kind === "cargo" && d.kind === "parts") {
@@ -164,7 +174,7 @@ export function inspector(): void {
       '<div class="part"><i class="dot" style="background:' + buyer.color + '"></i><span class="pn">купил и везёт</span><span class="pw">' + buyer.name + '</span></div>' +
       '<div class="sub" style="margin:6px 0 0">Рейс сжёг межзвёздного топлива: ' +
       fuelCost(d.sysFrom, d.to) + (lots.length > 1 ? ' — одно на ' + lots.length + ' детали.' : '.') + '</div>' +
-      '<div class="sub" style="margin:7px 0 2px">Грузовик собран из:</div>' + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
+      '<div class="sub" style="margin:7px 0 2px">Грузовик собран из:</div>' + hullLine(d.parts) + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
   // Перегон готового корабля в чужую систему и уход прыжкового к точке старта.
@@ -178,7 +188,7 @@ export function inspector(): void {
       '<div class="sub" style="margin:0 0 4px">' + (d.kind === "reloc"
         ? 'Там заправится и прыгнет к ' + systems[d.jumpTo].name + '.'
         : 'По прилёте встанет на свой курс в системе.') + '</div>' +
-      engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
+      hullLine(d.parts) + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
   if (U.pick.kind === "cargo" && d.kind === "empty" && d.next) {
@@ -188,7 +198,7 @@ export function inspector(): void {
       '<div class="sub" style="margin:0 0 4px">Там примет ' +
       (parts ? n.qty + " дет. для " + corps[n.forCorp].name : n.kind === "pops" ? popsWord(n.qty) : n.qty + " еды") +
       ' — уже оплачено и ждёт — и повезёт ' + (parts ? 'в ' + systems[n.to].name : 'на ' + n.to.body.name) + '.</div>' +
-      engLine(d.parts) + partsList(d.parts, -1) + '</div>';
+      hullLine(d.parts) + engLine(d.parts) + partsList(d.parts, -1) + '</div>';
     return;
   }
   if (U.pick.kind === "cargo" && (d.kind === "food" || d.kind === "pops")) {
@@ -196,15 +206,17 @@ export function inspector(): void {
       '<div class="sub">везёт ' + (d.kind === "food" ? d.qty + " еды" : popsWord(d.qty)) +
       ' с ' + d.from.body.name + ' на ' + d.to.body.name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
       '<div class="sub" style="margin:0 0 4px">Куплен правительством ' + d.to.body.name + ', собран из:</div>' +
-      engLine(d.parts) + partsList(d.parts, -1) + '</div>';
+      hullLine(d.parts) + engLine(d.parts) + partsList(d.parts, -1) + '</div>';
     return;
   }
   if (U.pick.kind === "jumpship") {
-    box.innerHTML = '<div class="card"><h3>' + (d.kind === "gate" ? "Портальный корабль" : "Прыжковый корабль") + '</h3>' +
+    box.innerHTML = '<div class="card"><h3>' + (d.kind === "gate" ? "Портальный корабль" : "Грузовик-первопроходец") + '</h3>' +
       '<div class="sub">' + corps[d.corp].name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
-      (d.kind === "gate" ? '<div class="sub" style="margin:0 0 4px">Дойдёт до ' + systems[d.to].name +
-        (d.upgrade ? ' — и переделает створы на этом маршруте на старшую марку.' : ' — и станет воротами на этом маршруте.') + '</div>' : '') +
-      engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
+      '<div class="sub" style="margin:0 0 4px">' + (d.kind === "gate"
+        ? 'Дойдёт до ' + systems[d.to].name +
+          (d.upgrade ? ' — и переделает створы на этом маршруте на старшую марку.' : ' — и станет воротами на этом маршруте.')
+        : 'Дойдёт до ' + systems[d.to].name + ' — и откроет эту звезду.') + '</div>' +
+      hullLine(d.parts) + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
   if (U.pick.kind === "gate") {
@@ -225,7 +237,7 @@ export function inspector(): void {
     box.innerHTML = '<div class="card"><h3>' + (d.kind === "colony" ? "Колониальный модуль" : "Добывающая платформа") + '</h3>' +
       '<div class="sub">' + corps[d.corp].name + ' · курс на ' +
       (d.kind === "colony" ? d.body.name : d.dest.label) + ' · ' + Math.round(d.t * 100) + '%</div>' +
-      engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
+      hullLine(d.parts) + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }
   if (U.pick.kind === "vent") {
@@ -245,7 +257,8 @@ export function inspector(): void {
       // Сколько сейчас стоит встать сюда: по этой цене компании и решают,
       // затевать ли жилу. Хлебовозы и переселенцы идут без платы.
       '<div class="sub">место в очереди: жила ' + slotPrice(d, vtype("mine")) +
-      ', колония ' + slotPrice(d, vtype("colony")) + ', ' + vtype(S.move.vt).name + ' ' + slotPrice(d, vtype(S.move.vt)) +
+      ', колония ' + slotPrice(d, vtype("colony")) +
+      (S.move.key === "gates" ? ', портальный ' + slotPrice(d, vtype("gate")) : ', грузовик ' + slotPrice(d, vtype("cargo"))) +
       ' · в казну ' + d.world.body.name + '</div>' +
       yardQueue(d) + '</div>';
     return;

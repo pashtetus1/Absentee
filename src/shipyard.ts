@@ -38,7 +38,10 @@ export const OUTBID_EDGE = 0.9;             // перебить можно, то
 export const SHARE_START = 0.4;             // доля компаний в первой попытке
 export const SHARE_STEP = 0.1;              // на сколько растёт с каждым отказом
 export const SHARE_CAP = 0.7;               // больше компании не дадут
-export const YARD_PARTS: Record<string, number> = { hull: 3, life: 1 };
+// Верфь строится из деталей, как корабль: три самых простых корпуса и одно
+// жизнеобеспечение. Корпус здесь именно ПЕРВОЙ ступени — стапель не летает,
+// и просторный корпус на нём пропал бы зря.
+export const YARD_PARTS: Record<string, number> = { hull1: 3, life: 1 };
 export const YARD_BUILD = 36;               // месяцев стройки самой верфи
 export const QUEUE_MAX = 3;                 // очередь длиннее — повод строить ещё одну верфь
 // Рабочие руки и длина сборки. Верфь просит долю YARD_SHARE промышленных рук

@@ -1,10 +1,10 @@
 // ===================== наука =====================
 
-import { PTYPES, colOf, compOf, isEngine, markOf } from "./data";
+import { PTYPES, bestHullMade, colOf, compOf, isEngine, isHull, markOf, roomOfKey } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
 import { isRealm } from "./realm";
 import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
-import { allTech, bestEngineMade, devOf, engOf, ensureDev, markStep, ownEngine, prevStep, stepKey, techOf } from "./tech";
+import { allTech, bestEngineMade, devOf, engOf, ensureDev, markStep, ownEngine, ownHull, prevStep, stepKey, techOf } from "./tech";
 import type { Corp } from "./types";
 
 import { rnd } from "./rng";
@@ -16,7 +16,9 @@ export function aptOf(c: Corp, k: string): number {
   // колонизация типа — склонность к его КЛАССУ: холодные миры понимают целиком
   const col = colOf(k);
   if (col) { const p = PTYPES.find((t) => { return t.tech === k; }); return (p && c.apt[p.cls]) || 0.5; }
-  return (isEngine(k) ? c.apt["eng"] : markOf(k) ? c.apt[S.move.comp] : c.apt[k]) || 0.5;
+  // корпус — семейство: склонность одна на все пять ступеней, как у двигателей
+  return (isEngine(k) ? c.apt["eng"] : isHull(k) ? c.apt["hull"]
+        : markOf(k) ? c.apt[S.move.comp] : c.apt[k]) || 0.5;
 }
 
 export function sciOf(c: Corp): number{ return c.branches.reduce((a, b) => { return a + b.emp.sci; }, 0); }
@@ -70,6 +72,20 @@ export function pickTarget(c: Corp): string | null {
         const traffic = voyages.length + systems.reduce((a, s) => { return a + s.ships.length; }, 0);
         worth = 1.1 + Math.min(10, traffic) * 0.22;
       }
+    }
+    else if (isHull(f.key)) {
+      // Корпус — не «ещё одна деталь», а МЕСТО, без которого набор не влезает
+      // в корабль. Отсюда три цены. Первая ступень стоит столько же, сколько
+      // первый двигатель: пока её никто не делает, не летает ничего вовсе.
+      // Вторая — ровно столько, сколько стоит дорога за звёзды: под движками
+      // межзвёздному рейсу нужен четвёртый угол под прыжковый, и в тесный
+      // корпус он не влезает, то есть галактика без Mk2 заперта в своей
+      // системе. Дальше — обычная лестница про запас, и цена ей невысокая.
+      const room = roomOfKey(f.key), own = ownHull(c), made = bestHullMade();
+      if (room <= own) return;                           // такую вместимость уже умеем сами
+      worth = !own ? (made ? 2.2 : 3.4)                  // своего корпуса нет вовсе
+            : (S.move.key === "drives" && own < 4 ? 3.0  // свой тесен для дороги за звёзды
+            : 1.2);
     }
     else if (f.key === "fuel") worth = 2.8;                              // без него не взлетает ничего
     else if (f.key === "sfuel") {
