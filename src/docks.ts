@@ -29,10 +29,11 @@ export function dockShip(v: Voyage): void {
   // Дорожка запоминается у корабля, а не считается от места в общем массиве:
   // иначе списание одного заставляло всех остальных прыгнуть на другую орбиту.
   d.lane = docks.filter((x) => { return x.world === world; }).length % 3;
+  // Потолка на стоянку нет. Был: больше шести на орбите одного мира не держали,
+  // старейший списывали. Замер по 24 партиям показал, что он не срабатывал ни
+  // разу (в среднем 1.8 корабля на всех стоянках), а корабль, собранный годами,
+  // пропадать просто так не должен.
   docks.push(d);
-  // на орбите одного мира больше шести не держат: старейший списывают
-  const here = docks.filter((x) => { return x.world === world; });
-  if (here.length > 6) docks.splice(docks.indexOf(here[0]), 1);
 }
 export function dockValue(d: Dock): number {
   return d.parts.reduce((a, p) => { return a + market[p.k].price; }, 0) * 0.6;

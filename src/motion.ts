@@ -82,10 +82,7 @@ export function moveShips(): void {
                      corp: yd.forCorp !== undefined ? yd.forCorp : -1,
                      gov: yd.forCorp !== undefined ? null : home,
                      lane: docks.filter((x) => x.world === yard.world).length % 3 });
-        // на орбите одной планеты больше шести не держат: старейший списывают,
-        // тот же потолок, что у пришедших рейсом (dockShip)
-        const here = docks.filter((x) => x.world === yard.world);
-        if (here.length > 6) docks.splice(docks.indexOf(here[0]), 1);
+        // потолка на стоянку нет — тот же порядок, что у пришедших рейсом (dockShip)
         say("<b>" + (yd.forCorp !== undefined ? corps[yd.forCorp].name : "Правительство " + home.body.name) +
             "</b>: " + yd.vt.name + " сошёл со стапеля у " + yard.world.body.name + ".");
         continue;
