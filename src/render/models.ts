@@ -122,12 +122,12 @@ export function shipLines(sh: Ship): string[] {              // корабль �
 export function cargoName(v: Voyage): string {
   return v.cargo === "colony" ? "Колониальный модуль"
        : v.cargo === "mine"   ? "Платформа"
-       : v.cargo === "gate"   ? "Портальный корабль"
-       :                        "Грузовик-первопроходец";
+       : v.cargo === "sat"    ? "Спутник"
+       :                        "Портальный корабль";
 }
 export function voyageLines(v: Voyage): string[] {             // рейс между звёздами или между мирами
-  if (v.kind === "jump" || v.kind === "gate")
-    return [(v.kind === "gate" ? (v.upgrade ? "Портальный, переделка · " : "Портальный · ") : "Первопроходец · ") + corps[v.corp].name,
+  if (v.kind === "gate")
+    return [(v.upgrade ? "Портальный, переделка · " : "Портальный · ") + corps[v.corp].name,
             "→ " + systems[v.to].name + " · " + eta(v.t, v.dur)];
   if (v.kind === "parts")
     return ["Грузовик · " + lotsOf(v).map((l) => compOf(l.k).short).join(", ") + " для " + corps[v.forCorp].name,
@@ -353,6 +353,15 @@ export function ship(kind: string, x: number, y: number, s: number, rot: number,
     poly([-4.2,-2.2, 4.2,-2.2, 5.2,3.2, -5.2,3.2]);
     poly([-6.4,3.2, 6.4,3.2, 6.4,5.6, -6.4,5.6]);
     cx.fillStyle = "#0b1120"; poly([-2,-0.8, 2,-0.8, 2,1.8, -2,1.8]);
+  } else if (kind === "sat" || kind === "satgun") {
+    // Спутник: коробка с двумя панелями по бокам и раструбом телескопа вперёд.
+    // Форма нарочно НЕ обтекаемая — он никуда не летит, он висит и смотрит.
+    poly([-2.4,-2.6, 2.4,-2.6, 2.4,3.4, -2.4,3.4]);              // корпус
+    poly([-8.4,-1.4, -2.4,-1.4, -2.4,2.2, -8.4,2.2]);            // панель слева
+    poly([2.4,-1.4, 8.4,-1.4, 8.4,2.2, 2.4,2.2]);                // панель справа
+    poly([-2.8,-2.6, 2.8,-2.6, 1.6,-7.4, -1.6,-7.4]);            // раструб телескопа
+    if (kind === "satgun") poly([-0.9,-7.4, 0.9,-7.4, 0.9,-9.6, -0.9,-9.6]);   // ствол лазера
+    cx.fillStyle = "#0b1120"; poly([-1.2,-7.0, 1.2,-7.0, 1.2,-5.4, -1.2,-5.4]);
   } else if (kind === "colony") {
     // колониальный модуль: капсула с юбкой посадочного узла
     cx.beginPath(); cx.moveTo(0,-8.4);

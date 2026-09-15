@@ -74,8 +74,12 @@ export interface BType { key: string; name: string; short: string; jobs: number;
  *  comp — деталь, без которой этот способ не работает: прыжковый двигатель под
  *  движками, портальный набор под воротами. Деталь ЧУЖОГО способа в партии не
  *  нужна вообще, и наука обязана это знать — иначе компании годами вкладываются
- *  в то, что здесь никогда не полетит. */
-export interface Move { key: string; name: string; vt: string; comp: string; hint: string; }
+ *  в то, что здесь никогда не полетит.
+ *
+ *  Поля «каким кораблём открывают звезду» здесь БОЛЬШЕ НЕТ: звёзды не
+ *  открывают кораблями вовсе, их открывает спутник с телескопом (Sat). Способ
+ *  отвечает только за дорогу — как попасть туда, что уже видно. */
+export interface Move { key: string; name: string; comp: string; hint: string; }
 
 // ---- галактика --------------------------------------------------------
 
@@ -111,11 +115,11 @@ export interface Planet {
 
 export interface Sys {
   id: number; name: string; x: number; y: number;
-  unlocked: boolean;              // сюда уже кто-то долетел
+  unlocked: boolean;              // звезду разглядели в телескоп: видно, что в ней
   depth: number;                  // удалённость от родины, "переход N"
   pulse: number;
   bodies: Planet[]; rocks: Rock[]; ventures: Venture[];
-  ships: Ship[]; stations: Station[];
+  ships: Ship[]; stations: Station[]; sats: Sat[];
   mines: number;
   belt: boolean;                  // есть ли пояс астероидов
   gateR: number;                  // радиус последней орбиты — на ней стоят створы
@@ -260,8 +264,29 @@ export interface Project {
 
 // ---- то, что летает и работает ----------------------------------------
 
-/** Куда направляется корабль: астероид, планета, система. */
-export interface Dest { kind: string; ref: Rock | Planet; label: string; }
+/** Куда направляется корабль: астероид, планета, орбита спутника. Общее у
+ *  всех трёх — место в системе (ang, r), и ровно им пользуется отрисовка. */
+export interface Dest { kind: string; ref: Rock | Planet | Sat; label: string; }
+
+/** Спутник: не корабль, а СООРУЖЕНИЕ на орбите. Состав деталей у него один —
+ *  телескоп, и телескоп делает единственное, ради чего спутник нужен:
+ *  открывает закрытые звёзды вокруг своей системы (SCOPE_RANGE в data.ts).
+ *  Вторым может стоять боевой лазер — может, а не обязан: пока он не делает
+ *  ничего, бои идут отдельной веткой, и спутник с ним отличается только ценой
+ *  и видом. Когда бои придут, вооружённые спутники уже будут стоять там, где
+ *  компании решили их поставить.
+ *
+ *  live/building — как у Venture: спутник числится в системе с того месяца,
+ *  как его заложили, чтобы второй туда не полетел, а работать начинает, когда
+ *  встанет на орбиту. found — сколько звёзд он открыл, встав. */
+export interface Sat {
+  sys: number; owner: number; color: string;
+  ang: number; r: number;               // где висит: своя орбита у звезды
+  parts: Part[]; born: string;
+  laser: boolean;                       // на борту боевой лазер
+  live: boolean; building: boolean;
+  found: number;
+}
 
 /** Платформа, вставшая на астероид: видимый след предприятия в системе. */
 export interface Station {
@@ -280,6 +305,7 @@ export interface Yard {
   vt: VType; lead: number; color: string; glyph: string;
   parts: Part[]; left: number; total: number;
   vent?: Venture; dest?: Dest; dst?: number;
+  sat?: Sat;                      // спутник: что именно собирают и куда оно встанет
   to?: number; fuelWait?: number;
   forWorld?: World;               // транспорт: чьей планете он достанется
   forCorp?: number;               // транспорт: чьей компании (иначе государственный)
@@ -337,7 +363,7 @@ export interface Ship {
   born: string; captain: string;
   parts: Part[];
   yard?: Shipyard;                // с какой верфи сошёл: оттуда и стартует
-  dest?: Dest; vent?: Venture;
+  dest?: Dest; vent?: Venture; sat?: Sat;
   body?: Planet; backers?: { corp: number; sum: number }[];
 }
 
@@ -390,7 +416,7 @@ export interface Voyage {
   /** Детали в трюме грузовика (kind "parts"). У рейсов из старых сохранений их
    *  нет — там одна деталь в k, consign и acct (freight.ts, lotsOf). */
   lots?: Lot[];
-  dest?: Dest; vent?: Venture; body?: Planet;
+  dest?: Dest; vent?: Venture; sat?: Sat; body?: Planet;
   backers?: { corp: number; sum: number }[];
 }
 

@@ -40,6 +40,7 @@ function legIn(v: Voyage, sid: number): number | null {
 function strangersIn(s: Sys): boolean {
   return s.bodies.some((b) => b.world && realmOf(b.world) !== HOME) ||
     s.stations.some((st) => realmOfCorp(corps[st.vent.lead]) !== HOME) ||
+    s.sats.some((st) => st.live && realmOfCorp(corps[st.owner]) !== HOME) ||
     s.ships.some((sh) => realmOfShip(sh) !== HOME) ||
     voyages.some((v) => realmOfVoyage(v) !== HOME &&
       (v.sysFrom === undefined && v.from.sys === s.id && v.to.sys === s.id || legIn(v, s.id) !== null));
@@ -190,6 +191,18 @@ export function drawSystem(s: Sys): void {
     hits.push({ x:x, y:y, r:9, kind:"vent", data:st.vent });
   });
 
+  // Вставший спутник — не кораблик: он никуда не летит и не полетит больше
+  // никогда. Висит там, где его оставили, цветом хозяина, с подписью «телескоп»
+  // или «телескоп, лазер». Тот, что ещё в пути, рисуется корабликом ниже.
+  s.sats.forEach((sat) => {
+    if (!sat.live) return;
+    const p = posOf(sat, mx, my);
+    ship(sat.laser ? "satgun" : "sat", p.x, p.y, 7, sat.ang + 1.5708, sat.color);
+    if (flags) crest(p.x, p.y - 14, 4.6, realmOfCorp(corps[sat.owner]));
+    tiny(p.x, p.y + 12, sat.laser ? "телескоп, лазер" : "телескоп", "#7f8cb4");
+    hits.push({ x:p.x, y:p.y, r:11, kind:"sat", data:sat });
+  });
+
   // Верфь вращается вокруг СВОЕЙ планеты, выше дорожек стоянки. Рисуется
   // голова очереди с дугой готовности; сколько ждёт следом — числом рядом.
   shipyards.filter((y) => y.world.sys === s.id).forEach((yard) => {
@@ -312,9 +325,10 @@ export function drawSystem(s: Sys): void {
     const rot = Math.atan2(b.y - a.y, b.x - a.x) + 1.5708;
     // Клик по такому рейсу открывает окно межзвёздного корабля (kind
     // "jumpship"), а РИСУЕТСЯ он тем, чем является: стреловидный корпус —
-    // только у портального, первопроходец — обычный грузовик.
-    const isJump = v.kind === "jump" || v.kind === "gate" || v.kind === "reloc";
-    const glyph = v.kind === "gate" || (v.kind === "reloc" && v.cargo === "gate") ? "jump" : "cargo";
+    // только у портального, спутник — спутником, остальное — грузовиком.
+    const isJump = v.kind === "gate" || v.kind === "reloc";
+    const glyph = v.kind === "gate" || (v.kind === "reloc" && v.cargo === "gate") ? "jump"
+                : v.cargo === "sat" ? "sat" : "cargo";
     const hull = hullScale(v.parts);
     if (S.move.key === "drives") {
       // Под движками у края нет створа — корабль сам рвёт пространство. На
@@ -401,9 +415,10 @@ export function drawMap(): void {
     const k = clamp(vis(v), 0, 1);
     // Клик по такому рейсу открывает окно межзвёздного корабля (kind
     // "jumpship"), а РИСУЕТСЯ он тем, чем является: стреловидный корпус —
-    // только у портального, первопроходец — обычный грузовик.
-    const isJump = v.kind === "jump" || v.kind === "gate" || v.kind === "reloc";
-    const glyph = v.kind === "gate" || (v.kind === "reloc" && v.cargo === "gate") ? "jump" : "cargo";
+    // только у портального, спутник — спутником, остальное — грузовиком.
+    const isJump = v.kind === "gate" || v.kind === "reloc";
+    const glyph = v.kind === "gate" || (v.kind === "reloc" && v.cargo === "gate") ? "jump"
+                : v.cargo === "sat" ? "sat" : "cargo";
     // Прыжок идёт ДУГОЙ, а не по линейке: прямая между звёздами читается как
     // чертёж, дуга — как полёт. Изгиб тем сильнее, чем длиннее перегон, а
     // сторона постоянна для пары звёзд, чтобы встречные не сливались в нить.
@@ -480,6 +495,13 @@ export function drawMap(): void {
       cx.strokeStyle = "#ff5c5c"; cx.globalAlpha = 0.35; cx.setLineDash([4 * uiz, 6 * uiz]); cx.lineWidth = 1.2 * uiz;
       cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
     }
+    // Звезда со спутником: квадратик цвета хозяина сбоку от узла — та же ось
+    // опознания, что у филиалов на планете и у платформ на камнях. Отсюда на
+    // карте видно, ЧЕМ открыта галактика и кто смотрел.
+    s.sats.filter((sat) => { return sat.live; }).forEach((sat, i) => {
+      cx.fillStyle = sat.color;
+      cx.fillRect(s.x + (r + 4 + i * 4) * uiz - 1.5 * uiz, s.y - r - 4 * uiz, 3 * uiz, 3 * uiz);
+    });
     const gs = gatesAt(s.id);
     if (gs.some((g) => { return g.built; })) {   // в сети: до неё долетит хлебовоз
       cx.beginPath(); cx.arc(s.x, s.y, r + 6 * uiz, 0, 6.2832);

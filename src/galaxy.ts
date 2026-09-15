@@ -13,7 +13,7 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
   // belt и gate дописываются ниже: belt тянет случайное число, и перенос его
   // в литерал сдвинул бы весь поток — партии перестали бы воспроизводиться
   const s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
-            bodies:[], rocks:[], ventures:[], ships:[], stations:[], mines:0, portals:[] } as unknown as Sys;
+            bodies:[], rocks:[], ventures:[], ships:[], stations:[], sats:[], mines:0, portals:[] } as unknown as Sys;
   const np = i === 0 ? 4 : 2 + Math.floor(rnd() * 4);      // до пяти планет
   const types: PType[] = [], rs: number[] = [];
   for (let k = 0; k < np; k++) {
@@ -148,9 +148,12 @@ export function makeGalaxy(): void {
   }));
 }
 
-// Соседство теперь не рисуется заранее, а считается дальностью портала:
-// "рядом" — значит, дотягивается техника, а не значит, что кто-то провёл
-// линию на карте. От марки к марке карта сама раскрывается кольцами.
+// Соседство теперь не рисуется заранее, а считается дальностью: "рядом" —
+// значит, дотягивается техника, а не значит, что кто-то провёл линию на карте.
+// Дальностей две, и они отвечают на разные вопросы: телескоп спутника
+// (SCOPE_RANGE) говорит, что вокруг ЕСТЬ, марка перехода — куда можно
+// ДОЛЕТЕТЬ. От спутника к спутнику карта раскрывается кольцами, от марки к
+// марке — догоняет дорога.
 export function within(i: number, range: number): number[] {
   const out = [];
   for (let j = 0; j < systems.length; j++)

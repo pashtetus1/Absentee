@@ -1,7 +1,13 @@
 // ===================== движение =====================
 // Готовый корабль своим ходом идёт в чужую систему: это межзвёздный перелёт,
 // он жжёт межзвёздное топливо и виден на карте. По прилёте корабль встаёт на
-// свой обычный внутрисистемный курс — к астероиду или к планете.
+// свой обычный внутрисистемный курс — к астероиду, к планете или на орбиту,
+// где он и останется спутником.
+//
+// ПРИЛЁТ БОЛЬШЕ НИЧЕГО НЕ ОТКРЫВАЕТ. Корабль возит, а смотрит телескоп: звезду
+// открывает вставший спутник (openSystem ниже), и только он. Поэтому лететь
+// теперь можно лишь туда, что уже разглядели, — и ни один рейс в игре не имеет
+// целью закрытую звезду.
 //
 // СКОРОСТЬ СЧИТАЕТСЯ ПО-РАЗНОМУ НА ДВУХ УЧАСТКАХ, и это не мелочь, а разные
 // вещи. Внутри системы корабль идёт на ходовом двигателе — той модели, что
@@ -10,10 +16,10 @@
 // ходовой не работает вовсе, там правит марка межзвёздного перехода
 // (markSpeedOf), и она же решает, добьёт ли корабль до цели.
 
-import { POPS_PER_LIFE, engMult, pickCaptain, seatsOf } from "./data";
+import { POPS_PER_LIFE, SCOPE_RANGE, engMult, pickCaptain, seatsOf } from "./data";
 import { loadUp } from "./fleet";
 import { dockShip } from "./docks";
-import { markLevelOf, markSpeedOf } from "./galaxy";
+import { markLevelOf, markSpeedOf, within } from "./galaxy";
 import { partMark } from "./data";
 import { landPart, takeFuel } from "./market";
 import { rnd } from "./rng";
@@ -22,7 +28,7 @@ import { S, U, corps, dateStr, docks, gates, say, shipyards, staged, systems, vo
 import { ensurePortal, fuelCost, newGate, routeKey, syncRoutes, useRoute } from "./travel";
 import { popsWord, rnd6 } from "./util";
 import { makeWorld, openBranch } from "./world";
-import type { Gate, Ship, Sys, Voyage, Yard } from "./types";
+import type { Gate, Sat, Ship, Sys, Voyage, Yard } from "./types";
 
 /** Скорость межзвёздного корабля: по марке детали на борту; нет детали (под
  *  воротами у портального корабля набор, а не двигатель) — по марке хозяина. */
@@ -34,7 +40,7 @@ function shipMark(parts: { k: string }[], corp: number): number {
 export function ferry(yd: Yard, s: Sys, kind: string): void {
   const lead = corps[yd.lead];
   voyages.push({ kind:"ferry", cargo:kind, sysFrom:s.id, to:yd.dst, corp:yd.lead, color:yd.color,
-                 parts:yd.parts, body:yd.body, backers:yd.backers, dest:yd.dest, vent:yd.vent,
+                 parts:yd.parts, body:yd.body, backers:yd.backers, dest:yd.dest, vent:yd.vent, sat:yd.sat,
                  t:0, dur:(200 + rnd()*70) / markSpeedOf(yd.lead), born:dateStr(), captain:pickCaptain() });
   say("<b>" + lead.name + "</b> отправила " + yd.vt.name + " из " + s.name + " в " + systems[yd.dst].name + ".");
 }
@@ -92,12 +98,10 @@ export function moveShips(): void {
         continue;
       }
       const far = yd.dst !== undefined && yd.dst !== s.id;
-      // Уходящий за звёзды: портальный корабль или грузовик-первопроходец с
-      // назначенной целью. Вид рейса у первого — "gate", у второго — "jump":
-      // это не тип корабля (прыжкового типа больше нет), а РОЛЬ рейса, и
-      // именно по ней прилёт открывает систему.
-      const jumper = yd.vt.key === "gate" || yd.to !== undefined;
-      const vkind = yd.vt.key === "gate" ? "gate" : "jump";
+      // Уходящий за звёзды остался один — портальный корабль: он идёт на
+      // маршрут и остаётся на нём воротами. Грузовика-первопроходца больше
+      // нет, потому что открывать прилётом больше нечего.
+      const jumper = yd.vt.key === "gate";
       const fuelKind = (jumper || far) ? "sfuel" : "fuel";
       const tanks = far ? fuelCost(s.id, yd.dst) : 1;
       if (!takeFuel(lead, s.id, fuelKind, false, tanks)) {
@@ -113,16 +117,22 @@ export function moveShips(): void {
         // Старт не здесь — корабль идёт к точке старта своим ходом и заправится
         // там сам: паромом его не возят, он сам корабль.
         if (yd.from !== undefined && yd.from !== s.id) {
-          voyages.push({ kind:"reloc", cargo:vkind, sysFrom:s.id, to:yd.from, jumpTo:yd.to, corp:yd.lead, upgrade:yd.upgrade,
+          voyages.push({ kind:"reloc", cargo:"gate", sysFrom:s.id, to:yd.from, jumpTo:yd.to, corp:yd.lead, upgrade:yd.upgrade,
                          color:yd.color, parts:yd.parts, t:0, dur:(200 + rnd()*70) / markSpeedOf(yd.lead),
                          born:dateStr(), captain:pickCaptain() });
           say("<b>" + lead.name + "</b> вывела " + yd.vt.name + " с верфи " + s.name +
               ": идёт к точке старта в " + systems[yd.from].name + ".");
           continue;
         }
-        voyages.push({ kind:vkind, sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color, upgrade:yd.upgrade,
+        voyages.push({ kind:"gate", sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color, upgrade:yd.upgrade,
                        parts:yd.parts, t:0, dur:(220 + rnd()*80) / shipMark(yd.parts, yd.lead), born:dateStr(), captain:pickCaptain() });
         say("<b>" + lead.name + "</b> вывела " + yd.vt.name + " с верфи " + s.name + ".");
+      } else if (yd.vt.key === "sat") {
+        if (far) { ferry(yd, s, "sat"); continue; }
+        s.ships.push({ kind:"sat", corp:yd.lead, color:yd.color, glyph:yd.glyph, size:7, t:0,
+                       dur:(120 + rnd()*60) / engMult(yd.parts), dest:yd.dest, sat:yd.sat, parts:yd.parts,
+                       trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain(), yard:yard });
+        say("<b>" + lead.name + "</b> спустила спутник: курс на орбиту " + s.name + ".");
       } else if (yd.vt.key === "colony") {
         if (far) { ferry(yd, s, "colony"); continue; }
         s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
@@ -159,6 +169,13 @@ export function arriveShip(sh: Ship, s: Sys): void {
     say("Колония " + corps[sh.corp].name + " опоздала: " + sh.body.name + " уже занята.");
     return;
   }
+  if (sh.kind === "sat") {
+    sh.sat.live = true; sh.sat.building = false;
+    say("<b>" + corps[sh.corp].name + "</b> вывела спутник на орбиту " + s.name +
+        (sh.sat.laser ? " (с боевым лазером)" : "") + ".");
+    scanFrom(sh.sat, s);
+    return;
+  }
   if (sh.kind === "mine") {
     sh.vent.live = true; sh.vent.building = false; s.mines++;
     s.stations.push({ dest:sh.vent.dest, color:sh.color, glyph:sh.glyph, size:6.4, vent:sh.vent, ang:-1.9 });
@@ -176,21 +193,28 @@ export function arriveShip(sh: Ship, s: Sys): void {
   }
 }
 
-/** Звезда открыта: её содержимое становится видно всем. Открывает ЛЮБОЙ
- *  корабль, который до неё долетел, — портальный, первопроходец или просто
- *  грузовик, которого занесло дальше обжитого. Раньше это умел только
- *  прыжковый корабль, потому что другие туда и не летали; теперь отдельного
- *  корабля для открытия нет вовсе, и правило записано там, где ему место, —
- *  на прилёте.
+/** Звезда открыта: её содержимое становится видно всем. ОТКРЫВАЕТ ТОЛЬКО
+ *  ТЕЛЕСКОП — спутник, вставший на орбиту в своей системе и разглядевший эту
+ *  звезду. Ни портальный корабль, ни платформа, ни занесённый дальше обжитого
+ *  грузовик больше ничего не открывают: дорога и знание разошлись.
  *
- *  who — чей корабль; -1 или undefined у казённого рейса. */
-export function openSystem(t: Sys, who: number | undefined, gateNote: string): void {
+ *  who — чья контора поставила спутник. */
+export function openSystem(t: Sys, who: number | undefined, from: Sys): void {
   if (t.unlocked) return;
   t.unlocked = true;
-  const name = who !== undefined && who >= 0 ? "<b>" + corps[who].name + "</b>" : "Казённый рейс";
-  say(name + " открыл" + (who !== undefined && who >= 0 ? "а" : "") + " систему " + t.name + ": " +
-      t.bodies.map((b) => { return b.type.name; }).join(", ") + "." + gateNote);
-  if (!S.jumped) { S.jumped = true; say("Первый межзвёздный переход совершён."); }
+  const name = who !== undefined && who >= 0 ? "<b>" + corps[who].name + "</b>" : "Спутник";
+  say(name + " разглядел" + (who !== undefined && who >= 0 ? "а" : "") + " в телескоп с орбиты " + from.name +
+      " систему " + t.name + ": " + t.bodies.map((b) => { return b.type.name; }).join(", ") + ".");
+}
+
+/** Спутник встал и посмотрел вокруг: все звёзды в пределах телескопа
+ *  открываются разом, в тот же месяц. Больше он ничего не делает и никуда не
+ *  денется — так и висит там, где его оставили. */
+export function scanFrom(sat: Sat, s: Sys): void {
+  const found = within(s.id, SCOPE_RANGE).filter((n) => { return !systems[n].unlocked; });
+  sat.found = found.length;
+  found.forEach((n) => { systems[n].pulse = 1; openSystem(systems[n], sat.owner, s); });
+  if (!found.length) say("Спутник в " + s.name + " встал на орбиту, но нового в телескоп не видно.");
 }
 
 export function arriveVoyage(v: Voyage): void {
@@ -198,47 +222,41 @@ export function arriveVoyage(v: Voyage): void {
   // Проход по сети засчитывается маршрутам на пути: по этому счёту решают,
   // стоит ли переделывать створы. Сам портальный корабль сеть не считает —
   // он её строит.
-  if (v.kind !== "jump" && v.kind !== "gate") {
+  if (v.kind !== "gate") {
     const fa = v.sysFrom !== undefined ? v.sysFrom : v.from ? v.from.sys : undefined;
     const ta = v.sysFrom !== undefined ? v.to : v.to && v.to.sys !== undefined ? v.to.sys : undefined;
     if (fa !== undefined && ta !== undefined && fa !== ta) useRoute(fa, ta);
-    // Долетел до закрытой звезды — значит, открыл её, кем бы ни был: платформа
-    // на дальний астероид, колониальный модуль или порожний перегон.
-    if (ta !== undefined && systems[ta] && !systems[ta].unlocked) {
-      systems[ta].pulse = 1;
-      openSystem(systems[ta], v.corp, "");
+    // Звезду прилёт НЕ открывает: закрытой она к этому времени и быть не может —
+    // туда, куда не смотрел телескоп, никто не летит.
+    if (fa !== undefined && ta !== undefined && fa !== ta && !S.jumped) {
+      S.jumped = true; say("Первый межзвёздный переход совершён.");
     }
   }
-  if (v.kind === "jump" || v.kind === "gate") {
+  if (v.kind === "gate") {
     const t = systems[v.to];
     t.pulse = 1;
-    if (v.kind === "gate") {
-      // Ворота встают НА МАРШРУТ, по которому корабль только что прошёл: с
-      // этого дня по нему летает кто угодно без двигателя. Раньше ворота
-      // возникали в системе сами, никуда не летя, и маршрута за ними не
-      // стояло вовсе — сеть без рёбер.
-      const key = routeKey(v.sysFrom, v.to);
-      // марка створов — марка ПРИВЕЗЁННОГО набора, а не знаний хозяина
-      const kit = partMark(v.parts);
-      const lvl = kit ? kit.mark : Math.max(1, markLevelOf(corps[v.corp]));
-      const g: Gate = gates[key] || (gates[key] = newGate(v.sysFrom, v.to, v.corp, lvl));
-      // Комплект встаёт створами на ОБОИХ концах: в сторону друга друга. Створ,
-      // который уже смотрит туда, получает марку не ниже привезённой.
-      const was = g.built ? g.mark || 1 : 0;
-      ensurePortal(v.sysFrom, v.to, v.corp, lvl);
-      ensurePortal(v.to, v.sysFrom, v.corp, lvl);
-      if (!g.built) { g.built = true; g.building = false; g.owner = v.corp; g.born = dateStr(); g.mark = lvl; }
-      g.upgrading = false;
-      syncRoutes();                 // соседи в конусах створов тоже могли соединиться
-      systems[v.sysFrom].pulse = 1;
-      if (was) {
-        say("<b>" + corps[v.corp].name + "</b> переделала створы " + systems[v.sysFrom].name + " — " +
-            t.name + (g.mark > was ? " с Mk" + was + " на Mk" + g.mark : "") + ".");
-        return;
-      }
-    }
-    openSystem(t, v.corp,
-               v.kind === "gate" ? " Ворота на маршруте " + systems[v.sysFrom].name + " — " + t.name + " открыты." : "");
+    // Ворота встают НА МАРШРУТ, по которому корабль только что прошёл: с
+    // этого дня по нему летает кто угодно без двигателя. Раньше ворота
+    // возникали в системе сами, никуда не летя, и маршрута за ними не
+    // стояло вовсе — сеть без рёбер.
+    const key = routeKey(v.sysFrom, v.to);
+    // марка створов — марка ПРИВЕЗЁННОГО набора, а не знаний хозяина
+    const kit = partMark(v.parts);
+    const lvl = kit ? kit.mark : Math.max(1, markLevelOf(corps[v.corp]));
+    const g: Gate = gates[key] || (gates[key] = newGate(v.sysFrom, v.to, v.corp, lvl));
+    // Комплект встаёт створами на ОБОИХ концах: в сторону друга друга. Створ,
+    // который уже смотрит туда, получает марку не ниже привезённой.
+    const was = g.built ? g.mark || 1 : 0;
+    ensurePortal(v.sysFrom, v.to, v.corp, lvl);
+    ensurePortal(v.to, v.sysFrom, v.corp, lvl);
+    if (!g.built) { g.built = true; g.building = false; g.owner = v.corp; g.born = dateStr(); g.mark = lvl; }
+    g.upgrading = false;
+    syncRoutes();                 // соседи в конусах створов тоже могли соединиться
+    systems[v.sysFrom].pulse = 1;
+    say("<b>" + corps[v.corp].name + "</b> " +
+        (was ? "переделала створы " + systems[v.sysFrom].name + " — " + t.name +
+               (g.mark > was ? " с Mk" + was + " на Mk" + g.mark : "")
+             : "проложила маршрут " + systems[v.sysFrom].name + " — " + t.name + ": ворота открыты") + ".");
     return;
   }
   if (v.kind === "reloc") {                       // дошёл до точки старта: заправка и прыжок оттуда
@@ -256,6 +274,11 @@ export function arriveVoyage(v: Voyage): void {
                      parts:v.parts, trail:[], x:0, y:0, ang:0, born:dateStr(), captain:v.captain });
       say("<b>" + corps[v.corp].name + "</b>: колониальный модуль дошёл до " + t.name +
           ", курс на " + v.body.name + ".");
+    } else if (v.cargo === "sat") {
+      t.ships.push({ kind:"sat", corp:v.corp, color:v.color, glyph:v.sat.laser ? "satgun" : "sat", size:7, t:0,
+                     dur:(120 + rnd()*60) / engMult(v.parts), dest:v.dest, sat:v.sat,
+                     parts:v.parts, trail:[], x:0, y:0, ang:0, born:dateStr(), captain:v.captain });
+      say("<b>" + corps[v.corp].name + "</b>: спутник дошёл до " + t.name + ", курс на орбиту.");
     } else {
       t.ships.push({ kind:"mine", corp:v.corp, color:v.color, glyph:"mine", size:8, t:0,
                      dur:(120 + rnd()*60) / engMult(v.parts), dest:v.dest, vent:v.vent,

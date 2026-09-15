@@ -3,7 +3,7 @@
 import { galaxyRange, markSpeedOf } from "./galaxy";
 import { MARKRANGE, MARKSPEED, bestMarkMade, partMark } from "./data";
 import { bestMarkAt } from "./tech";
-import { S, dateStr, gates, say, systems } from "./state";
+import { S, dateStr, gates, say, systems, worlds } from "./state";
 import { dist } from "./util";
 import type { Gate, Portal, VType } from "./types";
 
@@ -153,9 +153,20 @@ export function canTravel(a: number, b: number): boolean {
 // Открыть систему мало — до неё надо ДОТЯНУТЬСЯ, иначе способ перемещения
 // остаётся косметикой: первый прогон показал, что оба дают одинаковую партию,
 // потому что в открытой системе можно было строить даром.
+//
+// Под движками корабль уходит НЕ ИЗ СТОЛИЦЫ, а с верфи ближайшего обжитого
+// мира (baseSys в orders.ts), и дальше марки одним прыжком не уйдёт. Значит,
+// достижимо то, что лежит в пределах марки от какого-нибудь обжитого мира, —
+// и это ровно то, чем прежде было условие на старт открывателя. Прежняя
+// поблажка «втрое дальше от столицы» держалась на том, что открытая звезда
+// означала «кто-то туда долетел»; с телескопом она не означает этого больше
+// НИЧЕГО — спутник разглядывает и то, докуда не долетит никто.
 export function reachable(id: number): boolean {
   if (id === 0) return true;
-  if (S.move.key === "drives") return canTravel(0, id) || systems[id].unlocked && dist(systems[0], systems[id]) <= galaxyRange() * 3;
+  if (S.move.key === "drives") {
+    const range = galaxyRange();
+    return range > 0 && worlds.some((w) => { return dist(systems[w.sys], systems[id]) <= range; });
+  }
   return canTravel(0, id);
 }
 

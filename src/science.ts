@@ -1,12 +1,13 @@
 // ===================== наука =====================
 
-import { PTYPES, bestHullMade, colOf, compOf, isEngine, isHull, markOf, roomOfKey } from "./data";
+import { PTYPES, SCOPE_RANGE, bestHullMade, colOf, compOf, isEngine, isHull, markOf, roomOfKey } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
 import { isRealm } from "./realm";
-import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
+import { L, S, Y, anyKnows, anyMakes, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
 import { allTech, bestEngineMade, devOf, engOf, ensureDev, markStep, ownEngine, ownHull, prevStep, stepKey, techOf } from "./tech";
 import type { Corp } from "./types";
 
+import { dist } from "./util";
 import { rnd } from "./rng";
 
 /** Склонность компании к технологии. У ходовых двигателей склонность одна на
@@ -33,7 +34,11 @@ export function pickTarget(c: Corp): string | null {
     if (pk && !knows(c, pk)) return;
     let worth;
     if (markOf(f.key)) {
-      // следующая марка стоит ровно столько, сколько звёзд она открывает
+      // Следующая марка стоит ровно столько, сколько звёзд она ПРИБЛИЖАЕТ:
+      // разглядённых в телескоп, но лежащих дальше нынешней дальности. Раньше
+      // тут считались закрытые звёзды — марка была и дорогой, и глазами разом;
+      // теперь глаза у спутника, и марка отвечает только за дорогу.
+      //
       // Сравнивать надо со СВОЕЙ дальностью, не с лучшей в галактике: чужой
       // патент на Mk1 не даёт тебе летать, а сравнение с ним гнало всех
       // исследовать Mk4 за 5800, пока ни один корабль не мог выйти из дома.
@@ -41,8 +46,9 @@ export function pickTarget(c: Corp): string | null {
       if (m.range <= have) return;                       // эту дальность уже имеем сами
       let gain = 0;
       systems.forEach((s) => {
-        if (!s.unlocked) return;
-        gain += within(s.id, m.range).filter((n) => { return !systems[n].unlocked; }).length;
+        if (!s.unlocked || !s.bodies.some((b) => { return b.world; })) return;
+        gain += within(s.id, m.range).filter((n) => {
+          return systems[n].unlocked && dist(s, systems[n]) > have; }).length;
       });
       worth = 1.2 + Math.min(12, gain) * 0.45;
     }
@@ -94,6 +100,23 @@ export function pickTarget(c: Corp): string | null {
       const waiting = shipyards.some((y) => { return y.queue.length > 0 && y.queue[0].fuelWait > 0; }) ||
                       staged.some((st) => { return st.fuelWait > 0; });
       worth = waiting ? 4.5 : (galaxyRange() > 0 ? 3.2 : 1.2);
+    }
+    else if (f.key === "scope") {
+      // Телескоп — глаза партии. Пока его не делает никто, галактика состоит
+      // из одной звезды: колонизировать нечего, возить некуда, марки перехода
+      // бесполезны. Поэтому первый телескоп ценится как первый двигатель, а
+      // дальше — по тому, много ли ещё тьмы вокруг обжитого.
+      let dark = 0;
+      systems.forEach((s) => {
+        if (!s.unlocked) return;
+        dark += within(s.id, SCOPE_RANGE).filter((n) => { return !systems[n].unlocked; }).length;
+      });
+      worth = !anyMakes("scope") ? 3.6 : dark ? 1.4 + Math.min(10, dark) * 0.28 : 0.3;
+    }
+    else if (f.key === "laser") {
+      // Боевой лазер пока не делает ничего: бои — отдельная ветка. Но разбой в
+      // галактике уже есть, и вооружать спутники начинают именно от него.
+      worth = corps.some((o) => { return o.pirate; }) ? 1.7 : 0.5;
     }
     else if (compOf(f.key)) worth = f.key === "drill" || f.key === "hold" ? 2.2 : 1.8;
     else {

@@ -137,7 +137,7 @@ export function events(): void {
 // тоже берётся за оружие. Вольница сидит у своей звезды и перехватывает всё,
 // что летит мимо — еду везёт домой, детали на склад, переселенцев забирает.
 // Это единственная сила в игре, которая ОТНИМАЕТ, а не покупает.
-// Прыжковые и открыватели не трогает: с них нечего взять.
+// Портальные корабли не трогает: с них нечего взять.
 export function piracy(): void {
   corps.forEach((p) => {
     if (!p.home || p.pirate) return;
@@ -156,8 +156,8 @@ export function piracy(): void {
     const ps = systems[p.home.sys];
     for (let i = voyages.length - 1; i >= 0; i--) {
       const v = voyages[i];
-      // прыжковый не перехватить — ни в прыжке, ни на перегоне к точке старта
-      if (v.kind === "jump" || v.kind === "gate" || v.kind === "reloc") continue;
+      // портальный не перехватить — ни на маршруте, ни на перегоне к точке старта
+      if (v.kind === "gate" || v.kind === "reloc") continue;
       // порожний перегон брать незачем: груз ещё лежит у погрузки
       if (v.kind === "empty") continue;
       const owner = v.kind === "parts" ? v.forCorp
@@ -181,6 +181,13 @@ export function piracy(): void {
         // или колония, ради которых он шёл, срываются — место освобождается
         v.parts.forEach((pt) => { addStock(p, ps.id, pt.k, 1); });
         if (v.cargo === "colony") { v.body.claimed = false; loot = "колониальный модуль"; }
+        else if (v.cargo === "sat") {
+          // Спутник числился в системе с закладки, чтобы туда не полетел
+          // второй; перехваченный — не встанет, и место снова свободно.
+          const ss = systems[v.to];
+          ss.sats = ss.sats.filter((x) => { return x !== v.sat; });
+          loot = "готовый спутник";
+        }
         else {
           if (v.dest && v.dest.ref) (v.dest.ref as Rock).taken = false;
           const ds = systems[v.to];
