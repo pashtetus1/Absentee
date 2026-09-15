@@ -14,7 +14,7 @@
 //     эти поля не читает и не пишет.
 
 import { MONTHS } from "./data";
-import type { Chosen, Corp, Dock, Gate, Hit, Lot, MarketRow, ShipRow, Move, Patent, Planet, Project, Sys, TickCache, Voyage, World } from "./types";
+import type { Chosen, Corp, Dock, Fight, Gate, Ground, Hit, Lot, MarketRow, ShipRow, Move, Patent, Planet, Project, Sys, TickCache, Voyage, Warship, World } from "./types";
 
 import type { ApproveMode, Proposal, Shipyard } from "./types";
 
@@ -25,6 +25,12 @@ export const worlds: World[] = [], projects: Project[] = [], docks: Dock[] = [];
 export const shipyards: Shipyard[] = [], proposals: Proposal[] = [];
 export const freight: Lot[] = [];               // купленные детали на погрузке, ждут корабль (freight.ts)
 export const staged: Staged[] = [];              // прыжковые у точки старта, ждут топлива
+// Война. Три списка, и они правда разные: корабль стоит, бой в космосе идёт
+// между звёзд, наземная битва — на планете. Общего у них только то, что ни один
+// из них никуда не ЛЕТИТ, поэтому ни в voyages, ни в ships им места нет.
+export const warships: Warship[] = [];
+export const fights: Fight[] = [];
+export const grounds: Ground[] = [];
 export const feed: { d: string; t: string }[] = [];
 export const hits: Hit[] = [];                   // куда можно ткнуть на текущем кадре
 export const market: Record<string, MarketRow> = {};
@@ -54,17 +60,33 @@ export const S = {
   // растёт и падает по десятку причин, — а этот счётчик отвечает ровно на один
   // вопрос: пересекают ли деньги границу.
   taxAway: 0,
+  // Война. armyFund — деньги, которые казна уже отдала на войско, а генерал ещё
+  // не потратил: рычаг течёт в него помесячно, а покупки случаются редко и
+  // крупно, и без кошелька между ними бюджет либо пропадал бы, либо копился в
+  // самой казне, где его тут же съел бы любой другой расход.
+  armyFund: 0,
+  battles: 0, downed: 0, risings: 0,        // боёв начато, кораблей сбито, восстаний поднято
   home: null as World, move: null as Move
 };
 
 export const L = {
   tax: 0.18, subKey: "hull1", subYear: 90, tradeFee: 0.06, patTerm: 25, speed: 1,
+  // Военный бюджет: сколько казна отдаёт на войско в год. Ноль — государство
+  // не содержит ни арсеналов, ни полиции, и порядок держится только тем, что
+  // компании сами себя охраняют. Начальные сто двадцать — не «правильное»
+  // положение, а признание того, что какая-то полиция у государства есть с
+  // самого начала: ноль по умолчанию читался бы как рычаг, который забыли
+  // включить, а не как выбор.
+  army: 120,
   approve: "manual" as ApproveMode         // не рычаг игрока: политика стенда, в браузере всегда manual
 };
 
 export const U = {
   view: { mode: "system", sys: 0 } as { mode: string; sys: number },
   pick: null as Chosen, hover: null as Chosen, lastPanel: 0, running: true,
+  // Открытая схема наземной битвы. Это не выбранный объект (pick), а НАКЛАДКА
+  // поверх сцены: пока она открыта, половину экрана занимает планета с боем.
+  battle: null as Ground,
   timer: null as ReturnType<typeof setInterval>
 };
 

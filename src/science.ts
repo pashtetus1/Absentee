@@ -1,6 +1,7 @@
 // ===================== наука =====================
 
-import { PTYPES, bestHullMade, colOf, compOf, isEngine, isHull, markOf, roomOfKey } from "./data";
+import { PTYPES, armOf, bestHullMade, colOf, compOf, isArm, isEngine, isHull, markOf, roomOfKey } from "./data";
+import { ensureDesign, isDesign } from "./arms";
 import { galaxyRange, rangeOf, within } from "./galaxy";
 import { isRealm } from "./realm";
 import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
@@ -16,7 +17,11 @@ export function aptOf(c: Corp, k: string): number {
   // колонизация типа — склонность к его КЛАССУ: холодные миры понимают целиком
   const col = colOf(k);
   if (col) { const p = PTYPES.find((t) => { return t.tech === k; }); return (p && c.apt[p.cls]) || 0.5; }
-  // корпус — семейство: склонность одна на все пять ступеней, как у двигателей
+  // корпус — семейство: склонность одна на все пять ступеней, как у двигателей.
+  // Военное дело — тоже одно семейство на всё: и детали, и чертежи. Вольница
+  // понимает в нём больше всех, что бы она ни умела до того, как взялась за
+  // оружие: это теперь её единственное ремесло.
+  if (isArm(k) || isDesign(k)) return (c.apt["arm"] || 0.5) * (c.pirate ? 1.8 : 1);
   return (isEngine(k) ? c.apt["eng"] : isHull(k) ? c.apt["hull"]
         : markOf(k) ? c.apt[S.move.comp] : c.apt[k]) || 0.5;
 }
@@ -87,6 +92,33 @@ export function pickTarget(c: Corp): string | null {
             : (S.move.key === "drives" && own < 4 ? 3.0  // свой тесен для дороги за звёзды
             : 1.2);
     }
+    else if (isArm(f.key) || isDesign(f.key)) {
+      // ВОЕННОЕ ДЕЛО СТОИТ РОВНО СТОЛЬКО, СКОЛЬКО В ГАЛАКТИКЕ РАЗБОЯ. Пока
+      // никого не грабят, оружие — дорогая игрушка, и вкладываться в него
+      // глупо; как только вольница взяла первый рейс, цена ему другая. Без
+      // этой оговорки компании либо не осваивали оружие вовсе (сложность
+      // высокая, пользы никакой), либо уходили в него с первого года и
+      // переставали колонизировать.
+      const lairs = corps.filter((c2) => { return c2.pirate && c2.home; }).length;
+      const heat = Math.min(2, lairs * 0.6) + Math.min(0.8, S.raids * 0.05) + Math.min(0.6, S.battles * 0.03);
+      if (isDesign(f.key)) {
+        // Чертёж ценен и сам по себе: это патент, который придётся брать и
+        // государству, и соседям. Ватаге он не нужен вовсе — у неё самоделка.
+        worth = c.pirate ? 0.4 : 0.8 + heat * 0.5;
+      } else {
+        const a = armOf(f.key);
+        // Наземное оружие покупает казна в арсеналы — спрос на него есть даже
+        // в тихой галактике, если государство вообще платит за войско.
+        worth = (a.kind === "gun" ? 0.6 + (L.army > 0 ? 1 : 0) : 0.3) + heat * 0.5;
+        if (c.pirate) worth += 1.2;
+      }
+      // ПОТОЛОК. Без него военное дело в неспокойной галактике переставляло
+      // себя в начало очереди и выедало всё остальное: на сиде 83 под воротами
+      // никто так и не довёл портальный набор Mk3 — и экспансия встала на
+      // первой системе за двести пятьдесят лет. Оружие не должно стоить
+      // дороже, чем «летать вообще»: первый двигатель 3.4, топливо 2.8.
+      worth = Math.min(worth, 2.6);
+    }
     else if (f.key === "fuel") worth = 2.8;                              // без него не взлетает ничего
     else if (f.key === "sfuel") {
       // межзвёздное топливо дорожает в цене ровно тогда, когда есть чему лететь:
@@ -114,6 +146,9 @@ export function pickTarget(c: Corp): string | null {
 }
 
 export function research(): void {
+  // Чертежи рождаются здесь же, в науке: новый появляется, когда предыдущий
+  // кто-то довёл до конца, и только если в галактике есть из чего его сложить.
+  ensureDesign();
   corps.forEach((c) => {
     if (!c.target || knows(c, c.target)) c.target = pickTarget(c);
     if (!c.target) return;
@@ -131,6 +166,8 @@ export function research(): void {
       c.known[c.target] = true; flash[c.target] = 1;
       // освоение бесконечно: за взятой маркой сразу появляется следующая
       if (devOf(c.target)) ensureDev(devOf(c.target).cls, devOf(c.target).mark + 1);
+      // и чертежи тоже: взятый чертёж открывает дорогу следующему замыслу
+      if (isDesign(c.target)) ensureDesign();
       if (markOf(c.target) && !S.moveKnown) {
         S.moveKnown = true;
         say("Выяснилось, каким оказался межзвёздный переход: <b>" + S.move.name + "</b>. " + S.move.hint);

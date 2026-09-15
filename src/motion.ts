@@ -11,6 +11,8 @@
 // (markSpeedOf), и она же решает, добьёт ли корабль до цели.
 
 import { POPS_PER_LIFE, engMult, pickCaptain, seatsOf } from "./data";
+import { newWarship } from "./battle";
+import { designOf } from "./arms";
 import { loadUp } from "./fleet";
 import { dockShip } from "./docks";
 import { markLevelOf, markSpeedOf } from "./galaxy";
@@ -78,6 +80,27 @@ export function moveShips(): void {
       // Транспорт топлива при спуске не жжёт, просто встаёт на стоянку. Но
       // только если ему НЕ задана цель за звёздами: под движками к закрытой
       // звезде идёт такой же грузовик, и дорога ему решена ещё в заказе (yd.to).
+      // Военный корабль никуда не идёт: он встаёт в строй там, где собран, и
+      // ждёт повода. Топливо ему всё равно нужно — бак местного, как любому
+      // кораблю, который вообще сходит со стапеля; вольнице его не жгут: она
+      // сливает своё из награбленного, и требовать с неё покупки было бы
+      // ровно тем же, что запретить разбой на окраине, где топливом не торгуют.
+      if (yd.vt.key === "war") {
+        if (!lead.pirate && !takeFuel(lead, s.id, "fuel", false, 1)) {
+          yd.left = 0; yd.fuelWait = (yd.fuelWait || 0) + 1;
+          if (yd.fuelWait === 1 || yd.fuelWait % 36 === 0)
+            say("<b>" + lead.name + "</b>: военный корабль в " + s.name + " готов, но топлива в системе нет.");
+          continue;
+        }
+        yard.queue.splice(q, 1);
+        const sh = newWarship(yd.forCorp !== undefined ? yd.forCorp : yd.role === "police" ? -1 : yd.lead,
+                              yd.des, yd.parts, s.id, yd.role || "guard", pickCaptain());
+        const d = designOf(yd.des);
+        say("<b>" + (sh.owner >= 0 ? corps[sh.owner].name : "Государство") + "</b>: " +
+            (d ? d.short : "военный корабль") + " сошёл со стапеля у " + yard.world.body.name +
+            " — урон " + sh.dmg.toFixed(1) + ", прочность " + sh.hpMax.toFixed(1) + ".");
+        continue;
+      }
       if ((yd.vt.key === "cargo" || yd.vt.key === "liner") && yd.to === undefined) {
         yard.queue.splice(q, 1);
         const home = yd.forWorld || yard.world;
@@ -147,6 +170,10 @@ export function moveShips(): void {
   });
   for (let j = voyages.length - 1; j >= 0; j--) {
     const v = voyages[j];
+    // Рейс, который держат на прицеле, НЕ ИДЁТ: пока бой не кончился, спор
+    // именно в том, дойдёт ли он вообще. Без этой строки грузовик спокойно
+    // прилетал бы к цели посреди боя за него.
+    if (v.fight !== undefined) { v.tp = v.t; continue; }
     v.tp = v.t; v.t += 1 / v.dur;
     if (v.t >= 1) { arriveVoyage(v); voyages.splice(j, 1); }
   }

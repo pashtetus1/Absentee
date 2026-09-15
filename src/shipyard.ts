@@ -69,6 +69,21 @@ export const YARD_MIN = 2, YARD_MAX = 30;
 // нашла бы двоих по минимуму, стапель находит полчеловечка.
 export const SCRAP_SHARE = 0.25;
 export const SCRAP_MIN = 0.5, SCRAP_MAX = 6;
+// Стапель, который принадлежит ХОЗЯИНУ ЭТОЙ ПЛАНЕТЫ (логово вольницы,
+// отделившийся мир), берёт людей иначе: не долю цехов, а долю всех рабочих рук
+// вместе с незанятыми, и берёт их первым, до филиалов (labour.ts). Это не
+// поблажка вольнице, а починка старой дыры: на послеголодном мире филиалы
+// просят места по кошельку своей конторы, а не по населению, и настоящая верфь
+// делила с этим призраком людей до сотых долей. Общее дело планеты делится
+// иначе, чем чужой подряд.
+// ПОЛ у него тоже свой, и он важнее доли. Стапель логова не нанимает людей на
+// рынке труда — на нём работает сама ватага, и работает всегда: это её
+// единственное дело. Поэтому пока на планете остались люди, стапель идёт хотя
+// бы вполсилы, даже если рынок труда на ней давно умер, — а он умер: мир,
+// прошедший голодомор, держит сотые доли человечка в цехах, и по общим
+// правилам там не собрать даже грузовика за двести лет (журнал, п. 7).
+export const LAIR_SHARE = 0.5;
+export const LAIR_MIN = 0.8, LAIR_MAX = 12, LAIR_FLOOR = 1;
 export const YARD_WORK = 6;
 
 // ---- плата за место в очереди ------------------------------------------------
@@ -195,9 +210,10 @@ export const WAIT_CAP = 600;
 
 function handsOf(y: Shipyard): number {
   if (y.crew > 0.05) return y.crew;
-  const p = y.world.pop.prod;
-  const want = y.scrap ? Math.min(SCRAP_MAX, Math.max(SCRAP_MIN, p * SCRAP_SHARE))
-                       : Math.min(YARD_MAX, Math.max(YARD_MIN, p * YARD_SHARE));
+  const p = y.world.pop.prod, lair = y.owner >= 0 && corps[y.owner].home === y.world;
+  const want = lair ? Math.max(LAIR_FLOOR, Math.min(LAIR_MAX, Math.max(LAIR_MIN, (p + y.world.pop.free) * LAIR_SHARE)))
+             : y.scrap ? Math.min(SCRAP_MAX, Math.max(SCRAP_MIN, p * SCRAP_SHARE))
+             : Math.min(YARD_MAX, Math.max(YARD_MIN, p * YARD_SHARE));
   return Math.max(0.05, want * 0.5);
 }
 /** Через сколько месяцев сойдёт со стапеля сборка такого типа, встань она сейчас. */
