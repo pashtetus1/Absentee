@@ -94,6 +94,18 @@ export function roomOf(parts: { k: string }[]): number {
   const h = hullOf(parts);
   return h ? roomOfKey(h) : (parts || []).length;
 }
+/** Во сколько раз корабль с таким корпусом больше тесного Mk1 НА ГЛАЗ.
+ *
+ *  Считается по площади, а не по длине: мест на ступенях 3, 5, 7, 9, 11, и веди
+ *  размер прямо по ним — Mk5 вышел бы втрое длиннее Mk1 и закрыл бы собой
+ *  планету. Корень даёт 1.00, 1.29, 1.53, 1.73, 1.91: разницу между соседними
+ *  ступенями видно сразу, а карта остаётся читаемой.
+ *
+ *  Корпуса нет (обломки, старое сохранение) — единица: рисовать нечего иначе. */
+export function hullScale(parts: { k: string }[]): number {
+  const h = hullOf(parts);
+  return h ? Math.sqrt(roomOfKey(h) / roomOfKey(HULLKEYS[0])) : 1;
+}
 /** Сколько мест занимает набор деталей. */
 export function sizeOfNeed(need: Record<string, number>): number {
   return Object.keys(need).reduce((a, k) => { return a + need[k]; }, 0);
