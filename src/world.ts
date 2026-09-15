@@ -11,6 +11,9 @@ export function makeWorld(body: Planet, seed: number, founder: number): World {
             wage:{ farm:2.4, prod:3, sci:4.2 }, food:{ stock:seed * 2, price:1, short:0, gain:0 },
             gov:{ cash:60 }, slots:2 + Math.round(body.type.cap / 4), rights:[], branches:[], built:[],
             wantOut:0, wantIn:0, founder:founder, born:dateStr(), parts:[], flow:"", blight:0,
+            // Арсенала у новой колонии нет: наземное оружие в неё завозит
+            // генерал на военный бюджет, и только если бюджет есть (army.ts).
+            arms:0,
             // Свежая колония — это разруха: полпустого склада, дорогая еда, пустая
             // казна, цеха не построены, урожай с необжитой земли вдвое меньше.
             // Десять лет (120 месяцев) она живёт на привозном и на терпении.

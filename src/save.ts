@@ -27,11 +27,13 @@
 
 import { BTYPES, CLASSES, COLTECH, COMPS, MOVES, PTYPES, VTYPES, makeMarks, moveOf, ptypeOf, vtype } from "./data";
 import { ENGKEYS } from "./data";
+import { DESIGNS } from "./arms";
+import { fightSeq, setFightSeq } from "./battle";
 import { rngAt, seedOf, setRng } from "./rng";
 import { seqOf, setSeq } from "./shipyard";
 import { DEVS, ensureDev } from "./tech";
-import { L, S, U, cam, clear, corps, docks, feed, fill, flash, gates, hits, market, patents, shipMarket, freight,
-         projects, proposals, purses, resetTickCache, say, shipyards, staged, systems, voyages, worlds } from "./state";
+import { L, S, U, cam, clear, corps, docks, feed, fights, fill, flash, gates, grounds, hits, market, patents, shipMarket, freight,
+         projects, proposals, purses, resetTickCache, say, shipyards, staged, systems, voyages, warships, worlds } from "./state";
 
 /** Где лежит партия. Рычаги хранятся отдельно и по-старому (levers.ts): они
  *  переживают «Заново», а партия — нет. */
@@ -41,7 +43,7 @@ export const KEY = "absentee.save";
  *  появилось поле у мира, у конторы, у рейса. Отпечаток ниже ловит правки
  *  таблиц сам, а вот новое поле в объекте ему не видно: старое сохранение
  *  развернулось бы без него и тихо повело бы себя не так. */
-export const FORMAT = 2;
+export const FORMAT = 3;
 
 /** Ровно тот текст, который видит игрок. */
 export const BAD = "СОХРАНЕНИЕ НЕСОВМЕСТИМО";
@@ -183,7 +185,13 @@ function decode(text: string): Record<string, unknown> {
 // после перезапуска, например, пропали стоянки.
 const LISTS: Record<string, unknown[]> = {
   corps: corps, systems: systems, worlds: worlds, voyages: voyages, projects: projects,
-  docks: docks, shipyards: shipyards, proposals: proposals, staged: staged, feed: feed, freight: freight
+  docks: docks, shipyards: shipyards, proposals: proposals, staged: staged, feed: feed, freight: freight,
+  // Война. Чертежи сюда же, и это не небрежность: чертёж придуман В ПАРТИИ
+  // (arms.ts) и состав у него случайный — восстановить его по ключу, как
+  // запись таблицы правил, нельзя. Поэтому он уносится целиком, как мир или
+  // контора. Ссылаются на чертежи только по ключу (корабль, сборка), так что
+  // одинаковость объектов тут ничего не держит.
+  warships: warships, fights: fights, grounds: grounds, designs: DESIGNS
 };
 const TABLES: Record<string, object> = { market: market, patents: patents, gates: gates, purses: purses, shipMarket: shipMarket };
 // Таблицы и списки, которых в сохранениях старых сборок ещё нет. Их отсутствие —
@@ -195,7 +203,7 @@ const LATER = new Set(["shipMarket", "freight"]);
 /** Партия в виде строки: ровно то, что ложится в localStorage. */
 export function gameText(): string {
   const root: Record<string, unknown> = {
-    seed: seedOf(), at: rngAt(), seq: seqOf(),
+    seed: seedOf(), at: rngAt(), seq: seqOf(), wseq: fightSeq(),
     // Марки освоения заводятся по ходу партии (tech.ts), и порядок в списке
     // значим: по нему наука перебирает, во что вкладываться. Поэтому пишется
     // не список объектов, а порядок их появления — и он же повторяется.
@@ -242,6 +250,7 @@ export function restore(text: string): void {
   DEVS.length = 0;
   (g.devs as [string, number][]).forEach((d) => { ensureDev(d[0], d[1]); });
   setSeq(g.seq as number);
+  setFightSeq((g.wseq as number) || 0);
 
   const view = g.view as { mode: string; sys: number }, c = g.cam as { x: number; y: number; k: number };
   U.view = { mode: view.mode, sys: view.sys };

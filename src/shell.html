@@ -169,7 +169,7 @@
   <header>
     <div>
       <h1>Absentee</h1>
-      <p>Люди живут на каждой освоенной планете и сами выбирают занятие — ты можешь только менять условия. У планеты есть предел: чем теснее и чем больше безработных, тем сильнее тянет уехать. Колонизировать чужой тип мира умеет тот, у кого есть технология, но дело дорогое — вкладываются несколько компаний, и каждая получает право на филиал. Бесплодные миры кормятся привозной едой, которую покупает правительство планеты. Ткни в любой корабль, чтобы увидеть, что он везёт и чей он.</p>
+      <p>Люди живут на каждой освоенной планете и сами выбирают занятие — ты можешь только менять условия. У планеты есть предел: чем теснее и чем больше безработных, тем сильнее тянет уехать. Колонизировать чужой тип мира умеет тот, у кого есть технология, но дело дорогое — вкладываются несколько компаний, и каждая получает право на филиал. Бесплодные миры кормятся привозной едой, которую покупает правительство планеты. Ткни в любой корабль, чтобы увидеть, что он везёт и чей он. Голодная колония может взяться за оружие — тогда на планете начинается наземная битва: скрещённые клинки у планеты открывают её схему. Военный бюджет — единственное, чем государство может в неё вмешаться, и вмешаться надо заранее.</p>
     </div>
     <div class="ctl">
       <button id="map">Карта</button>
@@ -195,6 +195,7 @@
       <span><canvas class="ikon" data-kind="colony" width="22" height="20"></canvas> колониальный модуль</span>
       <span><canvas class="ikon" data-kind="sat" width="22" height="20"></canvas> спутник с телескопом</span>
       <span><canvas class="ikon" data-kind="cargo" width="22" height="20"></canvas> транспорт: еда, люди, детали</span>
+      <span><canvas class="ikon" data-kind="war" width="22" height="20"></canvas> военный корабль: полиция, охрана, рейдер вольницы</span>
       <span>пробел — пауза</span>
       <span>карта: тащить мышью, Ctrl+колесо или кнопки — масштаб</span>
       <span>форма — что за корабль, цвет — чей он, герб — чьё государство</span>
@@ -261,6 +262,16 @@
     </div>
 
     <div class="block">
+      <div class="lab">Военные технологии</div>
+      <div id="arms"></div>
+    </div>
+
+    <div class="block">
+      <div class="lab">Чертежи кораблей</div>
+      <div id="designs"></div>
+    </div>
+
+    <div class="block">
       <div class="sliderhead"><div class="lab" style="margin:0">Налог с корпораций</div><div class="sval" id="taxval">18%</div></div>
       <input type="range" id="tax" min="0" max="60" step="1" value="18" aria-label="Налог">
       <div class="hint" id="taxhint"></div>
@@ -284,6 +295,13 @@
       <div class="sliderhead"><div class="lab" style="margin:0">Торговый сбор</div><div class="sval" id="feeval">6%</div></div>
       <input type="range" id="fee" min="0" max="40" step="1" value="6" aria-label="Торговый сбор">
       <div class="hint" id="feehint"></div>
+    </div>
+
+    <div class="block">
+      <div class="sliderhead"><div class="lab" style="margin:0">Военный бюджет, в год</div><div class="sval" id="armyval">120</div></div>
+      <input type="range" id="army" min="0" max="600" step="30" value="120" aria-label="Военный бюджет">
+      <div class="hint" id="armyhint"></div>
+      <div id="armylist"></div>
     </div>
 
     <div class="block">

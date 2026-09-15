@@ -5,14 +5,15 @@
 // Стенд запускает ядро без браузера: см. test/. Отдаём только чтение состояния
 // и шаг — отрисовка в тестах не участвует принципиально.
 
-import { BTYPES, COLTECH, COMPS, MARKRANGE, MARKS, MOVES, PTYPES, VTYPES } from "./data";
+import { ARMS, BTYPES, COLTECH, COMPS, MARKRANGE, MARKS, MOVES, PTYPES, VTYPES } from "./data";
+import { DESIGNS } from "./arms";
 import { SCAN_MONTHS, STATE_EYES, knowsSys, seenByState } from "./charts";
 import { icon } from "./render/models";
 import { bindUI } from "./render/ui";
 import { build } from "./setup";
 import { seedOf } from "./rng";
 import { gameText, restore } from "./save";
-import { L, S, U, corps, docks, feed, gates, headless, market, shipMarket, freight, patents, projects, proposals, purses, shipyards, staged, systems, voyages, worlds } from "./state";
+import { L, S, U, corps, docks, feed, fights, gates, grounds, headless, market, shipMarket, freight, patents, projects, proposals, purses, shipyards, staged, systems, voyages, warships, worlds } from "./state";
 import { ENGINES, speedOf } from "./tech";
 import { step } from "./tick";
 import { harvestOf, yieldPerFarmer } from "./labour";
@@ -41,6 +42,8 @@ export function state(): Snapshot {
   return { tick: S.tick, treasury: S.treasury, corps: corps, worlds: worlds, systems: systems,
            move: S.move, gates: gates, market: market, shipMarket: shipMarket, freight: freight, patents: patents, voyages: voyages, projects: projects, shipyards: shipyards, proposals: proposals, staged: staged,
            purses: purses, taxAway: S.taxAway,
+           warships: warships, fights: fights, grounds: grounds, designs: DESIGNS,
+           armyFund: S.armyFund, battles: S.battles, downed: S.downed, risings: S.risings,
            trades: S.trades, shipped: S.shipped, movedPops: S.movedPops, refusals: S.refusals, dropped: S.dropped,
            hauled: S.hauled, burned: S.burned, raids: S.raids, lost: S.lost,
            maps: S.maps, mapNo: S.mapNo, docks: docks, feed: feed };
@@ -52,12 +55,13 @@ export function setLever(k: string, v: number | string): void {
   else if (k === "subKey") L.subKey = v as string;
   else if (k === "fee") L.tradeFee = v as number;
   else if (k === "patTerm") L.patTerm = v as number;
+  else if (k === "army") L.army = v as number;
 }
 
 
 // MARKS больше не переприсваивается (чистится на месте), поэтому геттер,
 // который раньше ловил подмену массива, больше не нужен.
-export const consts = { COMPS, COLTECH, PTYPES, VTYPES, MOVES, ENGINES, MARKS, BTYPES,
+export const consts = { COMPS, COLTECH, PTYPES, VTYPES, MOVES, ENGINES, MARKS, BTYPES, ARMS, DESIGNS,
                         MARKRANGE, SCAN_MONTHS, STATE_EYES };
 
 // для стенда: переключить вид, чтобы кадр отрисовал и карту, и систему

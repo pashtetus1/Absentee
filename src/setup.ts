@@ -1,8 +1,10 @@
 
 import { CLASSES, COMPS, MOVES, TEMPLATE, makeMarks, moveOf } from "./data";
+import { DESIGNS } from "./arms";
+import { setFightSeq } from "./battle";
 import { makeGalaxy } from "./galaxy";
 import { foundYard } from "./shipyard";
-import { S, U, clear, corps, docks, feed, freight, fill, flash, gates, market, patents, projects, proposals, purses, say, shipMarket, shipyards, staged, systems, voyages, worlds } from "./state";
+import { S, U, clear, corps, docks, feed, fights, freight, fill, flash, gates, grounds, market, patents, projects, proposals, purses, say, shipMarket, shipyards, staged, systems, voyages, warships, worlds } from "./state";
 import { DEVS, allTech, ensureDev } from "./tech";
 import { makeWorld, openBranch } from "./world";
 import type { Corp } from "./types";
@@ -38,7 +40,13 @@ export function build(forcedMove?: string, seed?: number): void {
   DEVS.length = 0;
   CLASSES.forEach((col) => { ensureDev(col.key, 1); });     // Mk1 каждого класса с самого начала
 
-  [worlds, projects, voyages, feed, docks, shipyards, proposals, staged, freight].forEach((a) => { a.length = 0; });
+  [worlds, projects, voyages, feed, docks, shipyards, proposals, staged, freight,
+   warships, fights, grounds].forEach((a) => { a.length = 0; });
+  // Чертежи — часть ПАРТИИ, а не правил: их придумывают по ходу игры (arms.ts),
+  // и новая партия начинается без единого. Самоделка вольницы в список не
+  // входит и потому не чистится: она есть всегда.
+  DESIGNS.length = 0;
+  setFightSeq(0);
   clear(flash); clear(gates); U.pick = null;
   makeGalaxy();
   S.home = makeWorld(systems[0].bodies[0], 18, -1);
@@ -54,6 +62,7 @@ export function build(forcedMove?: string, seed?: number): void {
   S.tick = 0; S.yearNow = 0; S.treasury = 320; S.jumped = false; S.trades = 0; S.turnover = 0; S.shipped = 0; S.movedPops = 0;
   S.refusals = 0; S.dropped = 0; S.moveKnown = false; S.hauled = 0; S.burned = 0; S.raids = 0; S.lost = 0;
   S.pirateCount = 0; S.crestSeq = 0; S.taxAway = 0; S.maps = 0; S.mapNo = 0; clear(purses);
+  S.armyFund = 0; S.battles = 0; S.downed = 0; S.risings = 0;
   U.view = { mode:"system", sys:0 };
   foundYard(S.home, []);                     // стартовая верфь: общая и пустая
   say("Тира: восемнадцать человечков из тридцати двух возможных, пять компаний, одна верфь и ни одной освоенной детали.");

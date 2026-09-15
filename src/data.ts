@@ -1,7 +1,7 @@
 // ===================== данные =====================
 
 import { S, canBuild, corps, fill } from "./state";
-import type { BType, ColTech, Comp, Corp, Mark, Move, PType, Part, Tech, VType, WorldClass } from "./types";
+import type { Arm, BType, ColTech, Comp, Corp, Mark, Move, PType, Part, Tech, VType, WorldClass } from "./types";
 
 import { rnd } from "./rng";
 
@@ -40,12 +40,11 @@ export const COMPS: Comp[] = [
   { key:"scope2", name:"Телескоп Mk2",       short:"телескоп Mk2", diff:3200,  work:6,  base:64,  glyph:"dia", sight:MARKRANGE[1] },
   { key:"scope3", name:"Телескоп Mk3",       short:"телескоп Mk3", diff:7000,  work:8,  base:96,  glyph:"dia", sight:MARKRANGE[2] },
   { key:"scope4", name:"Телескоп Mk4",       short:"телескоп Mk4", diff:15000, work:10, base:142, glyph:"dia", sight:MARKRANGE[3] },
-  // Боевой лазер: единственная деталь, которая пока НИЧЕГО не делает. Бои — в
-  // другой ветке, и до них лазер только занимает место на спутнике и стоит
-  // денег. Заведён сейчас нарочно: когда бои придут, вооружённые спутники уже
-  // будут стоять там, где компании сами решили их поставить, а не появятся
-  // задним числом по всей галактике разом.
-  { key:"laser", name:"Боевой лазер",        short:"лазер",     diff:3600, work:8, base:98,  glyph:"tri" },
+  // ОТДЕЛЬНОГО «боевого лазера» здесь НЕТ, хотя спутник и носит оружие. Пока
+  // бои шли другой веткой, лазер был заведён своей деталью; теперь ветки
+  // сошлись, и оружие в игре одно — энергетическое (ARMTAB ниже, семейство
+  // beam). Два лучемёта на одну идею — это не разнообразие, а дубль: спутник
+  // вооружают тем же, чем корабль.
   // Корпус — ЛЕСТНИЦА, как ходовые двигатели и марки перехода: пять ступеней,
   // и каждая следующая вмещает на два места больше. Место — это одна деталь, и
   // САМ КОРПУС ЗАНИМАЕТ ОДНО из них: корпус Mk1 на три места — это корпус плюс
@@ -121,6 +120,78 @@ export function ownSight(c: Corp): number {
   SCOPEKEYS.forEach((k) => { if (canBuild(c, k)) best = Math.max(best, sightOfKey(k)); });
   return best;
 }
+// ---- военные детали ----------------------------------------------------
+// Пять семейств по ПЯТЬ ступеней. Устроены они той же лестницей, что корпуса и
+// ходовые двигатели, и это не для единообразия: лестница означает, что четвёртую
+// ступень не взять, не осилив третью (markStep в tech.ts), патента на ступень
+// нет, а сама она становится общим достоянием, когда кто-то ушёл на две вперёд.
+// То есть оружие РАСТЕКАЕТСЯ по галактике, и монополии на него не бывает —
+// монополия бывает на ЧЕРТЁЖ, то есть на то, как из этих деталей собран
+// корабль (arms.ts).
+//
+// Четыре семейства ставятся на корабль, пятое — нет:
+//   лучемёт  — урон в бою; без него корабль дерётся корпусом и почти не бьёт;
+//   броня    — запас прочности: сколько он выдержит;
+//   бомбы    — удар с орбиты по наземной битве внизу; в космосе бесполезны;
+//   десант   — сколько людей корабль высадит в наземную битву;
+//   наземное — на корабль не ставится ВОВСЕ: им вооружают ополчение. Его
+//              покупает государство в арсеналы миров (army.ts) и им же
+//              разживаются восставшие, разбирая склады контор.
+//
+// Цены и сложности взяты по соседям: лучемёт Mk1 (1500) чуть дешевле
+// жизнеобеспечения, наземное Mk1 (900) — вдвое дешевле его, чтобы вооружить
+// планету было по карману казне, а построить флот — нет.
+const ARMTAB = [
+  { kind:"beam",  name:"Энергетическое оружие", short:"лучемёт",  glyph:"tri",
+    diff:[1500,3200,6800,14500,31000], work:[6,8,10,13,16], base:[46,70,104,156,232], power:[1,1.7,2.8,4.6,7.5] },
+  { kind:"armor", name:"Броня",                 short:"броня",    glyph:"sqr",
+    diff:[1200,2600,5600,12000,26000], work:[5,7,9,11,14],  base:[38,58,88,132,196],  power:[2,3.4,5.6,9,14] },
+  { kind:"bomb",  name:"Бомбы",                 short:"бомбы",    glyph:"dia",
+    diff:[1800,3800,8000,17000,36000], work:[7,9,11,14,17],  base:[54,80,120,180,268], power:[1,1.7,2.6,3.8,5.6] },
+  { kind:"drop",  name:"Десантная капсула",     short:"десант",   glyph:"cir",
+    diff:[2000,4200,8800,18500,39000], work:[7,9,12,15,18],  base:[58,88,132,198,296], power:[1,1.6,2.4,3.4,5] },
+  { kind:"gun",   name:"Наземное оружие",       short:"наземное", glyph:"sqr",
+    diff:[900,1900,4000,8600,18000],   work:[4,5,7,9,11],    base:[26,40,60,90,134],   power:[1,1.5,2.2,3.2,4.6] }
+];
+/** Ступени каждого семейства, от слабой к сильной. */
+export const ARMKEYS: Record<string, string[]> = {};
+/** Все военные детали одним списком: ими красится панель и по ним ходит наука. */
+export const ARMS: Comp[] = [];
+export const ARMFAMS = ARMTAB.map((t) => { return { kind:t.kind, name:t.name, short:t.short }; });
+ARMTAB.forEach((t) => {
+  ARMKEYS[t.kind] = [];
+  for (let i = 0; i < 5; i++) {
+    const c: Comp = { key:t.kind + (i + 1), name:t.name + " Mk" + (i + 1), short:t.short + " Mk" + (i + 1),
+                      diff:t.diff[i], work:t.work[i], base:t.base[i], glyph:t.glyph,
+                      arm:{ kind:t.kind, lvl:i + 1, power:t.power[i] } };
+    ARMS.push(c); COMPS.push(c); ARMKEYS[t.kind].push(c.key);
+  }
+});
+/** Военная суть детали; ничего — это не военная деталь. */
+export function armOf(k: string): Arm | undefined { const c = compOf(k); return c && c.arm; }
+export function isArm(k: string): boolean { return !!armOf(k); }
+/** Семейство, к которому относится ключ; "" — деталь не военная. */
+export function armFam(k: string): string { const a = armOf(k); return a ? a.kind : ""; }
+/** Ступень семейства по номеру; null — такой нет. */
+export function armKey(kind: string, lvl: number): string | null {
+  const row = ARMKEYS[kind];
+  return row && lvl >= 1 && lvl <= row.length ? row[lvl - 1] : null;
+}
+/** Сколько мощи этого семейства стоит на корабле: сумма по всем таким деталям.
+ *  Оружия может быть несколько, и каждое бьёт — потому сумма, а не лучшее. */
+export function armPower(parts: { k: string }[], kind: string): number {
+  let sum = 0;
+  (parts || []).forEach((p) => { const a = armOf(p.k); if (a && a.kind === kind) sum += a.power; });
+  return sum;
+}
+/** Лучшая ступень семейства, которую в галактике хоть кто-то умеет делать;
+ *  null — не умеет никто. */
+export function bestArmMade(kind: string): string | null {
+  let out: string | null = null;
+  (ARMKEYS[kind] || []).forEach((k) => { if (corps.some((c) => { return canBuild(c, k); })) out = k; });
+  return out;
+}
+
 /** Модели ходового двигателя, от слабой к сильной. */
 export const ENGKEYS = ["eng1", "eng2", "eng3", "eng4"];
 export function isEngine(k: string): boolean{ return ENGKEYS.indexOf(k) >= 0; }
@@ -274,7 +345,14 @@ export const VTYPES: VType[] = [
   // добавляется в shipNeed: какая встанет, решается при закладке.
   { key:"gate",   name:"портальный корабль",    need:{},          build:38, glyph:"jump" },
   { key:"cargo",  name:"грузовик",              need:{ hold:1 },  build:8,  glyph:"cargo" },
-  { key:"liner",  name:"переселенческий",       need:{ life:1 },  build:10, glyph:"cargo" }
+  { key:"liner",  name:"переселенческий",       need:{ life:1 },  build:10, glyph:"cargo" },
+  // Военный корабль — единственный тип БЕЗ своего рецепта, и пусто здесь не по
+  // забывчивости: из чего он собран, говорит ЧЕРТЁЖ (arms.ts), а чертежей в
+  // партии рождается сколько угодно и состав у них какой угодно. Строка в
+  // таблице нужна затем же, зачем она нужна грузовику: очередь верфи, плата за
+  // место и панель говорят о типах кораблей, а не о чертежах. Срок сборки
+  // здесь — только основание, к нему прибавляется вес самого чертежа.
+  { key:"war",    name:"военный корабль",       need:{},          build:14, glyph:"war" }
 ];
 export function vtype(k: string): VType{ for (let i=0;i<VTYPES.length;i++) if (VTYPES[i].key===k) return VTYPES[i]; }
 
@@ -466,26 +544,30 @@ export function moveName(): string{ return S.moveKnown ? S.move.name : "спос
 // ступени по ключу: моделей двигателя четыре, корпусов пять, и расписывать
 // eng1..eng4 и hull1..hull5 значило бы повторять одно число девять раз.
 // Разбирается это в aptOf() (science.ts).
+//
+// apt.arm — то же самое про ВОЕННОЕ ДЕЛО целиком: оружие, броня, бомбы,
+// десант, наземное и чертежи кораблей. Одно число на всё потому, что это одно
+// ремесло: контора, которая умеет делать пушки, умеет и придумать, как их
+// расставить по корпусу. Чайный дом не умеет ни того, ни другого.
+//
+// apt.scope — склонность к телескопам, тоже одна на все четыре ступени.
+// Дальнозоркость — ремесло отдельное от оружейного: Гелиос-Прайм видит дальше
+// всех и стреляет средне, Ново-Кеплер наоборот.
 export const TEMPLATE = [
   { name:"Тайко Дриллинг",   color:"#6fd39b", craft:"буры",      nerve:0.9,
-    apt:{ drill:1.9, hull:0.7, hold:0.6, drive:0.4, gkit:0.4, life:0.4, pod:0.35, eng:0.5,
-          scope:0.6, laser:0.8,
+    apt:{ drill:1.9, hull:0.7, hold:0.6, drive:0.4, gkit:0.4, life:0.4, pod:0.35, eng:0.5, arm:0.7, scope:0.6,
           temperate:0.7, cold:1.2, dry:0.8, hot:1.4, gas:0.5 } },
   { name:"Ново-Кеплер Авиа", color:"#ff8b5e", craft:"самолёты",  nerve:1.25,
-    apt:{ hull:1.9, drive:0.85, gkit:0.9, hold:0.7, life:0.5, drill:0.4, pod:0.35, eng:1.6,
-          scope:0.9, laser:1.7,
+    apt:{ hull:1.9, drive:0.85, gkit:0.9, hold:0.7, life:0.5, drill:0.4, pod:0.35, eng:1.6, arm:1.5, scope:0.9,
           temperate:0.9, cold:0.7, dry:0.8, hot:0.6, gas:1.5 } },
   { name:"Дом чая Ланьхуа",  color:"#dd7ec6", craft:"чай",       nerve:0.6,
-    apt:{ pod:2.0, hold:0.9, life:0.7, hull:0.35, drill:0.3, drive:0.3, gkit:0.3, eng:0.35,
-          scope:0.7, laser:0.2,
+    apt:{ pod:2.0, hold:0.9, life:0.7, hull:0.35, drill:0.3, drive:0.3, gkit:0.3, eng:0.35, arm:0.3, scope:0.7,
           temperate:1.7, cold:0.5, dry:0.9, hot:0.3, gas:0.4 } },
   { name:"Гелиос-Прайм",     color:"#4ec4e6", craft:"механика",  nerve:1.05,
-    apt:{ drive:1.55, gkit:1.6, life:1.25, hull:0.8, hold:0.5, drill:0.5, pod:0.35, eng:1.7,
-          scope:1.8, laser:1.1,
+    apt:{ drive:1.55, gkit:1.6, life:1.25, hull:0.8, hold:0.5, drill:0.5, pod:0.35, eng:1.7, arm:1.3, scope:1.8,
           temperate:0.8, cold:1.0, dry:0.7, hot:1.2, gas:1.1 } },
   { name:"Синдикат Веги",    color:"#f2b33d", craft:"перевозки", nerve:0.85,
-    apt:{ hold:1.85, life:0.85, pod:0.8, hull:0.6, drill:0.55, drive:0.45, gkit:0.5, eng:1.2,
-          scope:0.8, laser:0.6,
+    apt:{ hold:1.85, life:0.85, pod:0.8, hull:0.6, drill:0.55, drive:0.45, gkit:0.5, eng:1.2, arm:0.8, scope:0.8,
           temperate:1.0, cold:0.9, dry:1.5, hot:0.6, gas:0.7 } }
 ];
 

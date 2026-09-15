@@ -5,12 +5,13 @@ import { MARKRANGE, hullScale } from "../data";
 import { galaxyRange, within } from "../galaxy";
 import { HOME, manyRealms, realmOf, realmOfCorp, realmOfShip, realmOfVoyage } from "../realm";
 import { yardAt } from "../shipyard";
-import { S, U, cam, corps, docks, gates, hits, shipyards, systems, voyages } from "../state";
+import { S, U, cam, corps, docks, fights, gates, hits, shipyards, systems, voyages, warships } from "../state";
 import { gatesAt, inNet, otherEnd, portalAng, portalFor, spread } from "../travel";
 import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
 import { CH, CW, advanceFrame, cx, glow, last, setSysK, setUiz, uiz } from "./canvas";
 import { advance, caption, crest, dockLines, flame, grow, posOf, rift, rock, scrapYard, ship, star, tiny, warped, windowLines, yardLines, yardPos } from "./models";
+import { drawFight, drawGround, drawWarMark, drawWarship, fightLines, warLines } from "./war";
 import type { Rock, Sys, Voyage } from "../types";
 
 // Куда смотрит створ: в сторону звёзд, к которым ведёт. Готовый створ стоит
@@ -119,6 +120,9 @@ export function drawSystem(s: Sys): void {
     // из них смотрит ровно вверх). Снизу два ряда подписи, поэтому места нет
     // больше нигде.
     if (w && flags) crest(p.x, p.y - b.rad - 24, 6, realmOf(w));
+    // Наземная битва: скрещённые клинки сбоку от планеты. Ткнуть — и на
+    // полэкрана развернётся схема боя (render/war.ts).
+    if (w && w.war) drawWarMark(p.x + b.rad + 16, p.y - b.rad - 6, 7, w.war);
     hits.push({ x:p.x, y:p.y, r:b.rad + 12, kind:"body", data:b });
     cx.font = "500 10.5px system-ui, sans-serif"; cx.fillStyle = w ? "#c9d2e4" : "#6a7590";
     cx.textAlign = "center"; cx.textBaseline = "top";
@@ -198,9 +202,9 @@ export function drawSystem(s: Sys): void {
   s.sats.forEach((sat) => {
     if (!sat.live) return;
     const p = posOf(sat, mx, my);
-    ship(sat.laser ? "satgun" : "sat", p.x, p.y, 7, sat.ang + 1.5708, sat.color);
+    ship(sat.armed ? "satgun" : "sat", p.x, p.y, 7, sat.ang + 1.5708, sat.color);
     if (flags) crest(p.x, p.y - 14, 4.6, realmOfCorp(corps[sat.owner]));
-    tiny(p.x, p.y + 12, "телескоп Mk" + sat.mark + (sat.laser ? ", лазер" : ""), "#7f8cb4");
+    tiny(p.x, p.y + 12, "телескоп Mk" + sat.mark + (sat.armed ? ", лучемёт" : ""), "#7f8cb4");
     hits.push({ x:p.x, y:p.y, r:11, kind:"sat", data:sat });
   });
 
@@ -237,6 +241,25 @@ export function drawSystem(s: Sys): void {
     if (U.pick && U.pick.data === yard) caption(x, y, yardLines(yard), "#8f9bc4");
     else tiny(x, y + 15, yard.scrap ? "стапель" : "верфь", yard.crew > 0 ? "#7f8cb4" : "#4e5872");
     hits.push({ x:x, y:y, r:14, kind:"yard", data:yard });
+  });
+
+  // Военные корабли этой системы. Они НЕ летят и потому не таскаются по
+  // экрану: стоят на дальней орбите своей планеты — или у звезды, если планеты
+  // у них тут нет, — и медленно обходят её. Цвет говорит, чьи; звезда над
+  // казённым — что это полиция, а не частная охрана.
+  warships.filter((ws) => { return ws.sys === s.id; }).forEach((ws, i) => {
+    const own = ws.owner >= 0 ? corps[ws.owner] : null;
+    const base = own && own.home && own.home.sys === s.id ? own.home.body
+               : s.bodies.find((b) => { return b.world; });
+    const bp = base ? posOf(base, mx, my) : { x:mx, y:my };
+    const off = (base ? base.rad : 20) + 26 + (i % 3) * 7;
+    const a = ws.ang + glow * 0.09;
+    const x = bp.x + Math.cos(a) * off, y = bp.y + Math.sin(a) * off;
+    const col = own ? own.color : "#8894ae";
+    drawWarship(ws, x, y, a, col);
+    if (U.pick && U.pick.data === ws) caption(x, y, warLines(ws, own ? own.name : "государство"), col);
+    else tiny(x, y, ws.captain, col);
+    hits.push({ x:x, y:y, r:11, kind:"warship", data:ws });
   });
 
   s.ships.forEach((sh) => {
@@ -471,6 +494,14 @@ export function drawMap(): void {
     else tiny(x, y, v.captain, v.color);
     hits.push({ x:x, y:y, r:12 * uiz, kind:isJump ? "jumpship" : "cargo", data:v });
   });
+  // Бои. Рисуются ПОСЛЕ рейсов и ДО звёзд: бой идёт между звёзд, он важнее
+  // одного рейса и не должен теряться под узлом системы.
+  fights.forEach((f) => {
+    drawFight(f, f.x, f.y, uiz);
+    if (U.pick && U.pick.data === f)
+      caption(f.x, f.y, fightLines(f, corps[f.raider] ? corps[f.raider].name : "неизвестные"), "#ff8b5e");
+    hits.push({ x:f.x, y:f.y, r:22 * uiz, kind:"fight", data:f });
+  });
   systems.forEach((s) => {
     // Звезда — ЗНАЧОК системы, а не тело с размером: ужимается на зум, чтобы
     // при приближении узлы расходились, а не разбухали в пятна. Зона охоты
@@ -573,6 +604,13 @@ export function frame(ts: number): void {
   advanceFrame(ts, dt);
   systems.forEach((s) => { advance(s, dt); });
   if (U.view.mode === "map") drawMap(); else drawSystem(systems[U.view.sys]);
+  // Наземная битва — НАКЛАДКА поверх всего, и рисуется она последней, уже без
+  // масштаба сцены: это не объект на карте, а окно в другое место. Битва,
+  // которая кончилась, закрывается сама — смотреть больше не на что.
+  if (U.battle) {
+    if (U.battle.world.war !== U.battle) U.battle = null;
+    else { setUiz(1); drawGround(U.battle); }
+  }
   requestAnimationFrame(frame);
 }
 

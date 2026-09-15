@@ -1,20 +1,20 @@
 
 import { PIRATES, pirateName } from "./colony";
-import { compOf, holdOf, holdOfType, shipNeed, vtype } from "./data";
+import { raidHunt } from "./battle";
+import { startUprising } from "./ground";
+import { holdOf, holdOfType, shipNeed, vtype } from "./data";
 import { corpBuyShip } from "./docks";
 import { bestOffer, buildCost, cargoTo, launch, takeOffer } from "./fleet";
 import { GIVE_OVER, dispatch, surplusWorld } from "./food";
-import { fuelBill, takeFuel, unfly } from "./market";
-import { lotsOf } from "./freight";
+import { fuelBill, takeFuel } from "./market";
 import { rnd } from "./rng";
-import { onOrder, orderTransport } from "./shipyard";
-import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
+import { edgeShipyard, onOrder, orderTransport } from "./shipyard";
+import { S, corps, docks, say, systems, worlds } from "./state";
 import { bestEngineAt } from "./tech";
 import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
-import { clamp, popsWord } from "./util";
-import { addStock, popOf, reserveOf, stockAt } from "./world";
+import { popOf, reserveOf, stockAt } from "./world";
 import { realmOfCorp } from "./realm";
-import type { Corp, Pop, Rock, World } from "./types";
+import type { Corp, Pop, World } from "./types";
 
 export function corpRelief(): void {
   worlds.forEach((w) => {
@@ -81,6 +81,12 @@ export function turnPirate(c: Corp, lair: World, why: string): void {
   c.pirate = true; c.craft = "разбой"; c.nerve = 1.6; c.home = lair;
   c.name = pirateName(lair);
   c.color = PIRATES[S.pirateCount++ % PIRATES.length];
+  // Мятеж — не восстание населения, а уход конторы за черту, и наземной битвы
+  // за этим не следует: мир остаётся чей был. Но промысел требует КОРАБЛЕЙ, а
+  // их негде строить: общая верфь заказа от вольницы не примет (army.ts). Так
+  // что ватага первым делом закладывает свой стапель — ровно как та, что
+  // поднялась из голода.
+  edgeShipyard(lair, c.id);
   say("<b>" + lair.body.name + "</b>: " + why + " — теперь это «" + c.name + "», и всё, что летит мимо " +
       systems[lair.sys].name + ", в опасности.");
 }
@@ -134,80 +140,23 @@ export function events(): void {
 // ---- вольница ---------------------------------------------------------
 // Второй заход. Жребий на краю (despair) уже решил первый исход, но голод на
 // этом не кончается: артель или свободный мир, который голодает ещё три года,
-// тоже берётся за оружие. Вольница сидит у своей звезды и перехватывает всё,
-// что летит мимо — еду везёт домой, детали на склад, переселенцев забирает.
-// Это единственная сила в игре, которая ОТНИМАЕТ, а не покупает.
-// Портальные корабли не трогает: с них нечего взять.
+// тоже берётся за оружие — и это тоже ВОССТАНИЕ с наземной битвой, а не смена
+// вывески. Кто победит, тот и хозяин планеты (ground.ts).
+//
+// Сам промысел живёт теперь не здесь, а в battle.ts: вольница не забирает груз
+// монеткой, она выводит на рейс военный корабль, и дальше месяцами идёт бой.
+// Здесь остался только повод — кто и когда берётся за оружие.
 export function piracy(): void {
   corps.forEach((p) => {
-    if (!p.home || p.pirate) return;
+    if (!p.home || p.pirate || p.home.war) return;
     // три года голода после первого жребия и монетка: не всякий голодный мир
     // берётся за оружие, но чем дольше голод, тем вернее
     if (p.home.food.short < 36 || popOf(p.home) < 0.5 || rnd() > 0.03) return;
-    p.pirate = true; p.craft = "разбой"; p.nerve = 1.6;
-    p.name = pirateName(p.home);
-    p.color = PIRATES[S.pirateCount++ % PIRATES.length];
+    p.nerve = 1.6;
     p.home.food.short = 0;
-    say("<b>" + p.home.body.name + "</b> голодает и дальше — и уходит в разбой: теперь это «" +
-        p.name + "», и всё, что летит мимо " + systems[p.home.sys].name + ", в опасности.");
+    say("<b>" + p.home.body.name + "</b> голодает и дальше — и берётся за оружие.");
+    startUprising(p.home, p, "вольница");
   });
-  corps.forEach((p) => {
-    if (!p.pirate || !p.home) return;
-    const ps = systems[p.home.sys];
-    for (let i = voyages.length - 1; i >= 0; i--) {
-      const v = voyages[i];
-      // портальный не перехватить — ни на маршруте, ни на перегоне к точке старта
-      if (v.kind === "gate" || v.kind === "reloc") continue;
-      // порожний перегон брать незачем: груз ещё лежит у погрузки
-      if (v.kind === "empty") continue;
-      const owner = v.kind === "parts" ? v.forCorp
-                : v.kind === "ferry" ? v.corp
-                : (v.relief !== undefined ? v.relief : -1);
-      if (owner === p.id) continue;
-      const a = v.sysFrom !== undefined ? systems[v.sysFrom] : systems[v.from.sys];
-      const b = v.sysFrom !== undefined ? systems[v.to] : systems[v.to.sys];
-      if (a === b) continue;
-      const t = clamp(v.t, 0, 1), x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
-      if (v.to === p.home) continue;                                   // свой же хлебовоз
-      if (Math.hypot(x - ps.x, y - ps.y) > 45) continue;               // не в зоне охоты
-      // рейс идёт двести месяцев и десятки из них — в зоне; чтобы перехватывали
-      // примерно каждый четвёртый, шанс в месяц должен быть крошечным
-      if (rnd() > 0.0025) continue;
-      let loot;
-      if (v.kind === "food") { p.home.food.stock += v.qty; loot = v.qty + " еды"; }
-      else if (v.kind === "pops") { p.home.pop.free += v.qty; loot = popsWord(v.qty); }
-      else if (v.kind === "ferry") {
-        // захвачен целый корабль: он разбирается на детали, а предприятие
-        // или колония, ради которых он шёл, срываются — место освобождается
-        v.parts.forEach((pt) => { addStock(p, ps.id, pt.k, 1); });
-        if (v.cargo === "colony") { v.body.claimed = false; loot = "колониальный модуль"; }
-        else if (v.cargo === "sat") {
-          // Спутник числился в системе с закладки, чтобы туда не полетел
-          // второй; перехваченный — не встанет, и место снова свободно.
-          const ss = systems[v.to];
-          ss.sats = ss.sats.filter((x) => { return x !== v.sat; });
-          loot = "готовый спутник";
-        }
-        else {
-          if (v.dest && v.dest.ref) (v.dest.ref as Rock).taken = false;
-          const ds = systems[v.to];
-          ds.ventures = ds.ventures.filter((x) => { return x !== v.vent; });
-          loot = "готовая платформа";
-        }
-      }
-      else {
-        const lots = lotsOf(v);
-        lots.forEach((l) => { addStock(p, ps.id, l.k, 1); });
-        loot = lots.map((l) => compOf(l.k).short).join(", ");
-      }
-      S.raids++;
-      if (U.pick && U.pick.data === v) U.pick = null;
-      say("<b>" + p.name + "</b> перехватила рейс командира " + v.captain + " у " + ps.name + ": взято " + loot + ".");
-      // Груз больше не в пути, и покупатель обязан это узнать: иначе он ждёт
-      // свою деталь вечно и не заказывает новую (см. unfly в market.ts).
-      unfly(v);
-      voyages.splice(i, 1);
-    }
-  });
+  corps.forEach((p) => { if (p.pirate && p.home) raidHunt(p); });
 }
 

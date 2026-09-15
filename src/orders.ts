@@ -1,7 +1,7 @@
 // ===================== заказы, консорциумы, филиалы =====================
 
 import { knowsSys, sayAt, seenByState } from "./charts";
-import { bestScopeMade, scopeMark, shipNeed, sightOfKey, vtype, MARKSPEED } from "./data";
+import { armFam, bestArmMade, bestScopeMade, scopeMark, shipNeed, sightOfKey, vtype, MARKSPEED } from "./data";
 import { galaxyRange, rangeOf, within, markLevelOf } from "./galaxy";
 import { rnd } from "./rng";
 import { YARD_WORK, nearestYard, paySlot, slotPrice, yardAt } from "./shipyard";
@@ -106,16 +106,21 @@ export function satTarget(c: Corp): { dst: number; opens: number } | null {
   return out;
 }
 
-/** Ставить ли на спутник боевой лазер, и тогда что дописать к набору.
+/** Ставить ли на спутник оружие, и тогда что дописать к набору.
  *
- *  Пользы от лазера пока НЕТ НИКАКОЙ — бои идут отдельной веткой, — а место в
- *  корпусе он занимает, и корпус под него нужен следующей ступени. Поэтому
- *  берут его не все и не всегда: смелая контора — как только лазер вообще
- *  научились делать, остальные — когда по галактике пошёл разбой. */
+ *  Оружие берётся ТО ЖЕ, что у военных кораблей, — энергетическое (семейство
+ *  beam, arms.ts): своего «спутникового лазера» в игре нет и не должно быть,
+ *  два лучемёта на одну идею были бы дублем. Ставят лучшую ступень, какую в
+ *  галактике умеют делать.
+ *
+ *  Берут его не все и не всегда: место в корпусе оно занимает, и корпус под
+ *  него нужен следующей ступени. Смелая контора вооружает спутник, как только
+ *  оружие вообще появилось; остальные — когда по галактике пошёл разбой. */
 export function satArms(c: Corp): Record<string, number> | null {
-  if (!anyMakes("laser")) return null;
+  const beam = bestArmMade("beam");
+  if (!beam) return null;
   if (c.nerve < 1.05 && !corps.some((o) => { return o.pirate; })) return null;
-  return { laser:1 };
+  const out: Record<string, number> = {}; out[beam] = 1; return out;
 }
 
 /** Сложить два довеска к набору: вооружение и то, что требует дорога. */
@@ -429,10 +434,10 @@ export function assemble(): void {
       const sat: Sat = { sys:o.dst, owner:c.id, color:c.color, ang:spot.ang, r:spot.r,
                          parts:o.parts.slice(), born:dateStr(), found:0, scan:0,
                          mark:sp ? scopeMark(sp.k) : 1, range:sp ? sightOfKey(sp.k) : 0,
-                         laser:o.parts.some((pt) => { return pt.k === "laser"; }),
+                         armed:o.parts.some((pt) => { return armFam(pt.k) === "beam"; }),
                          live:false, building:true };
       ds.sats.push(sat);
-      yard.queue.push({ vt:vt, sat:sat, lead:c.id, color:c.color, glyph:sat.laser ? "satgun" : "sat",
+      yard.queue.push({ vt:vt, sat:sat, lead:c.id, color:c.color, glyph:sat.armed ? "satgun" : "sat",
                      dest:{ kind:"sat", ref:sat, label:"орбита " + ds.name }, dst:o.dst, parts:sat.parts,
                      left:vt.build * YARD_WORK, total:vt.build * YARD_WORK });
     } else {

@@ -18,6 +18,15 @@ import type { FlyAcct } from "./types";
 import { rnd } from "./rng";
 
 export function repriceMarket(): void {
+  // Купленное и уже едущее — не спрос, а поставка: без этой поправки цена
+  // годами карабкалась к потолку, пока грузовики были в пути. Считается это
+  // ОДИН раз на тик, а не заново под каждую деталь: рейсов бывают десятки,
+  // деталей за сорок, и перебор одного внутри другого обходился дороже, чем всё
+  // остальное ценообразование вместе. Числа те же до последнего знака —
+  // меняется только порядок счёта.
+  const fly: Record<string, number> = {};
+  voyages.forEach((v) => { lotsOf(v).forEach((l) => { fly[l.k] = (fly[l.k] || 0) + 1; }); });
+  freight.forEach((l) => { fly[l.k] = (fly[l.k] || 0) + 1; });   // купленное на погрузке — тоже поставка
   COMPS.forEach((f) => {
     let m = market[f.key], stock = 0, want = 0, sellers: Corp[] = [];
     corps.forEach((c) => {
@@ -29,10 +38,7 @@ export function repriceMarket(): void {
     if (!tickCache.sellers) tickCache.sellers = {};
     tickCache.sellers[f.key] = sellers;
     projects.forEach((pr) => { want += Math.max(0, (pr.need[f.key] || 0) - (pr.got[f.key] || 0)); });
-    // купленное и уже едущее — не спрос, а поставка: без этой поправки цена
-    // годами карабкалась к потолку, пока грузовики были в пути
-    voyages.forEach((v) => { lotsOf(v).forEach((l) => { if (l.k === f.key) want--; }); });
-    freight.forEach((l) => { if (l.k === f.key) want--; });   // купленное на погрузке — тоже поставка
+    want -= fly[f.key] || 0;
     want = Math.max(0, want);
     m.last = m.price;
     m.price = clamp(m.price * clamp(1 + 0.05 * (want - stock) / (want + stock + 2), 0.95, 1.06),

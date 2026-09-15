@@ -8,7 +8,10 @@
 // строке, и String() вокруг каждого присваивания ничего бы не поймал.
 
 import { SCAN_MONTHS, STATE_EYES, knownCount, knowsSys, mapPrice, seenByState } from "../charts";
-import { COLTECH, COMPS, MARKS, colOf, compOf, hullOf, markName, moveName, roomOfKey, vtype, btype } from "../data";
+import { ARMFAMS, ARMKEYS, COLTECH, COMPS, MARKS, colOf, compOf, hullOf, markName, moveName, roomOfKey, vtype, btype } from "../data";
+import { DESIGNS, RAIDER, designLine, designMakers, designOf, groundMult } from "../arms";
+import { armyLine, policeLine } from "../army";
+import { force, sideColor } from "../ground";
 import { dockValue, partsValue, shipFactor } from "../docks";
 import { lotsOf } from "../freight";
 import { galaxyRange, within } from "../galaxy";
@@ -17,14 +20,14 @@ import { HOME, isRealm, manyRealms, realmName, realmOf, treasuryOf } from "../re
 import { seedOf } from "../rng";
 import { prodOf, sciOf } from "../science";
 import { slotPrice, yardAt } from "../shipyard";
-import { L, S, U, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, upkeepOf, voyages, worlds } from "../state";
+import { L, S, U, canBuild, corps, dateStr, feed, fights, grounds, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, upkeepOf, voyages, warships, worlds } from "../state";
 import { DEVS, ENGINES, techOf } from "../tech";
 import { fuelCost } from "../travel";
 import { fmt, popsWord, dist } from "../util";
 import { popOf } from "../world";
 import { buildAim, buildDone, buildState, cargoName, queueEta } from "./models";
 import { seenSys } from "./scene";
-import type { Build, Part, World } from "../types";
+import type { Build, Fight, Ground, Part, Warship, World } from "../types";
 
 export type Ctl = HTMLElement & { value: any; textContent: any; disabled: boolean; checked: boolean };
 export function el(id: string): Ctl { return document.getElementById(id) as Ctl; }
@@ -87,6 +90,68 @@ export function yardQueue(y: { queue: Build[]; crew: number }): string {
   }).join("");
 }
 
+/** Карточка наземной битвы: кто с кем, чем вооружены, сколько осталось. Кнопка
+ *  открывает схему на полэкрана — то же самое, что клик по скрещённым клинкам
+ *  на планете. */
+export function groundCard(g: Ground): string {
+  const w = g.world, i = grounds.indexOf(g);
+  // Мелкие числа — с сотыми: на колонии ополчение бывает меньше человечка, и
+  // «0.0 из 0.1» читалось бы как «никого против никого» (render/war.ts).
+  const men = (n: number): string => n < 1 ? n.toFixed(2) : fmt(n);
+  const row = (name: string, col: string, s: { men: number; men0: number; arms: number }): string =>
+    '<div class="part"><i class="dot" style="background:' + col + '"></i>' +
+    '<span class="pn">' + name + '</span><span class="pw">' + men(s.men) + ' из ' + men(s.men0) +
+    ' · ' + (s.arms ? 'Mk' + s.arms : 'без оружия') + ' · сила ' + force(s).toFixed(1) + '</span></div>';
+  return '<div class="card"><h3>Наземная битва · ' + w.body.name + '</h3>' +
+    '<div class="sub">' + systems[w.sys].name + ' · осталось ' + Math.max(0, g.left) + ' мес. из ' + g.total +
+    ' · клеток за восставшими ' + g.tiles.filter((t) => t.side === 1).length + ' из ' + g.tiles.length + '</div>' +
+    row("восставшие · " + corps[g.corp].name, sideColor(g, 1), g.reb) +
+    row("корпорации и гарнизон", sideColor(g, 0), g.gov) +
+    '<div class="sub" style="margin:7px 0 3px">' + (g.kind === "вольница"
+      ? 'Победят — на планете не останется закона, и всё, что летит мимо, будет в опасности.'
+      : 'Победят — мир выйдет из государства и заберёт все филиалы.') + '</div>' +
+    (w.arms ? '<div class="sub" style="margin:0 0 3px;color:var(--gold)">Арсенал Mk' + w.arms +
+       ': ополчение вооружено вдвое лучше улицы (×' + groundMult(w.arms).toFixed(1) + ').</div>'
+     : '<div class="sub" style="margin:0 0 3px;color:var(--bad)">Арсенала нет: гарнизон дерётся тем, что нашлось.</div>') +
+    '<div style="margin-top:6px"><button class="showwar" data-war="' + i + '">Смотреть битву</button></div>' +
+    (g.log.length ? '<div class="rmeta" style="margin-top:6px">' + g.log.slice(0, 3).join('<br>') + '</div>' : '') +
+    '</div>';
+}
+
+/** Карточка военного корабля. Всё, что он умеет, считается по его деталям, и
+ *  здесь это видно рядом с ними: урон от лучемётов, прочность от брони. */
+export function warshipCard(s: Warship): string {
+  const own = s.owner >= 0 ? corps[s.owner] : null;
+  const d = designOf(s.des);
+  return '<div class="card"><h3>' + (d ? d.name : "Военный корабль") + '</h3>' +
+    '<div class="sub">' + (own ? own.name : "государство · полиция") + ' · командир ' + s.captain +
+    ' · с ' + s.born + ' · ' + systems[s.sys].name + '</div>' +
+    '<div class="part"><span class="pn">урон в месяц</span><span class="pw">' + s.dmg.toFixed(1) + '</span></div>' +
+    '<div class="part"><span class="pn">прочность</span><span class="pw">' + s.hp.toFixed(1) + ' из ' + s.hpMax.toFixed(1) + '</span></div>' +
+    '<div class="part"><span class="pn">чем занят</span><span class="pw">' +
+      (s.fight !== undefined ? "в бою" : s.role === "raid" ? "промысел" : s.role === "police" ? "порядок" : "охрана рейсов") +
+    '</span></div>' + hullLine(s.parts) + engLine(s.parts) + partsList(s.parts, s.owner) + '</div>';
+}
+
+/** Карточка боя: обе стороны по кораблям, с полосками прочности. */
+export function fightCard(f: Fight): string {
+  const line = (x: { name: string; color: string; hp: number; hpMax: number; dmg: number; prey?: boolean }): string =>
+    '<div class="row"><div class="rhead"><i class="dot" style="background:' + x.color + '"></i>' +
+    '<span class="rname">' + x.name + (x.prey ? ' · мирный' : '') + '</span>' +
+    '<span class="rmeta">' + (x.hp > 0 ? Math.round(x.hp * 10) / 10 + '/' + Math.round(x.hpMax * 10) / 10 : 'сбит') + '</span></div>' +
+    '<div class="bar"><i style="width:' + Math.max(0, x.hp / x.hpMax * 100) + '%;background:' + x.color + '"></i></div>' +
+    '<div class="rmeta">урон ' + x.dmg.toFixed(1) + '/мес</div></div>';
+  return '<div class="card"><h3>Бой у ' + systems[f.sys].name + '</h3>' +
+    '<div class="sub">' + (corps[f.raider] ? corps[f.raider].name : "нападающие") + ' против охраны · идёт ещё ' +
+    Math.max(0, f.left) + ' мес. из ' + f.total + '</div>' +
+    (f.prey ? '<div class="sub" style="margin:0 0 6px">Держат рейс командира ' + (f.prey.captain || "?") +
+       ': пока бой идёт, он стоит.</div>' : '') +
+    '<div class="sub" style="margin:4px 0 2px">Нападают:</div>' + f.att.map(line).join("") +
+    '<div class="sub" style="margin:6px 0 2px">Отбиваются:</div>' + f.def.map(line).join("") +
+    (f.log.length ? '<div class="rmeta" style="margin-top:6px">' + f.log.slice(0, 3).join('<br>') + '</div>' : '') +
+    '</div>';
+}
+
 export function worldCard(w: World): string {
   const p = w.pop, total = popOf(w);
   // Урожай спрашиваем у harvestOf — у той же функции, по которой мир кормится
@@ -119,6 +184,12 @@ export function worldCard(w: World): string {
     // следа решения, которое уже принято.
     (w.edgeYard ? '<div class="sub" style="margin:0 0 3px;color:var(--gold)">Стапель из мусора: соберут через ' +
        Math.max(0, w.edgeYard.at - S.tick) + ' мес.</div>' : '') +
+    // Война на планете — первое, что надо знать о планете, поэтому строка стоит
+    // выше хлеба и казны: там сейчас решается, чей это мир вообще.
+    (w.war ? '<div class="sub" style="margin:0 0 3px;color:var(--bad)">Наземная битва: ' +
+       w.war.reb.men.toFixed(2) + ' против ' + w.war.gov.men.toFixed(2) + ', осталось ' + Math.max(0, w.war.left) +
+       ' мес. <button class="showwar" data-war="' + grounds.indexOf(w.war) + '">смотреть</button></div>' : '') +
+    (w.arms ? '<div class="sub" style="margin:0 0 3px">Арсенал: наземное оружие Mk' + w.arms + '</div>' : '') +
     // Долю называем ЧИСЛОМ. Закуп и продажа у свободного мира почти совпадают, и
     // без этой подписи два близких числа читаются как опечатка, а не как
     // решение его правительства.
@@ -140,6 +211,9 @@ export function inspector(): void {
   const box = el("inspect");
   if (!U.pick) { box.innerHTML = '<div class="empty">Ткни в планету, корабль, станцию или верфь.</div>'; return; }
   const d = U.pick.data;
+  if (U.pick.kind === "warship") { box.innerHTML = warshipCard(d as Warship); return; }
+  if (U.pick.kind === "fight") { box.innerHTML = fightCard(d as Fight); return; }
+  if (U.pick.kind === "war") { box.innerHTML = groundCard(d as Ground); return; }
   if (U.pick.kind === "body") {
     if (d.world) { box.innerHTML = worldCard(d.world); return; }
     const pr = projects.filter((p) => { return p.body === d; })[0];
@@ -249,7 +323,7 @@ export function inspector(): void {
     // Спутник ищет звёзды по одной и годами: в карточке видно, сколько он
     // уже всматривается в очередную и сколько нашёл за жизнь.
     const left = Math.max(0, SCAN_MONTHS - (d.scan || 0));
-    box.innerHTML = '<div class="card"><h3>Спутник' + (d.laser ? ' с боевым лазером' : '') + '</h3>' +
+    box.innerHTML = '<div class="card"><h3>Спутник' + (d.armed ? ' с лучемётом' : '') + '</h3>' +
       '<div class="sub">' + corps[d.owner].name + ' · орбита ' + systems[d.sys].name +
       (d.born ? ' · с ' + d.born : '') + '</div>' +
       '<div class="part"><span class="pn">телескоп Mk' + d.mark + '</span><span class="pw">видит на ' + d.range + '</span></div>' +
@@ -258,8 +332,8 @@ export function inspector(): void {
       (left / 12).toFixed(1) + ' лет осталось</span></div>' +
       '<div class="part"><span class="pn">эту систему знают</span><span class="pw">' + knowers.length +
       ' из ' + corps.length + '</span></div>' +
-      (d.laser ? '<div class="sub" style="margin:6px 0 0">Лазер пока не стреляет: боёв в игре нет. ' +
-                 'Место в корпусе и деньги он занимает уже сейчас.</div>' : '') +
+      (d.armed ? '<div class="sub" style="margin:6px 0 0">Оружие на борту есть, но спутник в бою пока ' +
+                 'не участвует: он висит и смотрит. Место в корпусе и деньги оно занимает уже сейчас.</div>' : '') +
       partsList(d.parts, d.owner) + '</div>';
     return;
   }
@@ -393,6 +467,56 @@ export function panels(): void {
              '<div class="rmeta">' + meta + '</div></div>';
     }).join("") || '<div class="empty">Ещё ничего не освоено.</div>';
 
+  // ---- военные технологии ------------------------------------------------
+  // Лестницами, как двигатели и корпуса: пять ступеней, кто докуда дошёл.
+  // Патента у ступени нет — он бывает только у чертежа, и это та самая
+  // разница, ради которой военное дело разложено на два этажа (arms.ts).
+  el("arms").innerHTML = ARMFAMS.map((fam) => {
+    const keys = ARMKEYS[fam.kind];
+    const best = keys.filter((k) => { return makersOf(k).length; }).length;
+    const rows = keys.map((k, i) => {
+      const holders = makersOf(k);
+      const dots = holders.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+      if (!holders.length) {
+        const top = Math.max.apply(null, corps.map((c) => { return c.spent[k] || 0; }));
+        return i === best ? '<div class="rmeta">Mk' + (i + 1) + ': лучший на ' + Math.round(top) +
+                            ' из ' + compOf(k).diff + '</div>' : '';
+      }
+      const a = compOf(k).arm;
+      const what = fam.kind === "beam" ? "урон " + a.power
+                 : fam.kind === "armor" ? "прочность +" + (a.power * 2.2).toFixed(1)
+                 : fam.kind === "bomb" ? "бомбёжка " + a.power
+                 : fam.kind === "drop" ? "десант " + a.power
+                 : "ополчение ×" + groundMult(i + 1).toFixed(1);
+      return '<div class="rmeta">Mk' + (i + 1) + ' ' + dots + ' · ' + what + '</div>';
+    }).join("");
+    return '<div class="row"><div class="rhead"><span class="rname">' + fam.name + '</span>' +
+           '<span class="price">' + (best ? "Mk" + best : "—") + '</span></div>' + rows + '</div>';
+  }).join("");
+
+  // ---- чертежи -----------------------------------------------------------
+  el("designs").innerHTML = (DESIGNS.length
+    ? DESIGNS.map((d) => {
+        const makers = designMakers(d);
+        const dots = makers.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
+        const p = patents[d.key];
+        const pat = patLive(d.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm)
+                  : p && p.owner >= 0 ? "патент истёк" : "";
+        const built = warships.filter((s) => { return s.des === d.key; }).length;
+        const meta = makers.length
+          ? (pat ? pat + " · " : "") + "построено " + built
+          : "лучший на " + Math.round(Math.max.apply(null, corps.map((c) => { return c.spent[d.key] || 0; }))) +
+            " из " + d.diff;
+        return '<div class="row"><div class="rhead"><span class="rname">' + d.name + '</span>' + dots + '</div>' +
+               '<div class="rmeta">' + designLine(d) + '</div>' +
+               '<div class="rmeta">' + meta + '</div></div>';
+      }).join("")
+    : '<div class="empty">Чертежей ещё не придумали: для них нужно хоть какое-то оружие.</div>') +
+    '<div class="row"><div class="rhead"><span class="rname">' + RAIDER.name + ' (вольница)</span></div>' +
+    '<div class="rmeta">' + designLine(RAIDER) + ' плюс что найдётся на складах · не исследуется и не патентуется</div>' +
+    '<div class="rmeta">рейдеров в строю: ' +
+      warships.filter((s) => { return s.des === RAIDER.key; }).length + '</div></div>';
+
   el("coltech").innerHTML = COLTECH.map((f) => {
     const p = patents[f.key], makers = makersOf(f.key);
     const dots = makers.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
@@ -425,9 +549,51 @@ export function panels(): void {
            ' · уехать хотят ' + w.wantOut.toFixed(1) + '</div></div>';
   }).join("") || '<div class="empty">Освоена только Тира.</div>';
 
+  // ---- войско ------------------------------------------------------------
+  // Куда уходит военный бюджет: арсеналы, полиция, охрана компаний. Без этой
+  // строки рычаг был бы деньгами в никуда — игрок не видел бы ни одной покупки.
+  el("armylist").innerHTML =
+    '<div class="row"><div class="rhead"><span class="rname">Казённое войско</span>' +
+    '<span class="price">' + Math.round(S.armyFund) + '</span></div>' +
+    '<div class="rmeta">' + armyLine() + '</div>' +
+    (policeLine() ? '<div class="rmeta">стоят: ' + policeLine() + '</div>' : '') + '</div>' +
+    (worlds.filter((w) => { return w.arms > 0; }).length
+      ? '<div class="row"><div class="rhead"><span class="rname">Арсеналы миров</span></div>' +
+        '<div class="rmeta">' + worlds.filter((w) => { return w.arms > 0; })
+          .map((w) => { return w.body.name + " Mk" + w.arms; }).join(", ") + '</div></div>'
+      : '') +
+    (warships.filter((s) => { return s.owner >= 0; }).length
+      ? '<div class="row"><div class="rhead"><span class="rname">Частные корабли</span></div>' +
+        '<div class="rmeta">' + warships.filter((s) => { return s.owner >= 0; })
+          .map((s) => { return corps[s.owner].name + " (" + (s.role === "raid" ? "разбой" : "охрана") + ")"; })
+          .join(", ") + '</div></div>'
+      : '');
+
   const vbox = el("ventures");
+  // Бои идут и на земле, и между звёзд, и увидеть их надо сразу: до складчин и
+  // очередей. В отличие от них, бой кончится сам и без игрока — но именно в нём
+  // решается, будет ли у этой планеты завтра хозяин.
+  const warRows: string[] = [];
+  grounds.forEach((g, i) => {
+    if (U.view.mode !== "map" && g.world.sys !== U.view.sys) return;
+    warRows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + sideColor(g, 1) + '"></i>' +
+      '<span class="rname">наземная битва · ' + g.world.body.name + '</span>' +
+      '<span class="rmeta">' + Math.max(0, g.left) + ' мес.</span></div>' +
+      '<div class="rmeta">' + corps[g.corp].name + ' ' + g.reb.men.toFixed(2) + ' против ' + g.gov.men.toFixed(2) +
+      ' · <button class="showwar" data-war="' + i + '">смотреть</button></div></div>');
+  });
+  fights.forEach((f) => {
+    if (U.view.mode !== "map" && f.sys !== U.view.sys) return;
+    warRows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' +
+      (corps[f.raider] ? corps[f.raider].color : "#ff5c5c") + '"></i>' +
+      '<span class="rname">бой у ' + systems[f.sys].name + '</span>' +
+      '<span class="rmeta">' + Math.max(0, f.left) + ' мес.</span></div>' +
+      '<div class="rmeta">' + (corps[f.raider] ? corps[f.raider].name : "нападающие") + ': ' +
+      f.att.filter((x) => x.hp > 0).length + ' против ' + f.def.filter((x) => x.hp > 0).length +
+      (f.prey ? ' · держат рейс ' + (f.prey.captain || "?") : '') + '</div></div>');
+  });
   if (U.view.mode === "map") {
-    vbox.innerHTML = systems.map((s) => {
+    vbox.innerHTML = warRows.join("") + systems.map((s) => {
       if (!seenSys(s)) return "";
       const ws = s.bodies.filter((b) => { return b.world; });
       return '<div class="row clickrow" data-sys="' + s.id + '"><div class="srow">' +
@@ -438,7 +604,7 @@ export function panels(): void {
              '</div></div>';
     }).join("");
   } else {
-    const s = systems[U.view.sys], rows: string[] = [];
+    const s = systems[U.view.sys], rows: string[] = warRows.slice();
     // Очередь верфи в списке дел системы: с номером, состоянием и сроком, тем
     // же, что в окошке у самой верфи. Прежняя строка давала одну готовность и
     // молчала о порядке — по ней нельзя было понять, кто ждёт кого.
@@ -482,6 +648,8 @@ export function panels(): void {
     " · еды перевезено " + Math.round(S.shipped) + " · деталей грузовиком " + S.hauled +
     " · топлива сожжено " + S.burned + " · отказов " + S.refusals + ", свёрнуто сборок " + S.dropped +
     (S.lost ? " · миров опустело " + S.lost : "") +
+    (S.risings ? " · восстаний " + S.risings : "") +
+    (S.battles ? " · боёв " + S.battles + ", сбито " + (S.raids + S.downed) : "") +
     (foreign ? " · казна отделившихся: " + foreign : "") +
     " · сид " + seedOf();
 

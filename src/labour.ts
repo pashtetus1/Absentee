@@ -1,7 +1,7 @@
 // ===================== рынок труда на каждом мире =====================
 
 import { btype } from "./data";
-import { SCRAP_MAX, SCRAP_MIN, SCRAP_SHARE, YARD_MAX, YARD_MIN, YARD_SHARE } from "./shipyard";
+import { LAIR_FLOOR, LAIR_MAX, LAIR_MIN, LAIR_SHARE, SCRAP_MAX, SCRAP_MIN, SCRAP_SHARE, YARD_MAX, YARD_MIN, YARD_SHARE } from "./shipyard";
 import { corps } from "./state";
 import { devCap, devMult } from "./tech";
 import { clamp } from "./util";
@@ -150,27 +150,43 @@ export function labour(w: World): void {
   // верфь с работой в очереди просит людей наравне с цехами
   // Стапель из мусора просит рук вчетверо меньше верфи — отсюда и вся разница
   // между ними: он собирает то же самое, но в разы дольше.
+  //
+  // ЛОГОВО — случай особый, и он же чинит старую дыру (журнал, п. 7). Филиалы
+  // просят места по КОШЕЛЬКУ своей конторы, а не по населению мира: на
+  // послеголодной планете это девять мест при сотой человечка в цехах, и верфь,
+  // деля людей с этим призрачным спросом, получала сотые доли — грузовик там
+  // собирался веками. Стапель вольницы или отделившегося мира — не один из
+  // заказчиков, а ОБЩЕЕ ДЕЛО планеты: он берёт людей ПЕРВЫМ, и берёт не только
+  // из цехов, но и из незанятых, а филиалы делят остаток. Иначе «вольница
+  // строит корабли» оставалось бы обещанием: строить их было бы некому.
   const yw = w.yard && w.yard.queue.some((b) => b.left > 0);
+  const lair = !!(w.yard && w.yard.owner >= 0 && corps[w.yard.owner].home === w);
   const yardJobs = !yw ? 0
+                 : lair ? clamp((p.prod + p.free) * LAIR_SHARE, LAIR_MIN, LAIR_MAX)
                  : w.yard.scrap ? clamp(p.prod * SCRAP_SHARE, SCRAP_MIN, SCRAP_MAX)
                  : clamp(p.prod * YARD_SHARE, YARD_MIN, YARD_MAX);
-  jp += yardJobs;
+  // Люди логова сняты со счёта мест ДО филиалов: их уже забрали. И у стапеля
+  // логова есть ПОЛ (LAIR_FLOOR): ватага работает своими руками, а не наймом,
+  // и пока планета жива, стапель идёт хотя бы вполсилы.
+  const crew = !yw || !lair ? 0 : Math.max(LAIR_FLOOR, Math.min(yardJobs, p.prod + p.free * 0.5));
+  if (!lair) jp += yardJobs;
   w.branches.forEach((b) => {
     const c = corps[b.corp], n = Math.max(1, c.branches.length);
     b.jobs.prod = clamp(c.cash / (180 * n), 0.3, 8) * (rough ? 0.35 : 1);   // цехов ещё нет
     b.jobs.sci = clamp(c.cash / (420 * n), 0.1, 5) * (rough ? 0.35 : 1) * (c.native ? 2.2 : 1);   // отделившиеся живут наукой
     jp += b.jobs.prod; js += b.jobs.sci;
   });
-  w.wage.prod = 3.0 * squeeze(jp, p.prod);
+  w.wage.prod = 3.0 * squeeze(jp + crew, p.prod);
   w.wage.sci = 4.2 * squeeze(js, p.sci);
-  const kp = jp > 0 ? Math.min(1, p.prod / jp) : 0, ks = js > 0 ? Math.min(1, p.sci / js) : 0;
+  const restP = Math.max(0, p.prod - crew);
+  const kp = jp > 0 ? Math.min(1, restP / jp) : 0, ks = js > 0 ? Math.min(1, p.sci / js) : 0;
   w.branches.forEach((b) => { b.emp.prod = b.jobs.prod * kp; b.emp.sci = b.jobs.sci * ks; });
-  if (w.yard) w.yard.crew = yardJobs * kp;
+  if (w.yard) w.yard.crew = lair ? crew : yardJobs * kp;
 
-  const outP = Math.max(0, p.prod - jp) * 0.05, outS = Math.max(0, p.sci - js) * 0.05;
+  const outP = Math.max(0, p.prod - jp - crew) * 0.05, outS = Math.max(0, p.sci - js) * 0.05;
   p.prod -= outP; p.sci -= outS; p.free += outP + outS;
 
-  const openP = Math.max(0, jp - p.prod), openS = Math.max(0, js - p.sci);
+  const openP = Math.max(0, jp + crew - p.prod), openS = Math.max(0, js - p.sci);
   // Готовность занять место — ПОСТОЯННАЯ. Здесь стоял рычаг пособия, и он был
   // ложным выбором: пособие не могло дойти до людей (кошелька у населения нет,
   // см. журнал), зато тормозило наём вот тут и переток в поле ниже, а через
