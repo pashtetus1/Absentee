@@ -1,12 +1,13 @@
 
-import { shipNeed, vtype } from "./data";
+import { seatsOf, seatsOfType, shipNeed, vtype } from "./data";
 import { takeDock } from "./docks";
 import { dispatch, govBuyShip } from "./food";
 import { govFuel, govFuelAvail } from "./market";
 import { onOrder, orderTransport } from "./shipyard";
-import { S, say, voyages, worlds } from "./state";
+import { S, docks, say, voyages, worlds } from "./state";
 import { bestEngineAt } from "./tech";
 import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
+import { popsWord } from "./util";
 import { popOf } from "./world";
 import type { World } from "./types";
 
@@ -26,14 +27,19 @@ export function leavers(o: World): number {
   return Math.min(o.wantOut, o.pop.free + fromFarm, popOf(o) * LEAVE_SHARE);
 }
 
+// Переселенческий сажает РОВНО столько, сколько на нём жизнеобеспечений (одно
+// на человечка, data.ts), и не уходит неполным. Поэтому и звать, и отдавать
+// люди должны не меньше полного корабля: ни «хватит и голодной горстки», ни
+// полтора человечка за рейс, как раньше.
 export function migrationRun(): void {
+  const seats = seatsOfType(vtype("liner"));
   worlds.forEach((w) => {
-    if (w.wantIn < 0.6 || w.gov.cash < 90) return;
+    if (w.wantIn < seats || w.gov.cash < 90) return;
     if (voyages.some((v) => { return v.kind === "pops" && v.to === w; })) return;
     let src: World = null, bs = 0;
     worlds.forEach((o) => {
       const can = leavers(o);
-      if (o === w || can < 0.12) return;           // хватит и голодной горстки
+      if (o === w || can < seats) return;
       if (!canTravel(o.sys, w.sys)) return;
       if (can > bs) { bs = can; src = o; }
     });
@@ -52,8 +58,11 @@ export function migrationRun(): void {
       return;
     }
     const parts = dkl.parts;
+    // Мест у корабля со стоянки может оказаться больше рецепта — тогда и людей
+    // нужно больше; не набирается полный — корабль ждёт на стоянке.
+    const qty = seatsOf(parts);
+    if (qty <= 0 || leavers(src) < qty || w.wantIn < qty) { docks.push(dkl); return; }
     govFuel(w, w, fk2, tanks2);
-    const qty = Math.min(leavers(src), w.wantIn, 1.6);
     const takeFree = Math.min(src.pop.free, qty);
     src.pop.free -= takeFree;
     src.pop.farm = Math.max(0, src.pop.farm - (qty - takeFree));
@@ -61,7 +70,7 @@ export function migrationRun(): void {
     const vp = dispatch(src, w, "pops", qty, parts);
     if (dkl) vp.captain = dkl.captain;
     S.movedPops += qty;
-    say("С " + src.body.name + " на " + w.body.name + " уходит " + qty.toFixed(1) + " человечков.");
+    say("С " + src.body.name + " на " + w.body.name + " уходят переселенцы: " + popsWord(qty) + ".");
   });
 }
 

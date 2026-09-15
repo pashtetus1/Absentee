@@ -1,7 +1,7 @@
 // ===================== данные =====================
 
 import { S, canBuild, corps, fill } from "./state";
-import type { BType, ColTech, Comp, Mark, Move, PType, Tech, VType, WorldClass } from "./types";
+import type { BType, ColTech, Comp, Mark, Move, PType, Part, Tech, VType, WorldClass } from "./types";
 
 import { rnd } from "./rng";
 
@@ -129,6 +129,26 @@ export const VTYPES: VType[] = [
   { key:"liner",  name:"переселенческий",       need:{ hull:1, life:1 },          build:10, glyph:"cargo" }
 ];
 export function vtype(k: string): VType{ for (let i=0;i<VTYPES.length;i++) if (VTYPES[i].key===k) return VTYPES[i]; }
+
+// ---- вместимость -------------------------------------------------------
+// Корабль везёт РОВНО столько, сколько на нём мест: одно жизнеобеспечение — один
+// человечек, один грузовой трюм — двадцать еды. Не больше: сверх мест не
+// посадить и не погрузить. И не меньше: полупустым рейс не уходит, корабль ждёт
+// полной загрузки. Раньше груз был «сколько нашлось» — хлебовоз вёз от одной
+// единицы еды, переселенческий сажал 0.3 или 1.6 человечка, модуль привозил 1.2,
+// и число на борту не значило ничего.
+export const POPS_PER_LIFE = 1;
+export const FOOD_PER_HOLD = 20;
+function countOf(parts: Part[], k: string): number {
+  return (parts || []).reduce((a, p) => a + (p.k === k ? 1 : 0), 0);
+}
+/** Сколько человечков везёт корабль с такими деталями. */
+export function seatsOf(parts: Part[]): number { return countOf(parts, "life") * POPS_PER_LIFE; }
+/** Сколько еды везёт корабль с такими деталями. */
+export function holdOf(parts: Part[]): number { return countOf(parts, "hold") * FOOD_PER_HOLD; }
+/** Сколько везёт корабль этого типа, собранный по рецепту. */
+export function seatsOfType(vt: VType): number { return (vt.need.life || 0) * POPS_PER_LIFE; }
+export function holdOfType(vt: VType): number { return (vt.need.hold || 0) * FOOD_PER_HOLD; }
 
 // Постройки на планете. Первая и пока единственная — гидропонная ферма: её
 // ставит себе мир, прошедший голодомор, и она даёт горстку мест, где еда растёт

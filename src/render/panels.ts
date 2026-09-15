@@ -18,7 +18,7 @@ import { slotPrice, yardAt } from "../shipyard";
 import { L, S, U, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, upkeepOf, voyages, worlds } from "../state";
 import { DEVS, ENGINES, techOf } from "../tech";
 import { fuelCost } from "../travel";
-import { fmt } from "../util";
+import { fmt, popsWord } from "../util";
 import { popOf } from "../world";
 import { buildAim, buildDone, buildState, cargoName, queueEta } from "./models";
 import { seenSys } from "./scene";
@@ -177,7 +177,7 @@ export function inspector(): void {
   }
   if (U.pick.kind === "cargo" && (d.kind === "food" || d.kind === "pops")) {
     box.innerHTML = '<div class="card"><h3>' + (d.kind === "food" ? "Грузовик" : "Переселенческий") + '</h3>' +
-      '<div class="sub">везёт ' + (d.kind === "food" ? d.qty + " еды" : d.qty.toFixed(1) + " человечков") +
+      '<div class="sub">везёт ' + (d.kind === "food" ? d.qty + " еды" : popsWord(d.qty)) +
       ' с ' + d.from.body.name + ' на ' + d.to.body.name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
       '<div class="sub" style="margin:0 0 4px">Куплен правительством ' + d.to.body.name + ', собран из:</div>' +
       engLine(d.parts) + partsList(d.parts, -1) + '</div>';

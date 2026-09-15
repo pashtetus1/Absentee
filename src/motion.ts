@@ -10,7 +10,7 @@
 // ходовой не работает вовсе, там правит марка межзвёздного перехода
 // (markSpeedOf), и она же решает, добьёт ли корабль до цели.
 
-import { engMult, pickCaptain } from "./data";
+import { POPS_PER_LIFE, engMult, pickCaptain, seatsOf } from "./data";
 import { dockShip } from "./docks";
 import { markLevelOf, markSpeedOf } from "./galaxy";
 import { partMark } from "./data";
@@ -19,7 +19,7 @@ import { rnd } from "./rng";
 import { yardAt } from "./shipyard";
 import { S, U, corps, dateStr, docks, gates, say, shipyards, staged, systems, voyages } from "./state";
 import { ensurePortal, fuelCost, newGate, routeKey, syncRoutes, useRoute } from "./travel";
-import { rnd6 } from "./util";
+import { popsWord, rnd6 } from "./util";
 import { makeWorld, openBranch } from "./world";
 import type { Gate, Ship, Sys, Voyage, Yard } from "./types";
 
@@ -159,7 +159,9 @@ export function arriveShip(sh: Ship, s: Sys): void {
     say("Платформа " + corps[sh.corp].name + " встала на " + sh.vent.dest.label + " (" + s.name + ").");
   } else if (sh.kind === "colony") {
     sh.body.claimed = false;
-    const w = makeWorld(sh.body, 1.2, sh.corp);
+    // Модуль привозит столько человечков, сколько на нём жизнеобеспечений, —
+    // обычно одного (раньше 1.2 из ниоткуда).
+    const w = makeWorld(sh.body, seatsOf(sh.parts) || POPS_PER_LIFE, sh.corp);
     w.parts = sh.parts;
     say("На " + sh.body.name + " первые десять лет будут тяжёлыми: еда привозная, цехов нет, казна пуста.");
     sh.backers.forEach((b) => { w.rights.push(b.corp); openBranch(corps[b.corp], w, true); });
@@ -243,7 +245,7 @@ export function arriveVoyage(v: Voyage): void {
   if (v.kind === "pops") {
     dockShip(v);
     v.to.pop.free += v.qty;
-    say(v.qty.toFixed(1) + " человечков прибыли на " + v.to.body.name + ".");
+    say("На " + v.to.body.name + " прибыли переселенцы: " + popsWord(v.qty) + ".");
   }
 }
 

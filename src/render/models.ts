@@ -10,7 +10,7 @@ import { dockValue } from "../docks";
 import { realmCharge, realmColor } from "../realm";
 import { corps, systems } from "../state";
 import { Build, Dock, Part, Ship, Shipyard, Sys, Voyage } from "../types";
-import { clamp } from "../util";
+import { clamp, popsWord } from "../util";
 import { CH, CW, cx, getCx, glow, setCx, uiz } from "./canvas";
 
 export function posOf(o: { ang: number; r: number }, mx: number, my: number): { x: number; y: number; } { return { x:mx + Math.cos(o.ang) * o.r, y:my + Math.sin(o.ang) * o.r }; }
@@ -142,7 +142,7 @@ export function voyageLines(v: Voyage): string[] {             // рейс ме�
     return [cargoName(v) + (v.kind === "reloc" ? " · к точке старта · " : " · перегон · ") + corps[v.corp].name,
             systems[v.sysFrom].name + " → " + systems[v.to].name + " · " + eta(v.t, v.dur)];
   if (v.kind === "pops")
-    return ["Переселенцы · " + v.qty.toFixed(1) + " чел.", v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
+    return ["Переселенцы · " + popsWord(v.qty), v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
   return ["Рейс · " + v.kind, eta(v.t, v.dur)];     // незнакомый вид рейса подписывается, а не роняет кадр
 }
 // Без клика — только имя командира, мелко и тускло. Полное окно с деталями

@@ -1,11 +1,10 @@
-// Партия ЧАСТИЧНАЯ: везём сколько есть, а не ждём, пока накопится на всю.
-// Раньше требовали излишек на 36 месяцев, дом столько не держал, заказ
-// срывался почти каждый месяц — и бесплодные колонии вымирали при полной
-// казне. Обратная крайность была не лучше: при резерве в два месяца родина
-// отдавала последнее и кормила всю галактику без перебоев. Полгода — это
-// мера: запас родины ходит от 12 до 40 месяцев, но в плохие годы падает к
-// нулю, и тогда экспорт замирает сам собой. Голод должен случаться не от
-// безденежья, а от того, что еды физически нет.
+// Партия ПОЛНАЯ: хлебовоз везёт ровно столько, сколько в его трюмах (один трюм —
+// FOOD_PER_HOLD, data.ts), и не уходит, пока у поставщика нет излишка на полный
+// трюм. Раньше партия была частичной — «сколько есть», от одной единицы, — и
+// корабль, собранный годами, мог лететь двадцать лет ради горсти зерна.
+// Полгода резерва у поставщика по-прежнему мера: запас родины ходит от 12 до 40
+// месяцев, в плохие годы падает к нулю, и тогда экспорт замирает сам собой.
+// Голод должен случаться не от безденежья, а от того, что еды физически нет.
 
 
 
@@ -17,7 +16,7 @@
 // под оба условия сразу. Зазор разводит их вдвое: между "могу отдать" и "надо
 // просить" лежит пустая полоса, в которой мир не делает ничего.
 
-import { engMult, pickCaptain, shipNeed, vtype } from "./data";
+import { engMult, holdOf, holdOfType, pickCaptain, shipNeed, vtype } from "./data";
 import { takeDock } from "./docks";
 import { harvestOf } from "./labour";
 import { askPrice, fuelBill, govFuel, govFuelAvail } from "./market";
@@ -48,7 +47,8 @@ export function surplusWorld(need: number, from: World): { w: World; extra: numb
     const extra = w.food.stock - reserveOf(w) * GIVE_OVER;
     if (extra > bs) { bs = extra; best = w; }
   });
-  return bs >= Math.min(need, 4) ? { w:best, extra:bs } : null;
+  // Только на полный трюм: полупустым хлебовоз не уходит.
+  return bs >= need ? { w:best, extra:bs } : null;
 }
 
 // Правительство покупает корабль у компаний: те же детали, тот же рынок.
@@ -143,10 +143,10 @@ export function foodRun(): void {
     // порог и партия под долгие рейсы: хлебовоз идёт годами, и заказывать
     // надо задолго до того, как склад опустеет
     if (w.food.stock + incoming > reserveOf(w) * ASK_UNDER) return;
-    const want = Math.ceil(deficit * 36);
-    const pickSrc = surplusWorld(want, w);
+    const qty = holdOfType(vtype("cargo"));
+    const pickSrc = surplusWorld(qty, w);
     if (!pickSrc) return;
-    const src = pickSrc.w, qty = Math.max(1, Math.min(want, Math.floor(pickSrc.extra)));
+    const src = pickSrc.w;
     if (!canTravel(src.sys, w.sys)) return;          // дороги нет — мир голодает
     // Цена РЫНОЧНАЯ, а не плоские 1.2: у голодного поставщика еда дорогая, и
     // каждый вывоз дорожит её ещё на 4% (см. ниже). Раньше food.price жила
@@ -181,17 +181,20 @@ export function foodRun(): void {
     // и разом: еда плюс заправка. Не хватило — корабль возвращается на стоянку,
     // а мир ждёт следующего месяца. Пока этой проверки не было, касса мира
     // уходила в минус, а на неотрицательность её кассы опирается весь код
-    // покупок.
-    if (w.gov.cash < price + fuelBill(fk, tanks) + 10) { docks.push(dk); return; }
+    // покупок. Везёт корабль по СВОИМ трюмам, а не по рецепту: со стоянки может
+    // прийти и двухтрюмный, и тогда заново проверяются и касса, и излишек.
+    const load = holdOf(parts), cost = load * src.food.price;
+    if (load <= 0 || src.food.stock - reserveOf(src) * GIVE_OVER < load ||
+        w.gov.cash < cost + fuelBill(fk, tanks) + 10) { docks.push(dk); return; }
     govFuel(w, src, fk, tanks);
-    w.gov.cash -= price; src.gov.cash += price; src.food.stock -= qty;
+    w.gov.cash -= cost; src.gov.cash += cost; src.food.stock -= load;
     // вывоз дорожит еду у поставщика: фермеру платят больше, в поле идут
     // люди, излишек растёт — так экспорт сам себя кормит
     src.food.price = Math.min(6, src.food.price * 1.04);
-    const vf = dispatch(src, w, "food", qty, parts);
+    const vf = dispatch(src, w, "food", load, parts);
     if (dk) vf.captain = dk.captain;                     // тот же корабль, тот же командир
-    S.shipped += qty;
-    say("Правительство " + w.body.name + " закупило " + qty + " еды на " + src.body.name +
+    S.shipped += load;
+    say("Правительство " + w.body.name + " закупило " + load + " еды на " + src.body.name +
         (dk ? " — на корабле со стоянки." : "."));
   });
 }

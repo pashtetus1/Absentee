@@ -1,17 +1,16 @@
 
 import { PIRATES, pirateName } from "./colony";
-import { compOf, shipNeed, vtype } from "./data";
+import { compOf, holdOf, holdOfType, shipNeed, vtype } from "./data";
 import { corpBuyShip, takeDock } from "./docks";
-import { dispatch, surplusWorld } from "./food";
-import { harvestOf } from "./labour";
+import { GIVE_OVER, dispatch, surplusWorld } from "./food";
 import { takeFuel, unfly } from "./market";
 import { rnd } from "./rng";
 import { onOrder, orderTransport } from "./shipyard";
 import { S, U, corps, docks, say, systems, voyages, worlds } from "./state";
 import { bestEngineAt } from "./tech";
 import { canTravel, fuelCost, needWith, travelExtra } from "./travel";
-import { clamp } from "./util";
-import { addStock, popOf } from "./world";
+import { clamp, popsWord } from "./util";
+import { addStock, popOf, reserveOf } from "./world";
 import type { Corp, Pop, Rock, World } from "./types";
 
 export function corpRelief(): void {
@@ -25,16 +24,13 @@ export function corpRelief(): void {
     let payer: Corp = null;
     w.branches.forEach((b) => { const c = corps[b.corp]; if (c.cash > 260 && (!payer || c.cash > payer.cash)) payer = c; });
     if (!payer) return;
-    // Урожай спрашиваем у harvestOf — у той же функции, которой мир кормится на
-    // самом деле. Здесь стояла СВОЯ оценка (фермеры на урожайность типа с
-    // освоением), четвёртая по счёту в игре: foodRun и панель уже свели свои к
-    // общей, а эта осталась и расходилась с настоящим урожаем тем сильнее, чем
-    // больше на мире всего, чего она не знает. Частная помощь от этого возила
-    // хлеб туда, где он уже был, и просила больше, чем нужно.
-    const want = Math.ceil(Math.max(1, total - harvestOf(w)) * 24);
-    const pickSrc = surplusWorld(want, w);
+    // Везут полный трюм и только его (FOOD_PER_HOLD, data.ts): и частный
+    // хлебовоз полупустым не уходит. Раньше партия считалась от дефицита урожая
+    // на два года вперёд — теперь её размер задаёт корабль, а не просьба.
+    const qty = holdOfType(vtype("cargo"));
+    const pickSrc = surplusWorld(qty, w);
     if (!pickSrc) return;
-    const src = pickSrc.w, qty = Math.max(1, Math.min(want, Math.floor(pickSrc.extra)));
+    const src = pickSrc.w;
     if (!canTravel(src.sys, w.sys)) return;
     const price = qty * src.food.price, fk = src.sys === w.sys ? "fuel" : "sfuel";
     if (payer.cash < price + 60) return;
@@ -49,18 +45,20 @@ export function corpRelief(): void {
     }
     const parts = dk.parts;
     // Та же дыра, что и у правительства: чужой корабль со стоянки уже оплачен,
-    // и на еду денег может не остаться. Проверяем по тому, что в кассе сейчас.
-    if (payer.cash < price + 60) { docks.push(dk); return; }
+    // и на еду денег может не остаться. Проверяем по тому, что в кассе сейчас,
+    // и по трюмам самого корабля, а не рецепта.
+    const load = holdOf(parts), cost = load * src.food.price;
+    if (load <= 0 || src.food.stock - reserveOf(src) * GIVE_OVER < load || payer.cash < cost + 60) { docks.push(dk); return; }
     if (!takeFuel(payer, src.sys, fk, true, fuelCost(src.sys, w.sys))) {   // нет горючего — вернуть детали
       if (dk) docks.push(dk); else parts.forEach((p) => { addStock(corps[p.from], src.sys, p.k, 1); });
       return;
     }
-    payer.cash -= price; src.gov.cash += price; src.food.stock -= qty;
+    payer.cash -= cost; src.gov.cash += cost; src.food.stock -= load;
     src.food.price = Math.min(6, src.food.price * 1.04);
-    const v = dispatch(src, w, "food", qty, parts);
+    const v = dispatch(src, w, "food", load, parts);
     if (dk) v.captain = dk.captain;
-    v.relief = payer.id; w.reliefAt = S.tick; S.shipped += qty;
-    say("<b>" + payer.name + "</b> шлёт " + qty + " еды на голодающий " + w.body.name + " — там её филиал.");
+    v.relief = payer.id; w.reliefAt = S.tick; S.shipped += load;
+    say("<b>" + payer.name + "</b> шлёт " + load + " еды на голодающий " + w.body.name + " — там её филиал.");
   });
 }
 
@@ -166,7 +164,7 @@ export function piracy(): void {
       if (rnd() > 0.0025) continue;
       let loot;
       if (v.kind === "food") { p.home.food.stock += v.qty; loot = v.qty + " еды"; }
-      else if (v.kind === "pops") { p.home.pop.free += v.qty; loot = v.qty.toFixed(1) + " человечков"; }
+      else if (v.kind === "pops") { p.home.pop.free += v.qty; loot = popsWord(v.qty); }
       else if (v.kind === "ferry") {
         // захвачен целый корабль: он разбирается на детали, а предприятие
         // или колония, ради которых он шёл, срываются — место освобождается
