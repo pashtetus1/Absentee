@@ -191,6 +191,10 @@ export interface Corp {
   apt: Record<string, number>;           // склонность к каждой технологии
   cash: number;
   known: Record<string, boolean>;        // что уже освоено
+  /** Карты систем: какие звёзды контора знает. Знание ЧАСТНОЕ — своим спутником
+   *  или купленной картой (charts.ts); государство видит систему, только когда
+   *  её знают трое. Ключ — номер системы. */
+  maps: Record<number, boolean>;
   spent: Record<string, number>;         // сколько вложено в каждую технологию
   stock: Record<string, Record<string, number>>;   // склад с адресом: система -> деталь
   tot?: Record<string, number>;          // сумма склада, держится вместе с ним
@@ -486,6 +490,9 @@ export interface Snapshot {
   taxAway: number;
   trades: number; shipped: number; movedPops: number; refusals: number;
   dropped: number; hauled: number; burned: number; raids: number; lost: number;
+  /** Карт продано и отказов в карте: по этим двум видно, держат ли конторы
+   *  свои открытия при себе. */
+  maps: number; mapNo: number;
   feed: { d: string; t: string }[];
 }
 
@@ -506,7 +513,14 @@ export interface Core {
   consts: {
     COMPS: Comp[]; COLTECH: ColTech[]; PTYPES: PType[];
     VTYPES: VType[]; MOVES: Move[]; ENGINES: Engine[]; MARKS: Mark[]; BTYPES: BType[];
+    /** Докуда видит телескоп спутника и скольким конторам надо знать систему,
+     *  чтобы её увидело государство. */
+    SCOPE_RANGE: number; STATE_EYES: number;
   };
+  /** Знает ли контора эту систему (карты частные, charts.ts). */
+  knowsSys(c: Corp, id: number): boolean;
+  /** Видит ли систему государство: её знают хотя бы три конторы. */
+  seenByState(id: number): boolean;
   speedOf(corpId: number): number;
   popOf(w: World): number;
   /** Урожай мира и выработка одного полевого фермера. Наружу выведены затем,

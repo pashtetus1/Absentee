@@ -1,10 +1,11 @@
 // ===================== заказы, консорциумы, филиалы =====================
 
+import { knowsSys, sayAt, seenByState } from "./charts";
 import { SCOPE_RANGE, shipNeed, vtype, MARKSPEED } from "./data";
 import { galaxyRange, rangeOf, within, markLevelOf } from "./galaxy";
 import { rnd } from "./rng";
 import { YARD_WORK, nearestYard, paySlot, slotPrice, yardAt } from "./shipyard";
-import { S, anyMakes, canBuild, corps, dateStr, fill, gates, market, projects, say, systems, voyages, worlds } from "./state";
+import { L, S, anyMakes, canBuild, corps, dateStr, fill, gates, market, projects, say, systems, voyages, worlds } from "./state";
 import { bestEngineMade } from "./tech";
 import { gateOf, newGate, reachable, routeKey, spread, travelExtra } from "./travel";
 import { clamp, dist, rnd6 } from "./util";
@@ -31,7 +32,9 @@ export function buildable(vt: VType, extra?: Record<string, number>): boolean {
   if (!need) return false;
   return Object.keys(need).every((k) => { return anyMakes(k); });
 }
-export function anyRock(): boolean{ return systems.some((s) => { return s.unlocked && reachable(s.id) && freeRocks(s).length; }); }
+export function anyRock(c: Corp): boolean {
+  return systems.some((s) => { return knowsSys(c, s.id) && reachable(s.id) && freeRocks(s).length; });
+}
 // Ближайшая РАЗГЛЯДЕННАЯ звезда, до которой дотягивается марка этой компании и
 // на которую ещё не проложен маршрут. Отсюда берётся ощущение края карты: в
 // телескоп видно дальше, чем достаёт марка, и пока не осилена следующая, до
@@ -49,13 +52,13 @@ export function expandTarget(c: Corp): { from: number; to: number; upgrade?: boo
   const net = spread(0).hop;                 // что уже соединено с домом: один обход на вызов
   let out: { from: number; to: number; upgrade?: boolean } = null, bd = 1e9;
   systems.forEach((s) => {
-    if (!s.unlocked) return;
+    if (!knowsSys(c, s.id)) return;
     // Стартовать можно только там, где живут люди, и куда верфь может пригнать
     // корабль. Голая открытая звезда — цель, а не площадка.
     if (!s.bodies.some((b) => b.world)) return;
     if (!nearestYard(s.id, c)) return;
     within(s.id, range).forEach((n) => {
-      if (!systems[n].unlocked) return;                     // туда ещё не смотрели в телескоп
+      if (!knowsSys(c, n)) return;                          // об этой звезде контора не знает
       if (net[n] !== undefined) return;                     // уже в сети: второй маршрут ни к чему
       if (voyages.some((v) => { return v.to === n && v.kind === "gate"; })) return;
       if (corps.some((o) => { return o.order && o.order.to === n; })) return;   // туда уже собираются
@@ -73,19 +76,22 @@ export function expandTarget(c: Corp): { from: number; to: number; upgrade?: boo
 // своей системы и видит на SCOPE_RANGE вокруг; всё, что попало в этот круг,
 // становится открыто в тот же месяц, как он встал.
 //
-// Цель — открытая система, из которой телескоп достанет до ещё не
-// разглядённых звёзд. СВОЯ система годится наравне с чужой, и первый спутник
-// партии так и встаёт над Тирой, никуда не улетая: иначе партия не начиналась
-// бы вовсе — лететь некуда, пока не посмотрел.
+// Цель — известная конторе система, из которой её телескоп достанет до звёзд,
+// которых она ещё не знает. СВОЯ система годится наравне с чужой, и первый
+// спутник партии так и встаёт над Тирой, никуда не улетая: иначе партия не
+// начиналась бы вовсе — лететь некуда, пока не посмотрел.
 //
-// Система, где спутник уже есть (хоть бы и в пути), целью не считается: второй
-// телескоп в той же точке увидит ровно то же самое.
+// ЧУЖОЙ СПУТНИК В ТОЙ ЖЕ СИСТЕМЕ НЕ МЕШАЕТ. Он смотрит для своего хозяина, а
+// не для всех: пока карта не куплена, соседняя звезда для этой конторы не
+// существует. Поэтому над одной планетой висит по спутнику от каждой конторы,
+// которой дешевле посмотреть самой, чем купить карту у нашедшего. Свой второй
+// спутник в той же системе бессмыслен — он увидит ровно то же самое.
 export function satTarget(c: Corp): { dst: number; opens: number } | null {
   let out: { dst: number; opens: number } = null, top = 0;
   systems.forEach((s) => {
-    if (!s.unlocked || !reachable(s.id) || s.sats.length) return;
-    if (corps.some((o) => { return o.order && o.order.type === "sat" && o.order.dst === s.id; })) return;
-    const opens = within(s.id, SCOPE_RANGE).filter((n) => { return !systems[n].unlocked; }).length;
+    if (!knowsSys(c, s.id) || !reachable(s.id)) return;
+    if (s.sats.some((sat) => { return sat.owner === c.id; })) return;
+    const opens = within(s.id, SCOPE_RANGE).filter((n) => { return !knowsSys(c, n); }).length;
     if (!opens) return;
     const score = opens / (1 + s.depth * 0.3);
     if (score > top) { top = score; out = { dst:s.id, opens:opens }; }
@@ -175,7 +181,7 @@ export function reviewOrders(): void {
     if (S.move.key === "gates") kinds.push(vtype("gate"));
     kinds.forEach((vt) => {
       if (!buildable(vt)) return;
-      if (vt.key === "mine" && !anyRock()) return;
+      if (vt.key === "mine" && !anyRock(c)) return;
       if (vt.key === "sat" && !satTarget(c)) return;         // всё, что видно отсюда, уже видно
       if (vt.key === "gate") {
         // Цель нужна не только затем, чтобы знать, куда лететь: набор считается
@@ -203,7 +209,7 @@ export function reviewOrders(): void {
     if (best.key === "mine") {
       let pickS: Sys = null, top2 = -1;
       systems.forEach((s) => {
-        if (!s.unlocked || !reachable(s.id) || !freeRocks(s).length) return;
+        if (!knowsSys(c, s.id) || !reachable(s.id) || !freeRocks(s).length) return;
         // Платформа в чужую систему идёт своим ходом и под движками везёт
         // прыжковый двигатель: система, под которую набор не собрать, целью
         // не считается — иначе компания каждый месяц занимала бы астероид и
@@ -258,7 +264,7 @@ export function reviewOrders(): void {
       else gates[routeKey(jt.from, jt.to)] = newGate(jt.from, jt.to, c.id, markLevelOf(c));
     }
     c.order = o; c.needYard = false;
-    say("<b>" + c.name + "</b> взялась собирать " + best.name + " в " + systems[o.sys].name + ".");
+    sayAt(o.sys, "<b>" + c.name + "</b> взялась собирать " + best.name + " в " + systems[o.sys].name + ".");
   });
 }
 
@@ -303,13 +309,18 @@ export function reviewProjects(): void {
     if (!eng) return;                                   // и не на чем: двигателя нет ни у кого
     let target: { b: Planet; s: Sys } = null, top = -1;
     systems.forEach((s) => {
-      if (!s.unlocked || !reachable(s.id)) return;
+      if (!knowsSys(c, s.id) || !reachable(s.id)) return;
       s.bodies.forEach((b) => {
         // claimed держится от начала подписки до посадки модуля. Без него
         // вторая компания открывала подписку на ту же планету, пока первый
         // модуль был в пути, и на одной планете вырастало по десять колоний.
         if (b.world || b.claimed || !canBuild(c, b.type.tech)) return;
-        const score = (b.type.cap + b.type.farm * 3) / (1 + s.depth * 0.4);
+        // Планета в системе, которой государство не видит, ЦЕННЕЕ: филиал на
+        // ней не платит налога (economy.ts), потому что для казны его нет.
+        // Это и есть корысть прятать находку — не отвлечённое «знание сила», а
+        // прибавка к выручке, ради которой стоит не продавать карту.
+        const dark = seenByState(s.id) ? 1 : 1 + L.tax * 2;
+        const score = dark * (b.type.cap + b.type.farm * 3) / (1 + s.depth * 0.4);
         if (score > top) { top = score; target = { b:b, s:s }; }
       });
     });
@@ -327,7 +338,7 @@ export function reviewProjects(): void {
     projects.push({ lead:c.id, body:target.b, dst:target.s.id, sys:yc.world.sys, yard:yc, cost:cost, purse:put,
                     need:needCol, got:{}, parts:[],
                     backers:[{ corp:c.id, sum:put }], age:0, born:dateStr() });
-    say("<b>" + c.name + "</b> открыла подписку на колонию " + target.b.name +
+    sayAt(target.s.id, "<b>" + c.name + "</b> открыла подписку на колонию " + target.b.name +
         " (" + target.b.type.name + "), нужно " + cost + ".");
   });
 
@@ -335,12 +346,15 @@ export function reviewProjects(): void {
     if (pr.purse >= pr.cost) return;
     corps.forEach((c) => {
       if (pr.backers.some((b) => { return b.corp === c.id; })) return;
+      // В подписку на колонию не войти, не зная, где эта планета: карта чужой
+      // системы — товар, и без неё контора об этой звезде даже не слышала.
+      if (!knowsSys(c, pr.dst)) return;
       if (c.cash < 260 || rnd() > 0.35) return;
       const share = Math.min(Math.max(70, c.cash * 0.2), pr.cost - pr.purse);
       if (share < 70) return;
       c.cash -= share; pr.purse += share;
       pr.backers.push({ corp:c.id, sum:share });
-      say("<b>" + c.name + "</b> вошла в колонию " + pr.body.name + " на " + Math.round(share) +
+      sayAt(pr.dst, "<b>" + c.name + "</b> вошла в колонию " + pr.body.name + " на " + Math.round(share) +
           " — за право на филиал.");
     });
   });
@@ -351,7 +365,7 @@ export function branchTrade(): void {
   worlds.forEach((w) => {
     if (w === S.home || w.branches.length >= w.slots) return;
     corps.forEach((c) => {
-      if (hasBranch(c, w) || c.cash < 420 || rnd() > 0.04) return;
+      if (hasBranch(c, w) || !knowsSys(c, w.sys) || c.cash < 420 || rnd() > 0.04) return;
       c.cash -= 140; w.gov.cash += 140;
       openBranch(c, w, false);
     });
@@ -422,7 +436,7 @@ export function assemble(): void {
     c.order.parts.forEach((p) => { from[p.from] = 1; });
     const names = Object.keys(from).filter((id) => { return +id !== c.id; })
                       .map((id) => { return corps[+id].name; });
-    say("<b>" + c.name + "</b> собрала комплект и заложила " + vt.name + "." +
+    sayAt(o.sys, "<b>" + c.name + "</b> собрала комплект и заложила " + vt.name + "." +
         (names.length ? " Детали от: " + names.join(", ") + "." : " Всё своё.") +
         " Место в очереди у " + yard.world.body.name + " — " + price + ".");
     c.order = null; c.cool = 24 + Math.floor(rnd() * 24);
@@ -444,7 +458,7 @@ export function assemble(): void {
     yp.queue.push({ vt:vtype("colony"), lead:pr.lead, color:corps[pr.lead].color, glyph:"cir",
                                  body:pr.body, dst:pr.dst, backers:pr.backers.slice(), parts:pr.parts.slice(),
                                  left:vtype("colony").build * YARD_WORK, total:vtype("colony").build * YARD_WORK });
-    say("<b>" + corps[pr.lead].name + "</b> заложила колониальный модуль для " + pr.body.name +
+    sayAt(pr.sys, "<b>" + corps[pr.lead].name + "</b> заложила колониальный модуль для " + pr.body.name +
         " (вкладчиков " + pr.backers.length + "). Место в очереди у " + yp.world.body.name + " — " + price + ".");
     pr.done = true;
   });

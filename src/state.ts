@@ -48,6 +48,7 @@ export const S = {
   moveKnown: false,
   trades: 0, turnover: 0, shipped: 0, movedPops: 0, refusals: 0, dropped: 0,
   hauled: 0, burned: 0, raids: 0, lost: 0,       // деталей отправлено; топлива сожжено; перехватов; миров опустело
+  maps: 0, mapNo: 0,                            // карт продано и отказов в карте (charts.ts)
   pirateCount: 0, crestSeq: 0, capSeq: 0,
   // Сколько налога родная казна недополучила с тех пор, как появились
   // отделившиеся. Скаляр S.treasury сам по себе ничего не доказывает — он

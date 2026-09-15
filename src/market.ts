@@ -163,6 +163,9 @@ export function sameGoal(a: Corp, b: Corp): boolean {
 export function lastPrize(): boolean {
   if (tickCache.prize !== null) return tickCache.prize;
   let rocks = 0;
+  // «Последний астероид» считается по ВСЕМУ, что хоть кто-то знает: делить
+  // галактику конторы начинают ровно тогда, когда свободных камней мало у
+  // всех вместе, а не у каждого по отдельности.
   systems.forEach((s) => { if (s.unlocked) rocks += freeRocks(s).length; });
   tickCache.prize = rocks <= 2;
   return tickCache.prize;

@@ -2,6 +2,7 @@
 
 import { PTYPES, SCOPE_RANGE, bestHullMade, colOf, compOf, isEngine, isHull, markOf, roomOfKey } from "./data";
 import { galaxyRange, rangeOf, within } from "./galaxy";
+import { knowsSys } from "./charts";
 import { isRealm } from "./realm";
 import { L, S, Y, anyKnows, anyMakes, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
 import { allTech, bestEngineMade, devOf, engOf, ensureDev, markStep, ownEngine, ownHull, prevStep, stepKey, techOf } from "./tech";
@@ -46,9 +47,9 @@ export function pickTarget(c: Corp): string | null {
       if (m.range <= have) return;                       // эту дальность уже имеем сами
       let gain = 0;
       systems.forEach((s) => {
-        if (!s.unlocked || !s.bodies.some((b) => { return b.world; })) return;
+        if (!knowsSys(c, s.id) || !s.bodies.some((b) => { return b.world; })) return;
         gain += within(s.id, m.range).filter((n) => {
-          return systems[n].unlocked && dist(s, systems[n]) > have; }).length;
+          return knowsSys(c, n) && dist(s, systems[n]) > have; }).length;
       });
       worth = 1.2 + Math.min(12, gain) * 0.45;
     }
@@ -106,10 +107,12 @@ export function pickTarget(c: Corp): string | null {
       // из одной звезды: колонизировать нечего, возить некуда, марки перехода
       // бесполезны. Поэтому первый телескоп ценится как первый двигатель, а
       // дальше — по тому, много ли ещё тьмы вокруг обжитого.
+      // Тьма считается СВОЯ: сколько звёзд эта контора не знает, а могла бы
+      // разглядеть со своих систем. Чужой спутник ей ничего не показал.
       let dark = 0;
       systems.forEach((s) => {
-        if (!s.unlocked) return;
-        dark += within(s.id, SCOPE_RANGE).filter((n) => { return !systems[n].unlocked; }).length;
+        if (!knowsSys(c, s.id)) return;
+        dark += within(s.id, SCOPE_RANGE).filter((n) => { return !knowsSys(c, n); }).length;
       });
       worth = !anyMakes("scope") ? 3.6 : dark ? 1.4 + Math.min(10, dark) * 0.28 : 0.3;
     }
@@ -122,7 +125,7 @@ export function pickTarget(c: Corp): string | null {
     else {
       let free = 0;
       systems.forEach((s) => {
-        if (!s.unlocked) return;
+        if (!knowsSys(c, s.id)) return;                    // о чужих находках контора не знает
         s.bodies.forEach((b) => { if (!b.world && b.type.tech === f.key) free++; });
       });
       worth = free ? 1.6 + free * 0.5 : 0.2;

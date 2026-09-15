@@ -7,7 +7,8 @@
 // value нарочно any: в разметку кладут и числа, браузер сам приводит их к
 // строке, и String() вокруг каждого присваивания ничего бы не поймал.
 
-import { COLTECH, COMPS, MARKS, colOf, compOf, hullOf, markName, moveName, roomOfKey, vtype, btype } from "../data";
+import { STATE_EYES, knownCount, knowsSys, mapPrice, seenByState } from "../charts";
+import { COLTECH, COMPS, MARKS, SCOPE_RANGE, colOf, compOf, hullOf, markName, moveName, roomOfKey, vtype, btype } from "../data";
 import { dockValue, partsValue, shipFactor } from "../docks";
 import { lotsOf } from "../freight";
 import { galaxyRange, within } from "../galaxy";
@@ -19,7 +20,7 @@ import { slotPrice, yardAt } from "../shipyard";
 import { L, S, U, canBuild, corps, dateStr, feed, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, upkeepOf, voyages, worlds } from "../state";
 import { DEVS, ENGINES, techOf } from "../tech";
 import { fuelCost } from "../travel";
-import { fmt, popsWord } from "../util";
+import { fmt, popsWord, dist } from "../util";
 import { popOf } from "../world";
 import { buildAim, buildDone, buildState, cargoName, queueEta } from "./models";
 import { seenSys } from "./scene";
@@ -234,10 +235,27 @@ export function inspector(): void {
     return;
   }
   if (U.pick.kind === "ship") {
-    box.innerHTML = '<div class="card"><h3>' + (d.kind === "colony" ? "Колониальный модуль" : "Добывающая платформа") + '</h3>' +
+    box.innerHTML = '<div class="card"><h3>' +
+      (d.kind === "colony" ? "Колониальный модуль" : d.kind === "sat" ? "Спутник на подъёме" : "Добывающая платформа") + '</h3>' +
       '<div class="sub">' + corps[d.corp].name + ' · курс на ' +
       (d.kind === "colony" ? d.body.name : d.dest.label) + ' · ' + Math.round(d.t * 100) + '%</div>' +
       hullLine(d.parts) + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
+    return;
+  }
+  if (U.pick.kind === "sat") {
+    // Спутник — вещь, которая ЗНАЕТ. Поэтому в карточке не «скорость» и не
+    // «курс», а дальность телескопа, что он нашёл и кому это видно.
+    const knowers = corps.filter((c) => { return knowsSys(c, d.sys); });
+    box.innerHTML = '<div class="card"><h3>Спутник' + (d.laser ? ' с боевым лазером' : '') + '</h3>' +
+      '<div class="sub">' + corps[d.owner].name + ' · орбита ' + systems[d.sys].name +
+      (d.born ? ' · с ' + d.born : '') + '</div>' +
+      '<div class="part"><span class="pn">телескоп бьёт на</span><span class="pw">' + SCOPE_RANGE + '</span></div>' +
+      '<div class="part"><span class="pn">нашёл звёзд</span><span class="pw">' + d.found + '</span></div>' +
+      '<div class="part"><span class="pn">эту систему знают</span><span class="pw">' + knowers.length +
+      ' из ' + corps.length + '</span></div>' +
+      (d.laser ? '<div class="sub" style="margin:6px 0 0">Лазер пока не стреляет: боёв в игре нет. ' +
+                 'Место в корпусе и деньги он занимает уже сейчас.</div>' : '') +
+      partsList(d.parts, d.owner) + '</div>';
     return;
   }
   if (U.pick.kind === "vent") {
@@ -295,6 +313,25 @@ export function panels(): void {
            '<div class="rmeta">' + meta + '</div></div>';
   }).join("");
 
+  // КАРТЫ. Единственное место, где игроку видно, насколько он отстал от своих
+  // контор: сколько звёзд знает каждая и сколько из них видит он сам. КАКИЕ
+  // это звёзды, здесь не пишут и написать не могут — государство их не знает.
+  const seen = systems.filter((s) => { return seenByState(s.id); }).length;
+  el("charts").innerHTML =
+    '<div class="row"><div class="rhead"><span class="rname">Государство видит</span>' +
+    '<span class="price">' + seen + ' из ' + systems.length + '</span></div>' +
+    '<div class="rmeta">Система видна, когда её карту знают ' + STATE_EYES + ' конторы. ' +
+    'Проданных карт ' + S.maps + ', отказов ' + S.mapNo + '.</div></div>' +
+    corps.map((c) => {
+      const mine = systems.filter((s) => { return knowsSys(c, s.id); });
+      const hidden = mine.filter((s) => { return !seenByState(s.id); }).length;
+      return '<div class="row"><div class="rhead"><i class="dot" style="background:' + c.color + '"></i>' +
+             '<span class="rname">' + c.name + '</span><span class="price">' + mine.length + '</span></div>' +
+             '<div class="rmeta">' + (hidden ? 'из них ' + hidden + ' государству не видно' : 'всё, что знает, видит и государство') +
+             ' · спутников ' + systems.reduce((a, s) => { return a + s.sats.filter((x) => x.owner === c.id && x.live).length; }, 0) +
+             '</div></div>';
+    }).join("");
+
   const range = galaxyRange();
   el("portal").innerHTML =
     '<div class="row"><div class="rhead"><span class="rname">' + moveName() + '</span>' +
@@ -304,14 +341,18 @@ export function panels(): void {
       const p = patents[m.key], holders = makersOf(m.key);
       const dots = holders.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
       // сколько закрытых звёзд эта марка достаёт из уже открытых систем
+      // Сколько ВИДИМЫХ звёзд эта марка приближает: разглядеть их мало, до них
+      // ещё надо дострелить. Невидимых государство не считает — оно про них
+      // не знает.
       let opens = 0;
       systems.forEach((s) => {
-        if (!s.unlocked) return;
-        opens += within(s.id, m.range).filter((n) => { return !systems[n].unlocked; }).length;
+        if (!seenByState(s.id) || !s.bodies.some((b) => { return b.world; })) return;
+        opens += within(s.id, m.range).filter((n) => {
+          return seenByState(n) && dist(s, systems[n]) > range; }).length;
       });
       const meta = holders.length
         ? (patLive(m.key) ? "патент " + corps[p.owner].name + " до " + (p.since + L.patTerm) + " · " : "") +
-          "дальность " + m.range + " · достаёт звёзд " + opens +
+          "дальность " + m.range + " · приближает звёзд " + opens +
           (m.speed > 1 ? " · межзвёздные рейсы ×" + m.speed.toFixed(2) : "")
         : "лучший продвинулся на " + Math.round(Math.max.apply(null, corps.map((c) => { return c.spent[m.key]; }))) +
           " из " + m.diff + " · дальность " + m.range;
@@ -352,7 +393,7 @@ export function panels(): void {
     const dots = makers.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
     let free = 0;
     systems.forEach((s) => {
-      if (!s.unlocked) return;
+      if (!seenByState(s.id)) return;               // о чужих находках государство не знает
       s.bodies.forEach((b) => { if (!b.world && b.type.tech === f.key) free++; });
     });
     const meta = makers.length
@@ -364,7 +405,10 @@ export function panels(): void {
            '<div class="rmeta">' + meta + '</div></div>';
   }).join("");
 
-  el("worlds").innerHTML = worlds.map((w, i) => {
+  // Мир в системе, которой государство не видит, в ведомости не значится: он
+  // для казны не существует — и налога с него нет (economy.ts).
+  el("worlds").innerHTML = worlds.filter((w) => { return seenByState(w.sys); }).map((w) => {
+    const i = worlds.indexOf(w);
     const total = popOf(w), fill = Math.round(total / w.cap * 100);
     const dots = w.branches.map((b) => { return '<i class="pip" style="background:' + corps[b.corp].color + '"></i>'; }).join("");
     const food = w.food.short > 2 ? '<span style="color:var(--bad)">голод</span>'
@@ -380,11 +424,6 @@ export function panels(): void {
   if (U.view.mode === "map") {
     vbox.innerHTML = systems.map((s) => {
       if (!seenSys(s)) return "";
-      if (!s.unlocked) {
-        const inb = voyages.filter((v) => { return v.kind === "jump" && v.to === s.id; })[0];
-        return '<div class="row"><div class="srow"><span class="rname">неизведанная система</span>' +
-               '<span class="rmeta">' + (inb ? "летит " + corps[inb.corp].name : "нет корабля") + '</span></div></div>';
-      }
       const ws = s.bodies.filter((b) => { return b.world; });
       return '<div class="row clickrow" data-sys="' + s.id + '"><div class="srow">' +
              '<span class="rname">' + s.name + (s.id === 0 ? " · дом" : "") + '</span>' +

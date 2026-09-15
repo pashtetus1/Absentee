@@ -1,4 +1,5 @@
 
+import { sayAt, seenByState } from "./charts";
 import { HOME, payTreasury, realmOf } from "./realm";
 import { L, S, corps, say, systems, upkeepOf, worlds } from "./state";
 import { popOf } from "./world";
@@ -12,7 +13,7 @@ export function ventureIncome(): void {
       corps[v.lead].cash += v.yield;
       v.left--;
       if (v.left <= 0) {
-        say("Платформа " + corps[v.lead].name + " на " + v.dest.label + " выработала ресурс.");
+        sayAt(s.id, "Платформа " + corps[v.lead].name + " на " + v.dest.label + " выработала ресурс.");
         (v.dest.ref as Rock).taken = false; s.mines--;
         s.stations = s.stations.filter((st) => { return st.vent !== v; });
         s.ventures.splice(i, 1);
@@ -32,13 +33,21 @@ export function economy(): void {
     // Выручка копится по государствам, а множится на ставку ОДИН раз в конце, а
     // не по филиалу: сумма произведений и произведение суммы в плавающей точке
     // не совпадают, и партия без отделения поехала бы от одной этой правки.
+    //
+    // НЕ ВИЖУ — НЕ ОБЛАГАЮ. Филиал в системе, которой государство не видит —
+    // её знают меньше трёх контор (charts.ts), — налога не платит вовсе: для
+    // казны ни этого мира, ни этой работы не существует. Отсюда прямая корысть
+    // держать находку при себе и прямая цена того, чтобы продать карту.
+    // Отделившихся это не касается: своё государство свои миры видит, потому
+    // что живёт в них.
     let earn = 0, wages = 0, home = 0;
     const away: Record<number, number> = {};
     c.branches.forEach((b) => {
       const got = b.emp.prod * 6.5;
       earn += got;
       const r = realmOf(b.world);
-      if (r === HOME) home += got; else away[r] = (away[r] || 0) + got;
+      if (r !== HOME) away[r] = (away[r] || 0) + got;
+      else if (seenByState(b.world.sys)) home += got;
       wages += b.emp.prod * b.world.wage.prod + b.emp.sci * b.world.wage.sci;
       b.world.gov.cash += b.emp.prod * (b.world.rough > 0 ? 0.3 : 0.8);   // местный налог; в разруху собирать почти нечего
     });
