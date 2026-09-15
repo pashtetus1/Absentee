@@ -27,6 +27,8 @@ export interface Harnessed extends Core {
    *  уже врала числами (урожай, состав корабля), и поймать это можно только
    *  прочитав то, что она выдала. Пусто, если блока нет или он не заполнялся. */
   __html(id: string): string;
+  /** Нажать кнопку: вызвать то, что игра повесила на click этого элемента. */
+  __click(id: string): void;
 }
 
 interface Options {
@@ -39,13 +41,20 @@ interface Options {
    *  вдвоём, а заглушка, которая всё забывает, показала бы зелёный на игре,
    *  теряющей партию. */
   store?: Record<string, string>;
+  /** Адресная строка между запусками. Передан — у страницы есть location и
+   *  history, и что игра записала в адрес, то второй запуск и прочтёт (так
+   *  выглядит F5). Не передан — адреса нет вовсе, как было всегда. */
+  address?: { hash: string };
 }
 
 function stubElement(): any {
+  const on: Record<string, (e?: unknown) => void> = {};
   return {
     style: {}, value: "", textContent: "", innerHTML: "", disabled: false, className: "",
-    addEventListener() {}, getBoundingClientRect() { return { left: 0, top: 0, width: 840, height: 680 }; },
-    closest(): null { return null; }
+    addEventListener(type: string, fn: (e?: unknown) => void) { on[type] = fn; },
+    getBoundingClientRect() { return { left: 0, top: 0, width: 840, height: 680 }; },
+    closest(): null { return null; },
+    __on: on
   };
 }
 
@@ -65,7 +74,7 @@ function stubContext(): any {
 // headless: ядро само видит отсутствие document и не трогает панели.
 // Второй режим (withDom) существует, чтобы проверить, что отрисовка вообще
 // не падает — она тоже часть файла и тоже ломается.
-export function load(file: string, { withDom = false, seed = null, store = {} }: Options = {}): Harnessed {
+export function load(file: string, { withDom = false, seed = null, store = {}, address }: Options = {}): Harnessed {
   const html = readFileSync(resolve(import.meta.dirname, "..", file), "utf8");
   // \r?  — на Windows git выдаёт файл с CRLF, и без этого стенд не находит тег
   const m = html.match(/<script>\r?\n([\s\S]*?)\r?\n<\/script>/);
@@ -108,6 +117,10 @@ export function load(file: string, { withDom = false, seed = null, store = {} }:
       setItem: (k: string, v: string) => { store[k] = String(v); },
       removeItem: (k: string) => { delete store[k]; }
     };
+    if (address) {
+      sandbox.location = { get hash() { return address.hash; }, set hash(v: string) { address.hash = v; }, search: "" };
+      sandbox.history = { replaceState(_s: unknown, _t: string, url: string) { address.hash = url; } };
+    }
     // кадр не крутится сам: тест дёргает __frame() руками, чтобы отрисовка
     // карты и системы реально исполнялась, а не только регистрировалась
     sandbox.requestAnimationFrame = (fn: (ts: number) => void): number => { sandbox.__frame = fn; return 0; };
@@ -121,8 +134,8 @@ export function load(file: string, { withDom = false, seed = null, store = {} }:
   // Алгоритм тот же, что в подмене выше, поэтому поток чисел совпадает и
   // сличитель по-прежнему сравнивает старый файл с новым честно.
   //
-  // И подменяем build: без сида он берёт НОВЫЙ случайный, как и должен по кнопке
-  // «Заново» в игре. Тесту это не годится — он зовёт build(mode), чтобы задать
+  // И подменяем build: без сида он берёт НОВЫЙ случайный, как и должен при входе
+  // на страницу без сида в адресе. Тесту это не годится — он зовёт build(mode), чтобы задать
   // способ перелёта, и партия при этом обязана остаться той же. Здесь сид
   // подставляется сам; тест по-прежнему может передать свой и получить другую.
   // Поля экспортов — геттеры, поверх них не присвоить, поэтому берём копию.
@@ -143,5 +156,10 @@ export function load(file: string, { withDom = false, seed = null, store = {} }:
     api.__frame = () => { const fn = sandbox.__frame; sandbox.__frame = null; if (fn) fn(ts += 16); };
   }
   api.__html = (id: string): string => String((nodes[id] && nodes[id].innerHTML) || "");
+  api.__click = (id: string): void => {
+    const fn = nodes[id] && nodes[id].__on.click;
+    if (!fn) throw new Error("у #" + id + " нет обработчика click");
+    fn({ target: nodes[id] });
+  };
   return api;
 }

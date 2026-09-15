@@ -1656,18 +1656,44 @@ test("несовместимое сохранение не разворачив�
 
 test("партия сама ложится в localStorage и разворачивается из него", () => {
   // Здесь проверяется не ядро, а игра целиком, как в браузере: файл открыли,
-  // походили, закрыли вкладку, открыли снова. Память браузера общая на два
-  // запуска — второй обязан найти в ней первый.
+  // походили, закрыли вкладку, открыли снова. Память браузера и адресная строка
+  // общие на два запуска — второй обязан найти в них первый. Адрес важен:
+  // отложенная партия продолжается только по адресу со своим сидом.
   const store: Record<string, string> = {};
-  const a = load("dist/index.html", { withDom: true, seed: null, store });
+  const address = { hash: "" };
+  const a = load("dist/index.html", { withDom: true, seed: null, store, address });
   a.step();
   assert(store["absentee.save"], "после хода партия не отложилась в localStorage");
-  const b = load("dist/index.html", { withDom: true, seed: null, store });
+  assert(address.hash === "#seed=" + a.seedOf(), "сид не попал в адрес: «" + address.hash + "»");
+  const b = load("dist/index.html", { withDom: true, seed: null, store, address });
   assert(b.seedOf() === a.seedOf(), "развернулась другая партия: сид " + b.seedOf() + " вместо " + a.seedOf());
   const d = firstDiff(snap(a.state()), snap(b.state()));
   assert(!d, "из localStorage поднялась не та партия: " + d);
   b.step();
   assert(b.state().tick === a.state().tick + 1, "поднятая партия не идёт дальше");
+});
+
+// «Заново» повторяет партию, а новую даёт только вход на страницу без сида в
+// адресе. Иначе у отложенной партии и у кнопки получилось бы два способа
+// потерять галактику, которую хотелось переиграть, и ни одного — её повторить.
+test("«Заново» начинает ту же партию, а вход без сида — новую", () => {
+  const store: Record<string, string> = {};
+  const address = { hash: "" };
+  const a = load("dist/index.html", { withDom: true, seed: null, store, address });
+  const seed = a.seedOf();
+  for (let i = 0; i < 24; i++) a.step();
+  const start = load("dist/index.html", { seed });   // та же партия, собранная с нуля
+  a.__click("reset");
+  assert(a.seedOf() === seed, "«Заново» сменило сид: " + a.seedOf() + " вместо " + seed);
+  assert(a.state().tick === 0, "«Заново» не вернуло партию к началу: месяц " + a.state().tick);
+  const d = firstDiff(snap(start.state()), snap(a.state()));
+  assert(!d, "«Заново» собрало не ту галактику: " + d);
+  a.step();
+  assert(address.hash === "#seed=" + seed, "после «Заново» в адресе не тот сид: «" + address.hash + "»");
+  // зашли на страницу заново, но по голому адресу
+  const b = load("dist/index.html", { withDom: true, seed: null, store, address: { hash: "" } });
+  assert(b.seedOf() !== seed, "вход без сида развернул отложенную партию вместо новой");
+  assert(b.state().tick === 0, "новая партия началась не с начала: месяц " + b.state().tick);
 });
 
 test("несовместимое сохранение в localStorage не стирается и не запускает игру", () => {
