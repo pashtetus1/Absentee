@@ -392,6 +392,11 @@ export interface Dock {
 // ---- рынок и патенты --------------------------------------------------
 
 export interface MarketRow { price: number; last: number; want: number; stock: number; }
+/** Биржа кораблей в одной системе, для одного типа корабля (ключ «система:тип»).
+ *  k — во сколько раз корабль здесь дороже или дешевле стоимости его деталей;
+ *  want — сколько раз за этот месяц здесь искали такой корабль;
+ *  rate — сглаженный спрос, раз в год. */
+export interface ShipRow { k: number; want: number; rate: number; }
 export interface Patent { owner: number; since: number; told: boolean; }
 
 /** Кеш на один тик. Живёт ровно один месяц симуляции, см. state.ts. */
@@ -429,6 +434,8 @@ export interface Snapshot {
   corps: Corp[]; worlds: World[]; systems: Sys[];
   move: Move; gates: Record<string, Gate>;
   market: Record<string, MarketRow>; patents: Record<string, Patent>;
+  /** Биржа кораблей: множитель к стоимости деталей по «система:тип». */
+  shipMarket: Record<string, ShipRow>;
   voyages: Voyage[]; projects: Project[]; docks: Dock[];
   shipyards: Shipyard[]; proposals: Proposal[]; staged: Staged[];
   /** Казна каждого отделившегося государства; родная лежит в treasury. */

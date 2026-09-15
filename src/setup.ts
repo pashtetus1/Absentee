@@ -2,7 +2,7 @@
 import { CLASSES, COMPS, MOVES, TEMPLATE, makeMarks, moveOf } from "./data";
 import { makeGalaxy } from "./galaxy";
 import { foundYard } from "./shipyard";
-import { S, U, clear, corps, docks, feed, fill, flash, gates, market, patents, projects, proposals, purses, say, shipyards, staged, systems, voyages, worlds } from "./state";
+import { S, U, clear, corps, docks, feed, fill, flash, gates, market, patents, projects, proposals, purses, say, shipMarket, shipyards, staged, systems, voyages, worlds } from "./state";
 import { DEVS, allTech, ensureDev } from "./tech";
 import { makeWorld, openBranch } from "./world";
 import type { Corp } from "./types";
@@ -29,7 +29,7 @@ export function build(forcedMove?: string, seed?: number): void {
     COMPS.forEach((f) => { c.ask[f.key] = 0.95 + (t.nerve - 0.9) * 0.25 + rnd() * 0.1; });
     return c;
   }));
-  clear(market); clear(patents);
+  clear(market); clear(patents); clear(shipMarket);
   COMPS.forEach((f) => { market[f.key] = { price:f.base, last:f.base, want:0, stock:0 }; });
   allTech().forEach((f) => { patents[f.key] = { owner:-1, since:0, told:false }; });
   DEVS.length = 0;

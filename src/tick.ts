@@ -1,6 +1,7 @@
 
 import { markTick } from "./clock";
 import { abandon, despair } from "./colony";
+import { repriceShips } from "./docks";
 import { economy, ventureIncome } from "./economy";
 import { produce } from "./factory";
 import { foodRun } from "./food";
@@ -22,7 +23,7 @@ export function step(): void {
   resetTickCache();
   worlds.forEach(labour);
   economy(); proposalsTick(); edgeYards(); research(); tickCache.dev = new Map(); tickCache.devBest = null;
-  produce(); trade(); stalledOrders(); stalledProjects();
+  produce(); repriceShips(); trade(); stalledOrders(); stalledProjects();
   if (S.tick % 3 === 0) { patentsExpire(); tickCache.dev = new Map(); tickCache.devBest = null; }
   if (S.tick % 6 === 0) { foodRun(); corpRelief(); migrationRun(); despair(); }
   piracy();

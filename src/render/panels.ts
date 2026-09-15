@@ -8,7 +8,7 @@
 // строке, и String() вокруг каждого присваивания ничего бы не поймал.
 
 import { COLTECH, COMPS, MARKS, colOf, compOf, markName, moveName, vtype, btype } from "../data";
-import { dockValue } from "../docks";
+import { dockValue, partsValue, shipFactor } from "../docks";
 import { galaxyRange, within } from "../galaxy";
 import { cutOf, buyPrice, harvestOf } from "../labour";
 import { HOME, isRealm, manyRealms, realmName, realmOf, treasuryOf } from "../realm";
@@ -146,6 +146,10 @@ export function inspector(): void {
       '<div class="sub">на орбите ' + d.world.body.name + ' с ' + Math.floor(d.since / 12) + ' года · командир ' + d.captain + '</div>' +
       '<div class="part"><span class="pn">хозяин</span><span class="pw">' + owner + '</span></div>' +
       '<div class="part"><span class="pn">купить можно за</span><span class="pw">' + Math.round(dockValue(d)) + '</span></div>' +
+      // Биржа — своя в каждой системе: множитель к стоимости деталей и есть то,
+      // дёшево здесь корабли или дорого прямо сейчас.
+      '<div class="part"><span class="pn">биржа ' + systems[d.sys].name + '</span><span class="pw">×' + shipFactor(d.sys, d.kind).toFixed(2) +
+      ' от деталей (' + Math.round(partsValue(d.parts)) + ')</span></div>' +
       '<div class="sub" style="margin:7px 0 2px">Из чего собран:</div>' + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
   }

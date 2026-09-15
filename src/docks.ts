@@ -2,16 +2,63 @@
 // Хлебовоз и переселенческий после рейса не исчезают: корабль остаётся на
 // орбите мира, куда пришёл, и виден там. Следующий рейс из этой системы
 // возьмёт его вместо того, чтобы покупать корпус и трюм заново; чужой
-// корабль покупают у хозяина за 60% от цены его деталей. Владелец — либо
-// компания (частная помощь), либо правительство мира-получателя.
+// корабль покупают у хозяина по цене БИРЖИ этой системы (ниже). Владелец —
+// либо компания (частная помощь), либо правительство мира-получателя.
 
 import { markOf } from "./data";
 import { askPrice } from "./market";
-import { L, S, corps, docks, market, systems } from "./state";
+import { L, S, corps, docks, market, shipMarket, systems } from "./state";
 import { canTravel } from "./travel";
-import { rnd6 } from "./util";
+import { clamp, rnd6 } from "./util";
 import { addStock, stockAt } from "./world";
-import type { Corp, Dock, Part, Voyage, World } from "./types";
+import type { Corp, Dock, Part, ShipRow, Voyage, World } from "./types";
+
+// ---- биржа кораблей ------------------------------------------------------
+// Все корабли на стоянках выставлены на продажу, и цена у каждой системы СВОЯ:
+// стоимость деталей корабля по ходовым ценам, умноженная на местный множитель.
+// Раньше множитель был один на всю галактику и навсегда — 60%, — и корабль
+// стоил одинаково там, где их скопился десяток, и там, где их ждут годами.
+//
+// Множитель ходит от спроса и предложения В ЭТОЙ СИСТЕМЕ:
+//   предложение — сколько кораблей такого типа стоит здесь без дела сейчас;
+//   спрос — сколько раз в год здесь ищут такой корабль (под погрузку) или
+//           покупают, сглаженно за последние лет пять.
+// Цена тянется к SHIP_START × √(спрос / предложение) — по 5% разрыва в месяц.
+// Корабли копятся там, куда возят (хлебовоз остаётся у голодной колонии), и там
+// же дешевеют, пока их не станет выгодно купить и перегнать; купили — спрос
+// вырос, и цена отскакивает. Где корабли ищут и не находят — дорожают, и
+// строить становится выгоднее.
+//   Первая версия сдвигала множитель на 3% в месяц просто от простоя, и там, где
+// корабли стояли, цена сидела на полу почти всегда: корабль стоит годами, а
+// ищут его раз в полгода. Отношение спроса к предложению этим не страдает.
+export const SHIP_START = 0.6;
+export const SHIP_MIN = 0.15, SHIP_MAX = 1.5;
+export const SHIP_PULL = 0.05;      // на какую долю разрыва цена сдвигается за месяц
+export const SHIP_MEMORY = 60;      // за сколько месяцев сглаживается спрос
+
+function shipRow(sys: number, kind: string): ShipRow {
+  const key = sys + ":" + kind;
+  return shipMarket[key] || (shipMarket[key] = { k: SHIP_START, want: 0, rate: 0 });
+}
+/** Здесь искали или купили корабль такого типа: это спрос. */
+export function wantShip(sys: number, kind: string): void { shipRow(sys, kind).want++; }
+/** Местный множитель к стоимости деталей. */
+export function shipFactor(sys: number, kind: string): number {
+  const row = shipMarket[sys + ":" + kind];
+  return row ? row.k : SHIP_START;
+}
+/** Раз в месяц: множители тянутся за спросом и предложением. */
+export function repriceShips(): void {
+  const idle: Record<string, number> = {};
+  docks.forEach((d) => { shipRow(d.sys, d.kind); const k = d.sys + ":" + d.kind; idle[k] = (idle[k] || 0) + 1; });
+  Object.keys(shipMarket).forEach((key) => {
+    const row = shipMarket[key];
+    row.rate += (row.want * 12 - row.rate) / SHIP_MEMORY;
+    row.want = 0;
+    const target = clamp(SHIP_START * Math.sqrt((row.rate + 0.5) / ((idle[key] || 0) + 0.5)), SHIP_MIN, SHIP_MAX);
+    row.k += (target - row.k) * SHIP_PULL;
+  });
+}
 
 export function dockShip(v: Voyage): void {
   let world: World, corp: number, gov: World | null;
@@ -35,8 +82,14 @@ export function dockShip(v: Voyage): void {
   // пропадать просто так не должен.
   docks.push(d);
 }
+/** Сколько стоят детали корабля по ходовым ценам — во столько обошлось бы
+ *  собрать такой же. */
+export function partsValue(parts: Part[]): number {
+  return parts.reduce((a, p) => { return a + market[p.k].price; }, 0);
+}
+/** Цена корабля на бирже его системы. */
 export function dockValue(d: Dock): number {
-  return d.parts.reduce((a, p) => { return a + market[p.k].price; }, 0) * 0.6;
+  return partsValue(d.parts) * shipFactor(d.sys, d.kind);
 }
 // payer — компания (corp) или мир (gov); берёт корабль нужного типа в системе
 // need — что обязан нести корабль для ЭТОГО рейса: под движками между звёздами
@@ -54,6 +107,7 @@ export function takeDock(payerCorp: Corp | null, payerWorld: World | null, sys: 
   // Свою систему предпочитаем, но берём и из достижимой: перегон корабля к
   // месту погрузки отдельным рейсом не считаем — он уходит в срок самого рейса.
   let ownFar: Dock = null, otherFar: Dock = null;
+  wantShip(sys, kind);                         // корабль здесь искали — это спрос
   docks.forEach((d) => {
     if (d.kind !== kind) return;
     if (need && !fits(d.parts, need)) return;
@@ -72,6 +126,7 @@ export function takeDock(payerCorp: Corp | null, payerWorld: World | null, sys: 
     if (payerCorp) payerCorp.cash -= price; else payerWorld.gov.cash -= price;
     if (d.corp >= 0) corps[d.corp].cash += price; else if (d.gov) d.gov.gov.cash += price;
     S.trades++; S.turnover += price;
+    if (d.sys !== sys) wantShip(d.sys, kind);  // и там, где купили
   }
   docks.splice(docks.indexOf(d), 1);
   return d;
