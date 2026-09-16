@@ -247,6 +247,17 @@ export function onOrder(kind: string, forWorld: World | null, forCorp: Corp | nu
     b.vt.key === kind &&
     (forCorp ? b.forCorp === forCorp.id : b.forWorld === forWorld && b.forCorp === undefined)));
 }
+/** Сколько таких кораблей контора уже заказала. Одного «да/нет» перестало
+ *  хватать, когда на транспорт встали в очередь двое: рейс с деталями и
+ *  сырьевой рейс. Пока признак был один, второй ждал вечно — грузовик,
+ *  сошедший со стапеля, забирал первый. */
+export function orderCount(kind: string, forCorp: Corp): number {
+  let n = 0;
+  shipyards.forEach((y) => y.queue.forEach((b) => {
+    if (b.vt.key === kind && b.forCorp === forCorp.id) n++;
+  }));
+  return n;
+}
 
 /** Верфь в этой системе, если есть. */
 export function yardAt(sys: number): Shipyard | null {

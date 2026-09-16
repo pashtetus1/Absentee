@@ -75,7 +75,7 @@ export function govBuyShip(payer: World, at: World, need: Record<string, number>
       });
       if (!seller) { ok = false; return; }
       addStock(seller, at.sys, k, -1);
-      taken.push({ k:k, from:seller.id, price:askPrice(seller, k) });
+      taken.push({ k:k, from:seller.id, price:askPrice(seller, k, at.sys) });
       cost += taken[taken.length - 1].price * (1 + L.tradeFee);
     }
   });
@@ -158,7 +158,7 @@ export function foodRun(): void {
     // обе эти величины ничего не трогают и не двигают.
     const fk = src.sys === w.sys ? "fuel" : "sfuel";
     const tanks = fuelCost(src.sys, w.sys);                // под воротами — по баку на створ
-    topUp(w, price + fuelBill(fk, tanks) + 10);            // казна своего государства, если она есть
+    topUp(w, price + fuelBill(fk, tanks, src.sys) + 10);            // казна своего государства, если она есть
     if (w.gov.cash < price + 10) return;
     if (!govFuelAvail(w, src, fk, tanks)) return;          // без горючего хлебовоз не полетит
     // Корабль — с биржи (из этой системы или из чужой: тогда он сперва идёт к
@@ -188,7 +188,7 @@ export function foodRun(): void {
     // по СВОИМ трюмам, а не по рецепту: со стоянки может прийти и двухтрюмный.
     const load = holdOf(dk.parts), cost = load * src.food.price;
     if (load <= 0 || src.food.stock - reserveOf(src) * GIVE_OVER < load) return;
-    const bill = cost + offer.price + offer.fuel + fuelBill(fk, tanks);
+    const bill = cost + offer.price + offer.fuel + fuelBill(fk, tanks, src.sys);
     topUp(w, bill + 10);
     if (w.gov.cash < bill + 10 || !takeOffer(payer, offer, src)) return;
     govFuel(w, src, fk, tanks);

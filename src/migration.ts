@@ -69,7 +69,7 @@ export function migrationRun(): void {
     // нужно больше; не набирается полный — корабль остаётся на стоянке.
     const qty = seatsOf(dkl.parts);
     if (qty <= 0 || leavers(src) < qty || w.wantIn < qty) return;
-    if (w.gov.cash < offer.price + offer.fuel + fuelBill(fk2, tanks2) + 10 || !takeOffer(payer, offer, src)) return;
+    if (w.gov.cash < offer.price + offer.fuel + fuelBill(fk2, tanks2, src.sys) + 10 || !takeOffer(payer, offer, src)) return;
     govFuel(w, w, fk2, tanks2);
     const takeFree = Math.min(src.pop.free, qty);
     src.pop.free -= takeFree;

@@ -135,6 +135,11 @@ export function voyageLines(v: Voyage): string[] {             // рейс ме�
   if (v.kind === "food")
     return ["Хлебовоз · " + v.qty + " еды" + (v.relief !== undefined ? " · помощь от " + corps[v.relief].name : ""),
             v.from.body.name + " → " + v.to.body.name + " · " + eta(v.t, v.dur)];
+  // Сырьевой рейс: везёт навалом и всегда СВОЁ — контора перевозит туда, где
+  // дороже, а не чей-то заказ.
+  if (v.kind === "ore")
+    return ["Сырьевоз · " + v.qty + " " + compOf(v.k).short + " · " + corps[v.forCorp].name,
+            systems[v.sysFrom].name + " → " + systems[v.to].name + " · " + eta(v.t, v.dur)];
   // Перегон готового корабля и уход прыжкового к точке старта. У обоих нет ни
   // груза в тоннах, ни миров на концах — только системы, и оба доезжали до
   // хвоста функции, где v.qty.toFixed роняло кадр: карта переставала
@@ -289,7 +294,7 @@ export function buildDone(b: Build): number { return clamp(1 - Math.max(0, b.lef
  *  видно: 100% и «уже улетел» выглядят одинаково. */
 export function buildState(b: Build, first: boolean): string {
   if (b.left > 0) return first ? "на стапеле" : "ждёт очереди";
-  return b.fuelWait ? "готов, без топлива " + b.fuelWait + " мес." : "готов";
+  return b.fuelWait ? "готов, без горючего " + b.fuelWait + " мес." : "готов";
 }
 
 /** Через сколько месяцев сойдёт со стапеля каждая позиция очереди. Руки идут
@@ -446,6 +451,22 @@ export function crest(x: number, y: number, r: number, realm: number): void {
   else if (ch === 6) poly([0,-3.9, 2.7,-0.4, 0,3.1, -2.7,-0.4]);                  // ромб
   else star(0, -0.4, 2.8, col);                                                   // родное государство
   cx.restore();
+}
+/** Цвет породы: по нему камень видно ещё до клика, и по нему же подписан
+ *  сырьевой рейс. Занятый камень светлее — платформа на нём уже стоит.
+ *  Металл — сталь, вар — тёплая смола, просинь — синева, энергия — зелень. */
+export const ORECOLOR: Record<string, string> = {
+  metal: "#8a93a8", fuel: "#b08a4e", sfuel: "#5b7fd0", power: "#4ea883"
+};
+export function rockColor(kind: string, taken: boolean): string {
+  const c = ORECOLOR[kind] || "#46526e";
+  return taken ? c : dim(c);
+}
+/** Тот же цвет, приглушённый: свободный камень не должен кричать. */
+function dim(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.round(((n >> 16) & 255) * 0.62), g = Math.round(((n >> 8) & 255) * 0.62), b = Math.round((n & 255) * 0.62);
+  return "rgb(" + r + "," + g + "," + b + ")";
 }
 export function rock(x: number, y: number, rad: number, seed: number, col: string): void {
   cx.beginPath();

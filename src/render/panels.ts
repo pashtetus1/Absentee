@@ -8,7 +8,7 @@
 // строке, и String() вокруг каждого присваивания ничего бы не поймал.
 
 import { SCAN_MONTHS, STATE_EYES, knownCount, knowsSys, mapPrice, seenByState } from "../charts";
-import { ARMFAMS, ARMKEYS, COLTECH, COMPS, MARKS, colOf, compOf, hullOf, markName, moveName, roomOfKey, vtype, btype } from "../data";
+import { ARMFAMS, ARMKEYS, COLTECH, COMPS, MARKS, colOf, compOf, hullOf, markName, moveName, oreRate, roomOfKey, vtype, btype } from "../data";
 import { DESIGNS, RAIDER, designLine, designMakers, designOf, groundMult, shipDmg, shipHp } from "../arms";
 import { armyLine, policeLine } from "../army";
 import { force, sideColor } from "../ground";
@@ -16,18 +16,20 @@ import { dockValue, partsValue, shipFactor } from "../docks";
 import { lotsOf } from "../freight";
 import { galaxyRange, within } from "../galaxy";
 import { cutOf, buyPrice, harvestOf } from "../labour";
+import { powerUse } from "../economy";
+import { priceAt } from "../market";
 import { HOME, isRealm, manyRealms, realmName, realmOf, treasuryOf } from "../realm";
 import { seedOf } from "../rng";
 import { prodOf, sciOf } from "../science";
 import { slotPrice, yardAt } from "../shipyard";
-import { L, S, U, canBuild, corps, dateStr, feed, fights, grounds, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, upkeepOf, voyages, warships, worlds } from "../state";
+import { L, S, U, canBuild, corps, dateStr, feed, fights, grounds, local, makersOf, market, patLive, patents, projects, proposals, shipyards, systems, upkeepOf, voyages, warships, worlds } from "../state";
 import { DEVS, ENGINES, techOf } from "../tech";
 import { fuelCost } from "../travel";
 import { fmt, popsWord, dist } from "../util";
 import { popOf } from "../world";
 import { buildAim, buildDone, buildState, cargoName, queueEta } from "./models";
 import { seenSys } from "./scene";
-import type { Build, Fight, Fighter, Ground, Part, Warship, World } from "../types";
+import type { Build, Comp, Fight, Fighter, Ground, Part, Rock, Warship, World } from "../types";
 
 export type Ctl = HTMLElement & { value: any; textContent: any; disabled: boolean; checked: boolean };
 export function el(id: string): Ctl { return document.getElementById(id) as Ctl; }
@@ -196,6 +198,12 @@ export function worldCard(w: World): string {
     '<div class="sub" style="margin:0 0 3px">Хлеб: закуп ' + buy.toFixed(2) + ', продажа ' + w.food.price.toFixed(2) +
     ' · доля казны ' + Math.round(cutOf(w) * 100) + '%' +
     ' · казне ' + w.food.gain.toFixed(1) + '/мес</div>' +
+    // Энергия: сколько её на мире и надолго ли хватит. Это не украшение —
+    // мир без энергии никому не платит, и видно это только здесь.
+    '<div class="sub" style="margin:0 0 3px">Энергия: запас ' + (w.power || 0).toFixed(1) +
+    ' · съедают ' + powerUse(w).toFixed(2) + '/мес · ' +
+    (powerUse(w) > 0 ? 'хватит на ' + Math.floor((w.power || 0) / powerUse(w)) + ' мес.' : 'некому') +
+    ' · здесь по ' + priceAt("power", w.sys).toFixed(1) + '</div>' +
     '<div class="sub" style="margin:0 0 3px">Казна мира ' + Math.round(w.gov.cash) +
     ' · содержание ' + upkeepOf(popOf(w)).toFixed(1) + '/мес' +
     ' · уехать хотят ' + w.wantOut.toFixed(1) + ' · ' + w.flow + '</div>' +
@@ -247,7 +255,7 @@ export function inspector(): void {
       lots.map((l) => '<div class="part"><i class="dot" style="background:' + corps[l.from].color + '"></i><span class="pn">' +
         compOf(l.k).name.toLowerCase() + '</span><span class="pw">продал ' + corps[l.from].name + '</span></div>').join("") +
       '<div class="part"><i class="dot" style="background:' + buyer.color + '"></i><span class="pn">купил и везёт</span><span class="pw">' + buyer.name + '</span></div>' +
-      '<div class="sub" style="margin:6px 0 0">Рейс сжёг межзвёздного топлива: ' +
+      '<div class="sub" style="margin:6px 0 0">Рейс сжёг просини: ' +
       fuelCost(d.sysFrom, d.to) + (lots.length > 1 ? ' — одно на ' + lots.length + ' детали.' : '.') + '</div>' +
       '<div class="sub" style="margin:7px 0 2px">Грузовик собран из:</div>' + hullLine(d.parts) + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
     return;
@@ -274,6 +282,23 @@ export function inspector(): void {
       (parts ? n.qty + " дет. для " + corps[n.forCorp].name : n.kind === "pops" ? popsWord(n.qty) : n.qty + " еды") +
       ' — уже оплачено и ждёт — и повезёт ' + (parts ? 'в ' + systems[n.to].name : 'на ' + n.to.body.name) + '.</div>' +
       hullLine(d.parts) + engLine(d.parts) + partsList(d.parts, -1) + '</div>';
+    return;
+  }
+  if (U.pick.kind === "cargo" && d.kind === "ore") {
+    const from = priceAt(d.k, d.sysFrom), to = priceAt(d.k, d.to);
+    box.innerHTML = '<div class="card"><h3>Сырьевоз</h3>' +
+      '<div class="sub">везёт ' + d.qty + ' ' + compOf(d.k).short + ' из ' + systems[d.sysFrom].name +
+      ' в ' + systems[d.to].name + ' · в пути ' + Math.round(d.t * 100) + '%</div>' +
+      '<div class="part"><i class="dot" style="background:' + corps[d.forCorp].color + '"></i>' +
+      '<span class="pn">везёт себе</span><span class="pw">' + corps[d.forCorp].name + '</span></div>' +
+      // Ради чего рейс: разница цен на концах. Она живая — к приходу может и
+      // схлопнуться, и в этом весь риск перевозки.
+      '<div class="part"><span class="pn">там брали по</span><span class="pw">' + from.toFixed(1) + '</span></div>' +
+      '<div class="part"><span class="pn">здесь сейчас</span><span class="pw">' + to.toFixed(1) + '</span></div>' +
+      '<div class="part"><span class="pn">разница на весь груз</span><span class="pw">' +
+      Math.round((to - from) * d.qty) + '</span></div>' +
+      '<div class="sub" style="margin:6px 0 0">Рейс сжёг просини: ' + fuelCost(d.sysFrom, d.to) + '.</div>' +
+      '<div class="sub" style="margin:4px 0 2px">Корабль:</div>' + hullLine(d.parts) + engLine(d.parts) + '</div>';
     return;
   }
   if (U.pick.kind === "cargo" && (d.kind === "food" || d.kind === "pops")) {
@@ -304,7 +329,7 @@ export function inspector(): void {
         (d.upgrading ? ' → переделывают' : '') + '</span></div>' +
       (d.built ? '<div class="part"><span class="pn">рейсов за последнее время</span><span class="pw">' + Math.round(d.trips || 0) + '</span></div>' : '') +
       '<div class="sub" style="margin:6px 0 0">' + (d.built
-        ? 'По этому маршруту летают без двигателя со скоростью младшей марки створов. Проход через створ жжёт бак межзвёздного топлива.'
+        ? 'По этому маршруту летают без двигателя со скоростью младшей марки створов. Проход через створ жжёт бак просини.'
         : 'Портальный корабль ещё в пути.') + '</div></div>';
     return;
   }
@@ -341,9 +366,33 @@ export function inspector(): void {
     return;
   }
   if (U.pick.kind === "vent") {
+    const here = priceAt(d.kind, d.sys);
     box.innerHTML = '<div class="card"><h3>Добывающая платформа</h3>' +
-      '<div class="sub">' + corps[d.lead].name + ' · ' + d.yield + '/мес · ' + d.dest.label +
-      ' · осталось ' + Math.round(d.left / 12) + ' лет</div>' + partsList(d.parts, d.lead) + '</div>';
+      '<div class="sub">' + corps[d.lead].name + ' · ' + d.dest.label +
+      ' · осталось ' + Math.round(d.left / 12) + ' лет</div>' +
+      '<div class="part"><span class="pn">добывает</span><span class="pw">' + compOf(d.kind).name.toLowerCase() +
+      ', ' + d.yield.toFixed(1) + '/мес</span></div>' +
+      // Добытое ложится на склад ЗДЕСЬ, и здешняя цена решает, везти его или
+      // продавать на месте. Обе цены рядом: местная и средняя по галактике.
+      '<div class="part"><span class="pn">цена здесь</span><span class="pw">' + here.toFixed(1) +
+      ' · по галактике ' + market[d.kind].price.toFixed(1) + '</span></div>' +
+      '<div class="part"><span class="pn">в месяц выходит</span><span class="pw">' + (d.yield * here).toFixed(1) + '</span></div>' +
+      partsList(d.parts, d.lead) + '</div>';
+    return;
+  }
+  // Камень: что в нём лежит и почём это здесь. Пока камни были одинаковы,
+  // тыкать в них было не за чем; теперь порода решает, зачем сюда лететь.
+  if (U.pick.kind === "rock") {
+    const r = d.rock as Rock, sys = d.sys as number, here = priceAt(r.kind, sys);
+    const v = systems[sys].ventures.find((x) => (x.dest.ref as Rock) === r);
+    box.innerHTML = '<div class="card"><h3>' + r.name + ' · ' + compOf(r.kind).name.toLowerCase() + '</h3>' +
+      '<div class="sub">астероид в ' + systems[sys].name + ' · ' +
+      (r.taken ? (v ? 'разрабатывает ' + corps[v.lead].name : 'занят') : 'свободен') + '</div>' +
+      '<div class="part"><span class="pn">даст в месяц</span><span class="pw">' + oreRate(r.kind).toFixed(1) + '</span></div>' +
+      '<div class="part"><span class="pn">цена здесь</span><span class="pw">' + here.toFixed(1) +
+      ' · по галактике ' + market[r.kind].price.toFixed(1) + '</span></div>' +
+      '<div class="part"><span class="pn">жила держится</span><span class="pw">' +
+      Math.round(vtype("mine").term / 12) + ' лет</span></div>' + '</div>';
     return;
   }
   // Кликают по ВЕРФИ, а не по сборке: с тех пор как верфь стала постройкой, в
@@ -366,8 +415,37 @@ export function inspector(): void {
   box.innerHTML = '<div class="empty">—</div>';
 }
 
+/** Строка сырья на рынке: его не делают и не патентуют, зато у него РАЗНАЯ
+ *  цена в разных системах — и именно эта вилка говорит игроку, есть ли смысл
+ *  возить. Средняя по галактике стоит крупно, под ней — где дешевле всего и
+ *  где дороже всего, сколько платформ качает и сколько лежит на складах. */
+function oreRow(f: Comp): string {
+  const m = market[f.key];
+  let lo: { sys: number; p: number } = null, hi: { sys: number; p: number } = null;
+  Object.keys(local).forEach((key) => {
+    const i = key.indexOf("|");
+    if (key.slice(i + 1) !== f.key) return;
+    const sys = +key.slice(0, i), p = local[key].price;
+    if (!seenByState(sys)) return;                 // чужих цен государство не знает
+    if (!lo || p < lo.p) lo = { sys: sys, p: p };
+    if (!hi || p > hi.p) hi = { sys: sys, p: p };
+  });
+  let rigs = 0;
+  systems.forEach((s) => { s.ventures.forEach((v) => { if (v.live && v.kind === f.key && seenByState(s.id)) rigs++; }); });
+  const dir = m.price > m.last * 1.001 ? "up" : m.price < m.last * 0.999 ? "down" : "";
+  const spread = lo && hi && hi.p - lo.p > 0.05
+    ? "дешевле всего " + systems[lo.sys].name + " " + lo.p.toFixed(1) +
+      ", дороже всего " + systems[hi.sys].name + " " + hi.p.toFixed(1)
+    : lo ? "везде по " + lo.p.toFixed(1) : "нигде не торгуют";
+  return '<div class="row"><div class="rhead"><span class="rname">' + f.name +
+         '</span><span class="price ' + dir + '">' + m.price.toFixed(1) + '</span></div>' +
+         '<div class="rmeta">сырьё · платформ ' + rigs + ' · на складах ' + m.stock + '</div>' +
+         '<div class="rmeta">' + spread + '</div></div>';
+}
+
 export function panels(): void {
   el("market").innerHTML = COMPS.map((f) => {
+    if (f.ore) return oreRow(f);
     const m = market[f.key], makers = makersOf(f.key);
     const dots = makers.map((c) => { return '<i class="dot" style="background:' + c.color + '"></i>'; }).join("");
     const dir = m.price > m.last * 1.001 ? "up" : m.price < m.last * 0.999 ? "down" : "";
@@ -599,12 +677,18 @@ export function panels(): void {
     vbox.innerHTML = warRows.join("") + systems.map((s) => {
       if (!seenSys(s)) return "";
       const ws = s.bodies.filter((b) => { return b.world; });
+      // Что в системе за камни — по породам: «металл 2, просинь 1». Система без
+      // камней так и пишется, и это тоже сведение: лететь туда не за сырьём.
+      const kinds: Record<string, number> = {};
+      s.rocks.forEach((r) => { kinds[r.kind] = (kinds[r.kind] || 0) + 1; });
+      const rocks = Object.keys(kinds).map((k) => compOf(k).short + " " + kinds[k]).join(", ");
       return '<div class="row clickrow" data-sys="' + s.id + '"><div class="srow">' +
              '<span class="rname">' + s.name + (s.id === 0 ? " · дом" : "") + '</span>' +
              '<span class="rmeta">платформ ' + s.mines + ' · миров ' + ws.length + '</span></div>' +
              '<div class="rmeta">' + s.bodies.map((b) => {
                return b.name + " (" + b.type.name + (b.world ? ", " + fmt(popOf(b.world)) : "") + ")"; }).join(", ") +
-             '</div></div>';
+             '</div>' +
+             '<div class="rmeta">камни: ' + (rocks || "нет") + '</div></div>';
     }).join("");
   } else {
     const s = systems[U.view.sys], rows: string[] = warRows.slice();
@@ -625,7 +709,7 @@ export function panels(): void {
       if (v.building) return;
       rows.push('<div class="row"><div class="rhead"><i class="dot" style="background:' + corps[v.lead].color + '"></i>' +
         '<span class="rname">' + corps[v.lead].name + ' · платформа</span>' +
-        '<span class="rmeta">' + v.yield + '/мес</span></div>' +
+        '<span class="rmeta">' + compOf(v.kind).short + ' ' + v.yield.toFixed(1) + '/мес</span></div>' +
         '<div class="rmeta">' + v.dest.label + ' · осталось ' + Math.round(v.left / 12) + ' лет</div></div>');
     });
     projects.forEach((pr) => {
@@ -649,7 +733,9 @@ export function panels(): void {
   el("date").textContent = dateStr();
   el("stats").textContent = "Миров " + worlds.length + " · людей " + fmt(totPop) + " · сделок " + S.trades +
     " · еды перевезено " + Math.round(S.shipped) + " · деталей грузовиком " + S.hauled +
-    " · топлива сожжено " + S.burned + " · отказов " + S.refusals + ", свёрнуто сборок " + S.dropped +
+    " · топлива сожжено " + S.burned + " · сырья увезено " + S.oreHauled +
+    " · энергии продано " + Math.round(S.powerSold) +
+    " · отказов " + S.refusals + ", свёрнуто сборок " + S.dropped +
     (S.lost ? " · миров опустело " + S.lost : "") +
     (S.risings ? " · восстаний " + S.risings : "") +
     (S.battles ? " · боёв " + S.battles + ", сбито " + (S.raids + S.downed) : "") +

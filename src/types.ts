@@ -22,6 +22,10 @@ export interface Tech { key: string; name: string; short: string; diff: number; 
  *  означает «это не двигатель», а не «забыли заполнить». */
 export interface Comp extends Tech {
   work: number; base: number; glyph: string;
+  /** Сырьё: сколько единиц в месяц даёт платформа на камне этой породы.
+   *  Отсутствие значимо — это ДЕЛАЕТСЯ в цехе, а не добывается, и наоборот:
+   *  сырьё не исследуют, не патентуют и руками не собирают. */
+  ore?: number;
   mult?: number;                  // ходовой двигатель: множитель скорости внутри системы
   slots?: number;                 // корпус: сколько деталей держит, считая себя
   sight?: number;                 // телескоп: докуда видит спутник с ним
@@ -86,7 +90,6 @@ export interface WorldClass { key: string; name: string; short: string; diff: nu
 /** Что можно построить: из каких деталей, сколько месяцев, что даёт. */
 export interface VType {
   key: string; name: string; need: Record<string, number>; build: number; glyph: string;
-  yield?: number;                 // только у разработки астероидов
   term?: number;                  // на сколько месяцев хватает жилы
 }
 
@@ -117,8 +120,13 @@ export interface Move { key: string; name: string; comp: string; hint: string; }
 
 // ---- галактика --------------------------------------------------------
 
-/** Крупный именованный астероид. taken — уже занят чьей-то разработкой. */
-export interface Rock { name: string; r: number; ang: number; s: number; seed: number; taken: boolean; }
+/** Крупный именованный астероид.
+ *
+ *  kind — ПОРОДА, одна из четырёх (ORES в data.ts): металл, вар, просинь,
+ *  энергия. Камень не «ресурс вообще»: платформа на нём добывает только своё,
+ *  и оттого система с четырьмя породами и система с одной — разные места.
+ *  taken — камень уже занят чьей-то разработкой. */
+export interface Rock { name: string; kind: string; r: number; ang: number; s: number; seed: number; taken: boolean; }
 
 /** Место под звёздные ворота. Пока не построены, built ложно. */
 /** Ворота стоят НА МАРШРУТЕ, а не в системе: одни на пару звёзд, и в системе
@@ -155,7 +163,12 @@ export interface Sys {
   bodies: Planet[]; rocks: Rock[]; ventures: Venture[];
   ships: Ship[]; stations: Station[]; sats: Sat[];
   mines: number;
-  belt: boolean;                  // есть ли пояс астероидов
+  belt: boolean;                  // есть ли в системе астероиды вообще
+  /** Сколько сырья здесь СЪЕДАЮТ, сглаженно за год: ключ — вещество. Цена в
+   *  системе ходит по этому счёту и по тому, сколько сырья тут лежит
+   *  (market.ts, repriceLocal). Отсюда и разница цен между звёздами: где жгут
+   *  и строят — дорого, где добывают и некуда деть — дёшево. */
+  use: Record<string, number>;
   gateR: number;                  // радиус последней орбиты — на ней стоят створы
   gateAngs: Record<number, number>; // место под створ к каждому возможному соседу (в пределах 30° от луча)
   portals: Portal[];              // построенные створы; один створ ведёт ко всем звёздам в своём конусе
@@ -184,6 +197,9 @@ export interface Branch {
   emp: { prod: number; sci: number };
   jobs: { prod: number; sci: number };
   wip?: Record<string, number>;   // что цех сейчас делает
+  /** Цех стоит без металла. Не состояние дел, а ПАМЯТЬ О СКАЗАННОМ: без неё
+   *  сводка кричала бы об этом каждый месяц, пока идёт подвоз. */
+  short?: boolean;
 }
 
 /** Населённая планета: люди, еда, кошелёк правительства, места под филиалы. */
@@ -222,6 +238,10 @@ export interface World {
   /** Что на мире построено, ключами из BTYPES. Без знака «?»: пустой список и
    *  отсутствующий значат одно и то же, а рядом уже лежат rights и parts. */
   built: string[];
+  /** Запас энергии на мире, в единицах. Её жгут люди — тем больше, чем их
+   *  больше, — и покупают у тех, кто привёз (economy.ts). Мир без энергии не
+   *  умирает: он просто не платит за неё, и контора не получает денег. */
+  power: number;
 }
 
 // ---- компании ---------------------------------------------------------
@@ -253,7 +273,10 @@ export interface Corp {
   origin?: string;                       // какой жребий её породил
   bornAt?: World;                        // мир, на котором она возникла
   native?: string;                       // класс миров, родной отделившейся колонии
-  fuelAcct?: Record<number, { fly: Record<string, number> }>;   // топливо в пути, по системам
+  /** Сырьё, уже купленное и едущее на склад в эту систему, по системам. Без
+   *  этого счёта контора заказывала бы танкер с варом каждый месяц, пока
+   *  первый годами идёт. */
+  resAcct?: Record<number, { fly: Record<string, number> }>;
 }
 
 // ---- заказы и стройки -------------------------------------------------
@@ -353,9 +376,17 @@ export interface Station {
   dest: Dest; color: string; glyph: string; size: number; vent: Venture; ang: number;
 }
 
-/** Разработка астероидов: жила, из которой капает доход, пока не кончится. */
+/** Разработка астероидов: платформа на камне, которая выдаёт СЫРЬЁ, пока
+ *  камень не кончится.
+ *
+ *  kind — порода камня, на котором она стоит, и она же решает, что платформа
+ *  добывает; yield — сколько единиц в месяц. Денег платформа не приносит
+ *  вовсе: добытое ложится на склад хозяина В ЭТОЙ СИСТЕМЕ, и дальше его надо
+ *  продать или отвезти туда, где оно нужно. wip — недоделанная единица: сырьё
+ *  капает дробно, а на складе лежит штуками. */
 export interface Venture {
   sys: number; lead: number; type: string; name: string; parts: Part[];
+  kind: string; wip: number;
   left: number; yield: number; born: string; dest: Dest;
   live: boolean; building: boolean;
 }
@@ -608,6 +639,9 @@ export interface Snapshot {
   corps: Corp[]; worlds: World[]; systems: Sys[];
   move: Move; gates: Record<string, Gate>;
   market: Record<string, MarketRow>; patents: Record<string, Patent>;
+  /** Цены на сырьё ПО СИСТЕМАМ, ключ «система|вещество». Деталь стоит
+   *  одинаково везде, сырьё — нет: в этом вся торговля им. */
+  local: Record<string, MarketRow>;
   /** Биржа кораблей: множитель к стоимости деталей по «система:тип». */
   shipMarket: Record<string, ShipRow>;
   /** Купленные детали, которые ждут корабль на погрузке. */
@@ -627,6 +661,9 @@ export interface Snapshot {
   /** Налог, который родная казна недополучила с отделившихся: ноль, пока их нет. */
   taxAway: number;
   trades: number; shipped: number; movedPops: number; refusals: number;
+  /** Сырья увезено рейсами и энергии продано людям: по ним видно, работает
+   *  ли перевозка и платит ли кто-нибудь конторам. */
+  oreHauled: number; powerSold: number;
   dropped: number; hauled: number; burned: number; raids: number; lost: number;
   /** Карт продано и отказов в карте: по этим двум видно, держат ли конторы
    *  свои открытия при себе. */

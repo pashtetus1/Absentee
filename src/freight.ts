@@ -21,7 +21,7 @@ import { partsRoomOf, shipNeed, vtype } from "./data";
 import { corpBuyShip } from "./docks";
 import { bestOffer, buildCost, takeOffer } from "./fleet";
 import { dispatch } from "./food";
-import { fuelBill, takeFuel } from "./market";
+import { fuelBill, takeRes } from "./market";
 import { realmOfCorp } from "./realm";
 import { rnd } from "./rng";
 import { nearestYard, onOrder, orderTransport, paySlot, slotPrice } from "./shipyard";
@@ -76,8 +76,10 @@ export function sendParts(lots: Lot[], shipParts: Part[], captain: string): Voya
   return v;
 }
 
-/** Грузовик для деталей строится на верфи; место в очереди оплачивает компания. */
-function orderFreighter(owner: Corp, at: World, recipe: Record<string, number>): void {
+/** Грузовик для деталей строится на верфи; место в очереди оплачивает компания.
+ *  Тем же порядком заказывает себе грузовик сырьевой рейс (haul.ts): корабль
+ *  один и тот же, разница только в том, что он повезёт. */
+export function orderFreighter(owner: Corp, at: World, recipe: Record<string, number>): void {
   const y = nearestYard(at.sys, owner, realmOfCorp(owner));
   if (!y) return;
   const fee = slotPrice(y, vtype("cargo"));
@@ -124,10 +126,10 @@ export function freightRun(): void {
     const d = offer.dock, room = partsRoomOf(d.parts), tanks = fuelCost(sys, dest);
     if (room <= 0) return;
     if (!corps.some((s) => stockAt(s, sys, "sfuel") > 0) && stockAt(owner, sys, "sfuel") < tanks) return;
-    if (owner.cash < offer.price + offer.fuel + fuelBill("sfuel", tanks) + 20) return;
+    if (owner.cash < offer.price + offer.fuel + fuelBill("sfuel", tanks, sys) + 20) return;
     if (!takeOffer(pay, offer, berth)) return;
     // корабль уже куплен — рейс не вышел, он остаётся на стоянке, но уже её
-    if (!takeFuel(owner, sys, "sfuel", true, tanks)) { d.corp = owner.id; d.gov = null; docks.push(d); return; }
+    if (!takeRes(owner, sys, "sfuel", true, tanks)) { d.corp = owner.id; d.gov = null; docks.push(d); return; }
     const take = g.slice(0, room);
     take.forEach((l) => { freight.splice(freight.indexOf(l), 1); });
     if (d.world === berth) { sendParts(take, d.parts, d.captain); return; }

@@ -1,24 +1,80 @@
 
+import { compOf } from "./data";
 import { sayAt, seenByState } from "./charts";
+import { noteUse, priceAt } from "./market";
 import { HOME, payTreasury, realmOf } from "./realm";
 import { L, S, corps, say, systems, upkeepOf, worlds } from "./state";
-import { popOf } from "./world";
-import type { Rock } from "./types";
+import { addStock, popOf, stockAt } from "./world";
+import type { Corp, Rock } from "./types";
 
-export function ventureIncome(): void {
+// ===================== добыча =====================
+// Платформа не приносит денег. Она даёт СЫРЬЁ, и кладёт его на склад хозяина
+// В ТОЙ СИСТЕМЕ, где стоит камень: дальше его надо продать тем, кто здесь жжёт
+// и строит, или увезти туда, где за него дадут больше (haul.ts). Отсюда вся
+// разница между богатой жилой у дома и такой же жилой на краю галактики —
+// раньше её не было вовсе, доход капал одинаково откуда угодно.
+export function ventureWork(): void {
   systems.forEach((s) => {
     for (let i = s.ventures.length - 1; i >= 0; i--) {
       const v = s.ventures[i];
       if (!v.live) continue;
-      corps[v.lead].cash += v.yield;
+      // Сырьё капает дробно, а на складе лежит штуками: недобранное ждёт в wip.
+      v.wip = (v.wip || 0) + v.yield;
+      while (v.wip >= 1) { v.wip -= 1; addStock(corps[v.lead], s.id, v.kind, 1); }
       v.left--;
       if (v.left <= 0) {
-        sayAt(s.id, "Платформа " + corps[v.lead].name + " на " + v.dest.label + " выработала ресурс.");
+        sayAt(s.id, "Платформа " + corps[v.lead].name + " на " + v.dest.label + " выработала камень (" +
+              compOf(v.kind).short + ").");
         (v.dest.ref as Rock).taken = false; s.mines--;
         s.stations = s.stations.filter((st) => { return st.vent !== v; });
         s.ventures.splice(i, 1);
       }
     }
+  });
+}
+
+// ===================== энергия: единственное сырьё, которое деньги ==========
+// Металл съедает цех, вар и просинь жгут корабли — а энергию пьют ЛЮДИ, и
+// платят за неё они же, а не казна мира: это не закупка правительства, а
+// счёт, который приходит каждому. Поэтому деньги здесь появляются в галактике
+// (как и выручка филиалов), а не перекладываются из чужого кармана, и ровно
+// поэтому энергия — та сторона добычи, ради которой всё это возят: камень с
+// энергией на краю галактики не стоит ничего, пока до него не довезли людей,
+// а до людей — его.
+//
+// Налог с этой продажи берёт государство ТОЙ ПЛАНЕТЫ, на которой её продали:
+// то же правило, что у филиалов («платят там, где работают»), иначе рычаг
+// налога перестал бы доставать до главного дохода контор.
+export const POWER_PER_POP = 0.12;   // сколько энергии съедает человечек в месяц
+export const POWER_RESERVE = 12;     // на сколько месяцев мир старается держать запас
+
+/** Сколько энергии сжигает мир за месяц. */
+export function powerUse(w: { pop: { farm: number; prod: number; sci: number; free: number } }): number {
+  return (w.pop.farm + w.pop.prod + w.pop.sci + w.pop.free) * POWER_PER_POP;
+}
+
+export function powerTrade(): void {
+  worlds.forEach((w) => {
+    const use = powerUse(w);
+    w.power = Math.max(0, (w.power || 0) - use);
+    noteUse(w.sys, "power", use);                 // спрос, по которому ходит местная цена
+    const want = Math.floor(use * POWER_RESERVE - w.power);
+    if (want <= 0) return;
+    let seller: Corp = null;
+    corps.forEach((c) => {
+      if (stockAt(c, w.sys, "power") <= 0) return;
+      if (!seller || stockAt(c, w.sys, "power") > stockAt(seller, w.sys, "power")) seller = c;
+    });
+    if (!seller) return;                          // энергии в системе нет — мир сидит без неё
+    const n = Math.min(want, stockAt(seller, w.sys, "power"));
+    if (n <= 0) return;
+    const earn = priceAt("power", w.sys) * n;
+    addStock(seller, w.sys, "power", -n);
+    w.power += n;
+    const due = earn * L.tax;
+    payTreasury(realmOf(w), due);
+    seller.cash += earn - due; seller.sold++;
+    S.trades++; S.turnover += earn; S.powerSold += n;
   });
 }
 

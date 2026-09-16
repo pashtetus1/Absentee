@@ -168,7 +168,13 @@ export function prevStep(k: string): string | null {
 // Чертежи сюда входят наравне с деталями: в них вкладываются теми же деньгами,
 // их так же патентуют и так же догоняют. «Самоделка» вольницы (поколение 0)
 // не входит — её не исследуют, она достаётся всякому, кто взялся за оружие.
+/** Всё, во что контора может вкладывать деньги. СЫРЬЯ ЗДЕСЬ НЕТ и быть не
+ *  может: металл, вар, просинь и энергию не изобретают — их добывают. Пока они
+ *  стояли в этом списке, наука честно вкладывалась в «освоение вара», а потом
+ *  цех делал его из ничего; теперь вместо этого нужен камень, платформа и
+ *  корабль, который довезёт. */
 export function allTech(): Tech[] {
-  return ([] as Tech[]).concat(COMPS, COLTECH, DEVS, DESIGNS.filter((d) => { return d.gen > 0; }));
+  return ([] as Tech[]).concat(COMPS.filter((f) => { return !f.ore; }),
+                               COLTECH, DEVS, DESIGNS.filter((d) => { return d.gen > 0; }));
 }
 export function techOf(k: string): ColTech{ return compOf(k) || colOf(k) || markOf(k) || engOf(k) || devOf(k) || designOf(k); }

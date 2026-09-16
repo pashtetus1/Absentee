@@ -32,7 +32,7 @@ import { fightSeq, setFightSeq } from "./battle";
 import { rngAt, seedOf, setRng } from "./rng";
 import { seqOf, setSeq } from "./shipyard";
 import { DEVS, ensureDev } from "./tech";
-import { L, S, U, cam, clear, corps, docks, feed, fights, fill, flash, gates, grounds, hits, market, patents, shipMarket, freight,
+import { L, S, U, cam, clear, corps, docks, feed, fights, fill, flash, gates, grounds, hits, local, market, patents, shipMarket, freight,
          projects, proposals, purses, resetTickCache, say, shipyards, staged, systems, voyages, warships, worlds } from "./state";
 
 /** Где лежит партия. Рычаги хранятся отдельно и по-старому (levers.ts): они
@@ -43,7 +43,7 @@ export const KEY = "absentee.save";
  *  появилось поле у мира, у конторы, у рейса. Отпечаток ниже ловит правки
  *  таблиц сам, а вот новое поле в объекте ему не видно: старое сохранение
  *  развернулось бы без него и тихо повело бы себя не так. */
-export const FORMAT = 3;
+export const FORMAT = 4;
 
 /** Ровно тот текст, который видит игрок. */
 export const BAD = "СОХРАНЕНИЕ НЕСОВМЕСТИМО";
@@ -193,7 +193,7 @@ const LISTS: Record<string, unknown[]> = {
   // одинаковость объектов тут ничего не держит.
   warships: warships, fights: fights, grounds: grounds, designs: DESIGNS
 };
-const TABLES: Record<string, object> = { market: market, patents: patents, gates: gates, purses: purses, shipMarket: shipMarket };
+const TABLES: Record<string, object> = { market: market, local: local, patents: patents, gates: gates, purses: purses, shipMarket: shipMarket };
 // Таблицы и списки, которых в сохранениях старых сборок ещё нет. Их отсутствие —
 // не чужие правила, а партия, отложенная до их появления: разворачивается с
 // пустыми, и всё добирается по ходу, как в новой партии. Рейсы с деталью в

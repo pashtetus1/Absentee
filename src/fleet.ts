@@ -23,7 +23,7 @@ import { engMult, vtype } from "./data";
 import { dockValue, fits, wantShip } from "./docks";
 import { dispatch } from "./food";
 import { sendParts } from "./freight";
-import { fuelBill, govFuel, takeFuel } from "./market";
+import { fuelBill, govFuel, takeRes } from "./market";
 import { nearestYard, orderWait, slotPrice, yardWait } from "./shipyard";
 import { L, corps, docks, market, say, voyages } from "./state";
 import { canTravel, fuelCost, routeSpeed } from "./travel";
@@ -69,7 +69,7 @@ export function bestOffer(p: Payer, kind: string, need: Record<string, number>, 
     if (d.world !== load) {
       const lf = legFuel(d.world, load);
       if (!corps.some((s) => stockAt(s, d.sys, lf.k) >= lf.n)) return;       // перегнать не на чем
-      fuel = fuelBill(lf.k, lf.n);
+      fuel = fuelBill(lf.k, lf.n, d.sys);
       months = legMonths(d.world, load, d.parts);
     }
     const cost = price + fuel + months * MONTH_VALUE;
@@ -104,7 +104,7 @@ export function takeOffer(p: Payer, o: Offer, load: World): boolean {
   if (purse < o.price + o.fuel + 20) return false;
   if (d.world !== load) {
     const lf = legFuel(d.world, load);
-    const ok = p.corp ? takeFuel(p.corp, d.sys, lf.k, true, lf.n) : govFuel(p.world, d.world, lf.k, lf.n);
+    const ok = p.corp ? takeRes(p.corp, d.sys, lf.k, true, lf.n) : govFuel(p.world, d.world, lf.k, lf.n);
     if (!ok) return false;
   }
   if (o.price > 0) {

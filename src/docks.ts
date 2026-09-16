@@ -64,7 +64,7 @@ export function dockShip(v: Voyage): void {
   let world: World, corp: number, gov: World | null;
   if (v.kind === "food" || v.kind === "pops") {
     world = v.to; corp = v.relief !== undefined ? v.relief : -1; gov = v.relief !== undefined ? null : v.to;
-  } else if (v.kind === "parts" && v.parts && v.parts.length) {
+  } else if ((v.kind === "parts" || v.kind === "ore") && v.parts && v.parts.length) {
     // грузовик покупателя остаётся на орбите первого заселённого мира системы;
     // в системе без миров ему негде встать — списывается
     const b = systems[v.to].bodies.find((o) => { return o.world; });
@@ -149,7 +149,7 @@ export function corpBuyShip(c: Corp, at: World, need: Record<string, number>): {
         if (!seller || stockAt(s, at.sys, k) > stockAt(seller, at.sys, k)) seller = s;
       });
       if (!seller) { ok = false; return; }
-      const p = askPrice(seller, k) * (1 + L.tradeFee);
+      const p = askPrice(seller, k, at.sys) * (1 + L.tradeFee);
       if (c.cash < p + 20) { ok = false; return; }
       c.cash -= p; seller.cash += p / (1 + L.tradeFee); seller.sold++; S.treasury += p - p / (1 + L.tradeFee);
       addStock(seller, at.sys, k, -1); S.trades++; S.turnover += p;

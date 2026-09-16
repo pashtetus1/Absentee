@@ -2,8 +2,9 @@
 
 import { knowsSys, sayAt, seenByState } from "./charts";
 import { shipHp } from "./arms";
-import { armFam, bestArmMade, ownScope, ownSight, scopeMark, shipNeed, sightOfKey, vtype, MARKSPEED } from "./data";
+import { ORES, armFam, bestArmMade, oreRate, ownScope, ownSight, scopeMark, shipNeed, sightOfKey, vtype, MARKSPEED } from "./data";
 import { galaxyRange, rangeOf, within, markLevelOf } from "./galaxy";
+import { anyRes, priceAt } from "./market";
 import { rnd } from "./rng";
 import { YARD_WORK, nearestYard, paySlot, slotPrice, yardAt } from "./shipyard";
 import { L, S, anyMakes, canBuild, corps, dateStr, fill, gates, market, projects, say, systems, voyages, worlds } from "./state";
@@ -14,6 +15,45 @@ import { addStock, hasBranch, openBranch, popOf } from "./world";
 import type { Corp, Order, Part, Planet, Rock, Sat, Sys, VType } from "./types";
 
 export function freeRocks(s: Sys): Rock[]{ return s.rocks.filter((r) => { return !r.taken; }); }
+/** Какую долю цены сырья контора считает деньгами, прикидывая, стоит ли жила
+ *  затрат. Остальное съедают продажа и дорога. */
+export const ORE_CUT = 0.35;
+/** Сколько остаётся от ЧУЖОЙ цены, если сырьё придётся туда везти. Дорога
+ *  стоит просини, времени и риска встретить вольницу. */
+export const HAUL_LOSS = 0.8;
+
+/** Лучшая цена на каждое сырьё среди систем, которые контора знает и куда
+ *  может долететь. Считается ОДИН раз на контору, а не на каждый камень:
+ *  камней в галактике под две сотни, систем полсотни, и перебор одного внутри
+ *  другого стоил бы дороже всего выбора. */
+export function bestMarkets(c: Corp): Record<string, number> {
+  const out: Record<string, number> = {};
+  ORES.forEach((k) => { out[k] = 0; });
+  systems.forEach((s) => {
+    if (!knowsSys(c, s.id) || !reachable(s.id)) return;
+    ORES.forEach((k) => { const p = priceAt(k, s.id); if (p > out[k]) out[k] = p; });
+  });
+  return out;
+}
+/** Во что контора ставит камень: месячная выработка его породы на ту цену, по
+ *  которой она рассчитывает сырьё продать. А продать его можно ЗДЕСЬ или там,
+ *  где за него дают больше, — за вычетом дороги. Без второй половины камень в
+ *  пустой системе не стоил ничего (там ни спроса, ни цены), и конторы не
+ *  выходили за пределы обжитых звёзд вовсе. */
+export function rockValue(r: Rock, sys: number, best: Record<string, number>): number {
+  return oreRate(r.kind) * Math.max(priceAt(r.kind, sys), best[r.kind] * HAUL_LOSS);
+}
+/** Во сколько эта контора ставит лучший свободный камень, который знает.
+ *  Ноль — свободных камней нет вовсе. */
+export function rockWorth(c: Corp): number {
+  const best = bestMarkets(c);
+  let top = 0;
+  systems.forEach((s) => {
+    if (!knowsSys(c, s.id) || !reachable(s.id)) return;
+    freeRocks(s).forEach((r) => { top = Math.max(top, rockValue(r, s.id, best)); });
+  });
+  return top;
+}
 // Заказ не начинают, пока нет горючего, на котором это полетит: иначе корабль
 // собирают, а потом он десятилетиями стоит у стапеля и ест деньги впустую.
 export function buildable(vt: VType, extra?: Record<string, number>): boolean {
@@ -23,7 +63,11 @@ export function buildable(vt: VType, extra?: Record<string, number>): boolean {
   // спутник партии был бы невозможен, пока не освоено межзвёздное топливо, а
   // без первого спутника в партии нет вообще ничего, кроме Тиры.
   const fuelKey = (vt.key === "mine" || vt.key === "colony" || vt.key === "sat") ? "fuel" : "sfuel";
-  if (!anyMakes(fuelKey)) return false;
+  // Топливо теперь не ДЕЛАЮТ, а добывают, поэтому спрашиваем не «умеет ли его
+  // кто-нибудь», а «есть ли оно в галактике вообще»: лежит на складе или его
+  // качает живая платформа. Металл не спрашиваем: без него не вышло бы ни одной
+  // детали, а без деталей набор и так не собрать.
+  if (!anyRes(fuelKey)) return false;
   if (!bestEngineMade()) return false;     // без ходового двигателя корабль не тронется с места
   // Набор считается целиком (shipNeed): в нём и ходовой, и межзвёздная деталь,
   // и КОРПУС, в который всё это должно влезть. Без корпуса нужной вместимости
@@ -221,8 +265,18 @@ export function reviewOrders(): void {
       }
       // Спутник ценится выше ворот: пока звёзды не разглядели, прокладывать
       // маршруты некуда, и очередь на телескоп важнее очереди на створы.
+      // Жила ценится по ТОМУ, ЧТО В КАМНЕ: выработка породы на её цену.
+      // Платформа на просини за те же деньги стоит вчетверо дороже платформы на
+      // варе — но и камней с просинью меньше, и возить её дальше некому.
+      //
+      // ORE_CUT — та доля цены, которую контора рассчитывает увидеть деньгами.
+      // Платформа даёт не монеты, а сырьё: его ещё надо продать, а чаще и
+      // довезти, и по дороге сжечь просинь. Без этой доли жила по очкам
+      // выходила вчетверо выгоднее спутника, и конторы переставали ставить
+      // телескопы вовсе — галактика замирала на трёх звёздах при полных
+      // складах металла.
       let score = vt.key === "sat" ? 50 : vt.key === "gate" ? 46
-                : (vt.yield * 0.55 * vt.term) / Math.max(20, orderCost(vt));
+                : (rockWorth(c) * ORE_CUT * 0.55 * vt.term) / Math.max(20, orderCost(vt));
       let own = 0, all = 0;
       const need = shipNeed(vt, eng, vt.key === "sat" ? kit : undefined);
       Object.keys(need).forEach((k) => { all += need[k]; if (canBuild(c, k)) own += need[k]; });
@@ -235,7 +289,13 @@ export function reviewOrders(): void {
     const o = { type:best.key, need:shipNeed(best, eng, best.key === "sat" ? kit : undefined),
                 got:{}, parts:[] as Part[], born:dateStr() } as Order;
     if (best.key === "mine") {
-      let pickS: Sys = null, top2 = -1;
+      // Камень выбирается по ПОРОДЕ и по дороге: сколько он даёт в месяц, почём
+      // это здесь и как далеко везти платформу. Раньше выбирали систему поближе,
+      // а камень в ней наугад — все камни были одинаковы, и выбирать было не из
+      // чего. Теперь рудный камень под боком и энергетический за три звезды —
+      // разные решения, и контора принимает их сама.
+      let pickS: Sys = null, pickR: Rock = null, top2 = -1;
+      const markets = bestMarkets(c);
       systems.forEach((s) => {
         if (!knowsSys(c, s.id) || !reachable(s.id) || !freeRocks(s).length) return;
         // Платформа в чужую систему идёт своим ходом и под движками везёт
@@ -243,12 +303,13 @@ export function reviewOrders(): void {
         // не считается — иначе компания каждый месяц занимала бы астероид и
         // тут же его отпускала.
         if (!shipNeed(best, eng, travelExtra(baseSys(c, s.id), s.id))) return;
-        const score = 1 / (1 + s.depth * 0.25);
-        if (score > top2) { top2 = score; pickS = s; }
+        freeRocks(s).forEach((r) => {
+          const score = rockValue(r, s.id, markets) / (1 + s.depth * 0.25);
+          if (score > top2) { top2 = score; pickS = s; pickR = r; }
+        });
       });
       if (!pickS) return;
-      const free = freeRocks(pickS);
-      o.rock = free[Math.floor(rnd() * free.length)];
+      o.rock = pickR;
       o.rock.taken = true;
       const ym = nearestYard(baseSys(c, pickS.id), c);
       if (!ym) { o.rock.taken = false; c.needYard = true; return; }
@@ -333,7 +394,7 @@ export function colonyCost(s: Sys): number{ return Math.round(260 * (1 + s.depth
 export function reviewProjects(): void {
   corps.forEach((c) => {
     if (projects.some((p) => { return p.lead === c.id; })) return;
-    if (c.cash < 200 || !anyMakes("fuel")) return;      // модулю нечем взлететь
+    if (c.cash < 200 || !anyRes("fuel")) return;        // модулю нечем взлететь: вара в галактике нет
     const eng = bestEngineMade();
     if (!eng) return;                                   // и не на чем: двигателя нет ни у кого
     let target: { b: Planet; s: Sys } = null, top = -1;
@@ -462,7 +523,8 @@ export function assemble(): void {
       // предприятие числится в системе АСТЕРОИДА, а не сборки
       const r = o.rock, ds = systems[o.dst];
       const v = { sys:o.dst, lead:c.id, type:"mine", name:vt.name, parts:o.parts.slice(),
-                left:vt.term, yield:vt.yield, born:dateStr(), dest:{ kind:"rock", ref:r, label:r.name },
+                kind:r.kind, wip:0, left:vt.term, yield:oreRate(r.kind), born:dateStr(),
+                dest:{ kind:"rock", ref:r, label:r.name },
                 live:false, building:true };
       ds.ventures.push(v);
       yard.queue.push({ vt:vt, vent:v, lead:c.id, color:c.color, glyph:vt.glyph, dest:v.dest,

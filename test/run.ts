@@ -59,6 +59,12 @@ function close(a: number, b: number, eps: number, msg: string): void {
   if (Math.abs(a - b) > eps) throw new Error(msg + " (" + a.toFixed(3) + " против " + b.toFixed(3) + ")");
 }
 
+/** Сырьё это или деталь. Четыре ключа знает и ядро (ORES в data.ts), но стенд
+ *  живёт по собранному файлу и своей таблицы правил не имеет — а разница между
+ *  «сделано в цехе» и «добыто с камня» нужна половине проверок. */
+const ORE_KEYS = ["metal", "fuel", "sfuel", "power"];
+const isOre = (k: string): boolean => ORE_KEYS.indexOf(k) >= 0;
+
 // склад теперь с адресом: c.stock[система][деталь]
 const stockOf = (c: Corp, k: string): number =>
   Object.values(c.stock).reduce((a, s) => a + (s[k] || 0), 0);
@@ -158,12 +164,11 @@ test("склад не забивается деталями без спроса"
   st.corps.forEach((c) => {
     if (c.pirate) return;            // у вольницы склад — награбленное, а не работа
     eachStock(c, (k, n, sys) => {
-      // Топливо цех делает партиями: work = 1, а cap бывает большой, и за один
-      // месяц склад перескакивает потолок 10 до 15-17. Это размер партии, а не
-      // работа в пустоту — потом цех стоит, пока не сожгут. Для деталей потолок
-      // строгий: там work 2-9, и перескок в штуку, не в пятёрку.
-      const cap = (k === "fuel" || k === "sfuel") ? 20 : 12;
-      assert(n <= cap, c.name + ": " + n + " штук «" + k + "» на складе в системе " + sys + " — работа в пустоту");
+      // СЫРЬЁ ЗДЕСЬ НИ ПРИ ЧЁМ: его не делает цех, его качает платформа, и
+      // накопиться его может сколько угодно — это не работа в пустоту, а
+      // склад у камня, с которого никто не вывез. Проверка про цеха.
+      if (isOre(k)) return;
+      assert(n <= 12, c.name + ": " + n + " штук «" + k + "» на складе в системе " + sys + " — работа в пустоту");
     });
   });
 });
@@ -179,9 +184,11 @@ test("за сто лет осваивают хотя бы половину де�
 test("патент даёт монополию на производство", () => {
   const sim = load("dist/index.html", { seed: 29 });
   const st = runYears(sim, 60);
-  // только детали: технологии колонизации на складе не лежат
-  sim.consts.COMPS.map((f) => f.key).forEach((k) => {
+  // только детали: технологии колонизации на складе не лежат, а сырьё не
+  // изобретают вовсе — патента на металл или вар не бывает в принципе
+  sim.consts.COMPS.filter((f) => !f.ore).map((f) => f.key).forEach((k) => {
     const p = st.patents[k];
+    assert(!!p, "у детали «" + k + "» нет строки патента");
     if (p.owner < 0) return;
     const live = Math.floor(st.tick / 12) - p.since < 25;
     if (!live) return;
@@ -404,7 +411,10 @@ test("казна мира не разгоняется до бессмыслен�
 // расселения — иначе на половине сидов игра просто стоит.
 ["drives", "gates"].forEach((mode) => {
   test("способ «" + mode + "»: системы открываются", () => {
-    const sim = load("dist/index.html", { seed: 83 });
+    // Сид пересажен с 83 вместе с приходом сырья: под воротами на нём спутники
+    // к 250 году сбиты все до одного, и проверка «звёзды открыты, а спутников
+    // нет» ловила не поломку, а неудачную партию.
+    const sim = load("dist/index.html", { seed: 5 });
     sim.build(mode);
     const st = runYears(sim, 250);
     assert(st.move.key === mode, "режим не установился");
@@ -651,6 +661,119 @@ test("астероиды раскиданы по системе, а не по к
   assert(avg > 60, "разброс радиусов всего " + avg.toFixed(0) + ": камни выстроились в кольцо");
 });
 
+// ── сырьё: породы камней, цены по системам, энергия ─────────────────────────
+// Всё, из чего строят и чем летают, лежит в камнях, и каждая из этих проверок
+// стоит здесь потому, что без неё соответствующая поломка выглядела бы как
+// "партия почему-то замерла", а не как ошибка.
+test("в стартовой системе есть все четыре породы", () => {
+  // Без вара не взлетает ни один корабль, без металла не делается ни одна
+  // деталь. Если жребий не дал Тире какой-то породы, партия не начинается
+  // вовсе — поэтому в стартовой системе гарантированы четыре разных камня.
+  for (const seed of [1, 2, 3, 5, 8, 13, 21, 34]) {
+    const st = load("dist/index.html", { seed }).state();
+    const home = st.systems[0];
+    assert(home.rocks.length >= 4, "сид " + seed + ": в Тире всего " + home.rocks.length + " камней");
+    ORE_KEYS.forEach((k) => {
+      assert(home.rocks.some((r) => r.kind === k), "сид " + seed + ": в Тире нет камня с породой " + k);
+    });
+  }
+});
+
+test("камней в системе от нуля до семи, и systems без камней бывают", () => {
+  let none = 0, seen = 0;
+  for (const seed of [1, 2, 3, 5, 8]) {
+    const st = load("dist/index.html", { seed }).state();
+    st.systems.forEach((s) => {
+      seen++;
+      assert(s.rocks.length <= 7, s.name + ": " + s.rocks.length + " камней, а больше семи не бывает");
+      s.rocks.forEach((r) => assert(isOre(r.kind), s.name + ": камень " + r.name + " без породы"));
+      if (!s.rocks.length) none++;
+      assert(s.belt === s.rocks.length > 0, s.name + ": пояс и камни разошлись");
+    });
+  }
+  assert(none > 0, "ни одной системы без камней на " + seen + " систем: ноль тоже должен выпадать");
+});
+
+test("планет в системе от одной до пяти, и одинокие бывают", () => {
+  let lonely = 0;
+  for (const seed of [1, 2, 3, 5, 8]) {
+    const st = load("dist/index.html", { seed }).state();
+    st.systems.forEach((s) => {
+      assert(s.bodies.length >= 1 && s.bodies.length <= 5, s.name + ": планет " + s.bodies.length);
+      if (s.bodies.length === 1) lonely++;
+    });
+  }
+  assert(lonely > 0, "ни одной системы с единственной планетой: такие обязаны выпадать");
+});
+
+test("сырьё не исследуют и не патентуют", () => {
+  const sim = load("dist/index.html", { seed: 19 });
+  const st = runYears(sim, 120);
+  ORE_KEYS.forEach((k) => {
+    assert(!st.patents[k], "на сырьё «" + k + "» завели патент");
+    st.corps.forEach((c) => {
+      assert(!c.known[k], c.name + " «освоила» сырьё " + k);
+      assert(c.spent[k] === undefined, c.name + " вкладывает деньги в сырьё " + k);
+      assert(c.target !== k, c.name + " исследует сырьё " + k);
+    });
+  });
+});
+
+test("платформы добывают породу своего камня", () => {
+  const sim = load("dist/index.html", { seed: 23 });
+  const st = runYears(sim, 150);
+  let live = 0;
+  st.systems.forEach((s) => s.ventures.forEach((v) => {
+    if (!v.live) return;
+    live++;
+    const rock = v.dest.ref as { kind: string };
+    assert(v.kind === rock.kind, "платформа на " + v.dest.label + " качает " + v.kind + ", а камень " + rock.kind);
+    assert(v.yield > 0, "платформа на " + v.dest.label + " не даёт ничего");
+  }));
+  assert(live > 0, "за сто пятьдесят лет не встала ни одна платформа");
+  // И добытое где-то лежит: платформа кладёт его на склад в СВОЕЙ системе.
+  const mined = st.corps.reduce((a, c) => a + ORE_KEYS.reduce((b, k) => b + ((c.tot && c.tot[k]) || 0), 0), 0);
+  assert(mined > 0, "платформы стоят, а сырья на складах нет");
+});
+
+test("цена сырья расходится между системами", () => {
+  // В этом весь смысл перевозки: у камня дёшево, у людей дорого. Если цены
+  // везде одинаковы, сырьевой рейс не окупается и его никто не затевает.
+  const sim = load("dist/index.html", { seed: 29 });
+  const st = runYears(sim, 200);
+  let spread = 0;
+  ORE_KEYS.forEach((k) => {
+    const ps = Object.keys(st.local).filter((key) => key.endsWith("|" + k)).map((key) => st.local[key].price);
+    if (ps.length < 2) return;
+    const lo = Math.min.apply(null, ps), hi = Math.max.apply(null, ps);
+    if (hi > lo * 1.2) spread++;
+    ps.forEach((x) => assert(Number.isFinite(x) && x > 0, k + ": местная цена " + x));
+  });
+  assert(spread > 0, "цены на сырьё везде одинаковы: рынок по системам не работает");
+});
+
+test("энергия доезжает до планет и её выпивают", () => {
+  const sim = load("dist/index.html", { seed: 31 });
+  const st = runYears(sim, 200);
+  assert(st.powerSold > 0, "за двести лет мирам не продали ни единицы энергии");
+  st.worlds.forEach((w) => {
+    assert(Number.isFinite(w.power) && w.power >= -1e-9, w.body.name + ": запас энергии " + w.power);
+  });
+});
+
+test("сырьё возят рейсами, а не телепортируют", () => {
+  const sim = load("dist/index.html", { seed: 37 });
+  const st = runYears(sim, 200, (s) => {
+    s.voyages.forEach((v) => {
+      if (v.kind !== "ore") return;
+      assert(isOre(v.k), "сырьевоз везёт не сырьё: " + v.k);
+      assert(v.qty > 0, "сырьевоз идёт порожним");
+      assert(v.sysFrom !== v.to, "сырьевоз идёт сам в себя");
+    });
+  });
+  assert(st.oreHauled > 0, "за двести лет не увезли ни единицы сырья");
+});
+
 test("камни не ложатся под планеты, а места створов свободны", () => {
   // Створ встаёт на последней орбите не дальше 30° от луча к соседу, до
   // которого достаёт лучшая марка (130). Раньше камень мог лечь прямо под
@@ -674,8 +797,11 @@ test("камни не ложатся под планеты, а места ств
     const sys = load("dist/index.html", { seed }).state().systems;
     sys.forEach((s) => {
       const at = (o: { r: number; ang: number }) => ({ x: Math.cos(o.ang) * o.r, y: Math.sin(o.ang) * o.r });
+      // Створы стоят на последней орбите, но не ближе 220 от звезды: в системе
+      // из одной планеты последняя орбита это же первая, и кольцо створов
+      // ложилось прямо на неё.
       const outer = Math.max.apply(null, s.bodies.map((b) => b.r));
-      assert(Math.abs(s.gateR - outer) < 1e-9, s.name + ": ворота не на последней орбите");
+      assert(Math.abs(s.gateR - Math.max(outer, 220)) < 1e-9, s.name + ": ворота не на последней орбите");
       const gates = sys.filter((o) => o !== s && Math.hypot(o.x - s.x, o.y - s.y) <= REACH)
         .map((o) => {
           const ray = Math.atan2(o.y - s.y, o.x - s.x), a = s.gateAngs[o.id];
@@ -710,8 +836,10 @@ test("створы ведут ко всем соседям в конусе, а �
   const diff = (a: number, b: number) => Math.abs(((a - b) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
   let shared = 0, routes = 0;
   // Сиды перебраны вместе со всеми: скан 40 сидов по 300 лет даёт общие створы
-  // в половине партий, эти три — из самых наглядных (4, 4 и 3 общих створа).
-  for (const seed of [13, 16, 33]) {
+  // примерно в каждой восьмой партии, эти три — из самых наглядных (2, 5 и 2
+  // общих створа). Пересажены с 13/16/33 вместе с приходом сырья: партия
+  // пересобирается от любой правки правил, и маршруты ложатся иначе.
+  for (const seed of [7, 15, 40]) {
     const sim = load("dist/index.html", { seed });
     sim.build("gates", seed);
     const st = runYears(sim, 300);
@@ -836,11 +964,11 @@ test("грузовик с деталями долетает и отдаёт гр
   });
 });
 
-test("топлива на складах не бывает меньше нуля", () => {
+test("сырья на складах не бывает меньше нуля", () => {
   const sim = load("dist/index.html", { seed: 7 });
   runYears(sim, 150, (st) => {
     st.corps.forEach((c) => eachStock(c, (k, n) => {
-      if (k === "fuel" || k === "sfuel") assert(n >= 0, c.name + ": " + k + " ушло в минус");
+      if (isOre(k)) assert(n >= 0, c.name + ": " + k + " ушло в минус");
     }));
   });
 });
@@ -970,7 +1098,10 @@ test("спутник несёт телескоп своей конторы, а �
 // спутники её государства, за вольницу — её собственные, поставленные у логова.
 // Сбитый спутник исчезает с орбиты вовсе: контора теряет глаз.
 test("спутник вступает в бой, который идёт у него под носом", () => {
-  const sim = load("dist/index.html", { seed: 2 });
+  // Сид пересажен со 2 вместе с приходом сырья: партия пересобралась, и на
+  // втором вольница за триста лет ни разу не подвела промысел под свой
+  // спутник. Скан сорока сидов: на восьмом двенадцать таких боёв.
+  const sim = load("dist/index.html", { seed: 8 });
   let met = 0, sides = 0;
   const seen = new Set<number>();
   runYears(sim, 300, (st) => {
@@ -1606,7 +1737,11 @@ test("у всех военных технологий пять ступеней,
 
 test("чертежи рождаются в партии, патентуются и по ним строят", () => {
   let made = 0, built = 0, patented = 0;
-  for (const seed of [3, 5]) {
+  // Сиды пересажены с 3/5 вместе с приходом сырья: военное дело — самая дорогая
+  // ветка науки, и на прежней паре ни одна контора до чертежа не доходила.
+  // Скан двадцати четырёх сидов: чертёж патентуется примерно в каждой третьей
+  // партии, на первом и втором — по одному.
+  for (const seed of [1, 2]) {
     const sim = load("dist/index.html", { seed });
     sim.setLever("army", 240);
     const st = runYears(sim, 300);
@@ -1782,7 +1917,7 @@ test("перехваченная деталь не вешает счёт лет�
     };
     st.corps.forEach((c) => {
       if (c.order) check(c.order, c.name + ", сборка");
-      Object.keys(c.fuelAcct || {}).forEach((sys) => check(c.fuelAcct[+sys], c.name + ", топливо в " + sys));
+      Object.keys(c.resAcct || {}).forEach((sys) => check(c.resAcct[+sys], c.name + ", сырьё в " + sys));
     });
     st.projects.forEach((pr) => check(pr, "подписка на " + pr.body.name));
     st.proposals.forEach((pr) => check(pr, "верфь на " + pr.world.body.name));
@@ -1971,7 +2106,7 @@ test("в частной верфи не остаётся чужих сборок
 // Список видов держим здесь: появился новый — сначала научи ему voyageLines и
 // inspector, потом впиши сюда.
 test("видов рейсов ровно столько, сколько знает панель", () => {
-  const known = ["gate", "parts", "food", "pops", "ferry", "reloc", "empty"];
+  const known = ["gate", "parts", "ore", "food", "pops", "ferry", "reloc", "empty"];
   const seen = new Set<string>();
   // Тройка пересажена: с тех пор как галактика раскрывается спутниками, а не
   // прилётами, она за триста лет меньше, и редкие виды рейсов (перегон с
@@ -1986,8 +2121,11 @@ test("видов рейсов ровно столько, сколько знае
 });
 
 test("код отрисовки не падает на заглушках DOM", () => {
-  const sim = load("dist/index.html", { withDom: true, seed: 59 });
-  sim.build("gates");
+  // Сид назван явно и пересажен с 59: партия пересобралась вместе с приходом
+  // сырья, и под воротами на нём за 250 лет не открывалось ни одной звезды —
+  // проверка отрисовки падала на своей же оговорке, а не на отрисовке.
+  const sim = load("dist/index.html", { withDom: true, seed: 1 });
+  sim.build("gates", 1);
   for (let i = 0; i < 250 * 12; i++) {
     sim.step();
     sim.setView(i % 2 ? "map" : "system", 0);

@@ -34,6 +34,12 @@ export const grounds: Ground[] = [];
 export const feed: { d: string; t: string }[] = [];
 export const hits: Hit[] = [];                   // куда можно ткнуть на текущем кадре
 export const market: Record<string, MarketRow> = {};
+// Цены на СЫРЬЁ по системам, ключ «система|вещество» (market.ts). Деталь стоит
+// одинаково по всей галактике — её привезут откуда угодно и она ждёт на складе
+// сколько надо; сырьё жгут и едят на месте, и цена ему там, где оно лежит. В
+// market у сырья тоже есть строка, но она не цена, а СРЕДНЯЯ по галактике: по
+// ней смотрят панели и решают, стоит ли вообще браться за такой камень.
+export const local: Record<string, MarketRow> = {};
 export const shipMarket: Record<string, ShipRow> = {};   // биржа кораблей, ключ — «система:тип» (docks.ts)
 export const patents: Record<string, Patent> = {};
 export const gates: Record<string, Gate> = {};   // ворота по маршрутам, ключ — routeKey
@@ -54,6 +60,10 @@ export const S = {
   moveKnown: false,
   trades: 0, turnover: 0, shipped: 0, movedPops: 0, refusals: 0, dropped: 0,
   hauled: 0, burned: 0, raids: 0, lost: 0,       // деталей отправлено; топлива сожжено; перехватов; миров опустело
+  // Сырьё: сколько единиц увезли сырьевыми рейсами и сколько энергии выпили
+  // миры. По первому видно, живёт ли перевозка, по второму — платят ли
+  // конторам за то, ради чего вся добыча и затевается.
+  oreHauled: 0, powerSold: 0,
   maps: 0, mapNo: 0,                            // карт продано и отказов в карте (charts.ts)
   pirateCount: 0, crestSeq: 0, capSeq: 0,
   // Сколько налога родная казна недополучила с тех пор, как появились

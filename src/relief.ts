@@ -6,7 +6,7 @@ import { holdOf, holdOfType, shipNeed, vtype } from "./data";
 import { corpBuyShip } from "./docks";
 import { bestOffer, buildCost, cargoTo, launch, takeOffer } from "./fleet";
 import { GIVE_OVER, dispatch, surplusWorld } from "./food";
-import { fuelBill, takeFuel } from "./market";
+import { fuelBill, takeRes } from "./market";
 import { rnd } from "./rng";
 import { edgeShipyard, onOrder, orderTransport } from "./shipyard";
 import { S, corps, docks, say, systems, worlds } from "./state";
@@ -59,10 +59,10 @@ export function corpRelief(): void {
     const load = holdOf(dk.parts), cost = load * src.food.price;
     if (load <= 0 || src.food.stock - reserveOf(src) * GIVE_OVER < load) return;
     if (!corps.some((s) => stockAt(s, src.sys, fk) > 0)) return;          // нет горючего на рейс
-    if (payer.cash < cost + offer.price + offer.fuel + fuelBill(fk, tanks) + 60) return;
+    if (payer.cash < cost + offer.price + offer.fuel + fuelBill(fk, tanks, src.sys) + 60) return;
     if (!takeOffer(pay, offer, src)) return;
     // корабль уже куплен — не вышел рейс, он остаётся на стоянке, но уже её
-    if (!takeFuel(payer, src.sys, fk, true, tanks)) { dk.corp = payer.id; dk.gov = null; docks.push(dk); return; }
+    if (!takeRes(payer, src.sys, fk, true, tanks)) { dk.corp = payer.id; dk.gov = null; docks.push(dk); return; }
     payer.cash -= cost; src.gov.cash += cost; src.food.stock -= load;
     src.food.price = Math.min(6, src.food.price * 1.04);
     launch(dk, "food", src, w, load, payer.id);

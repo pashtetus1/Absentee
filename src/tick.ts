@@ -5,8 +5,9 @@ import { battleRun } from "./battle";
 import { groundRun } from "./ground";
 import { abandon, despair } from "./colony";
 import { repriceShips } from "./docks";
-import { economy, ventureIncome } from "./economy";
+import { economy, powerTrade, ventureWork } from "./economy";
 import { freightRun } from "./freight";
+import { haulRun } from "./haul";
 import { produce } from "./factory";
 import { foodRun } from "./food";
 import { labour } from "./labour";
@@ -28,7 +29,10 @@ export function step(): void {
   resetTickCache();
   worlds.forEach(labour);
   economy(); proposalsTick(); edgeYards(); research(); tickCache.dev = new Map(); tickCache.devBest = null;
-  produce(); repriceShips(); trade(); freightRun(); stalledOrders(); stalledProjects();
+  produce(); repriceShips(); trade(); freightRun(); haulRun(); stalledOrders(); stalledProjects();
+  // Энергию продают людям ПОСЛЕ того, как рейсы разгрузились и цены
+  // пересчитаны: мир платит за то, что уже привезли, и по сегодняшней цене.
+  powerTrade();
   if (S.tick % 3 === 0) { patentsExpire(); tickCache.dev = new Map(); tickCache.devBest = null; }
   if (S.tick % 6 === 0) { foodRun(); corpRelief(); migrationRun(); despair(); }
   // Война идёт в таком порядке: сперва наземные битвы (они решают, чей мир),
@@ -42,7 +46,7 @@ export function step(): void {
   if (S.tick % 12 === 0) { mapTrade(); reviewOrders(); reviewProjects(); reviewProposals(); branchTrade(); events(); warOrders(); }
   // Спутники смотрят КАЖДЫЙ месяц и находят по звезде за четыре года: это
   // самая медленная вещь в партии, и считать её раз в год нельзя.
-  assemble(); moveShips(); scanSats(); ventureIncome();
+  assemble(); moveShips(); scanSats(); ventureWork();
   // Мир, где не осталось людей, перестаёт быть миром. Метём в КОНЦЕ месяца, а
   // не сразу после labour: населением за месяц двигает не только убыль, но и
   // переселение, эпидемия и прилетевший рейс, и только здесь оно уже не

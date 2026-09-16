@@ -3,15 +3,15 @@
 // сделкам плюс поправка на дефицит. От неё продавец и покупатель пляшут в
 // торге, но сама по себе она никого ни к чему не обязывает.
 
-import { COMPS, compOf, pickCaptain, shipNeed, vtype } from "./data";
+import { COMPS, ORES, compOf, isOre, pickCaptain, shipNeed, vtype } from "./data";
 import { addLot, lotsOf, unflyLot } from "./freight";
 import { bestEngineAt } from "./tech";
 import { freeRocks, releaseOrder } from "./orders";
-import { L, S, corps, dateStr, docks, freight, market, patLive, patents, projects, proposals, say, shipyards, systems, tickCache, voyages, worlds } from "./state";
+import { L, S, corps, dateStr, docks, freight, local, market, patLive, patents, projects, proposals, say, shipyards, systems, tickCache, voyages, worlds } from "./state";
 import { canTravel, fuelCost, needWith, routeSpeed, travelExtra } from "./travel";
 import { clamp } from "./util";
 import { addStock, firstStockSys, stockAt, totalStock } from "./world";
-import type { Consign, Corp, Order, Part, Project, Proposal, Voyage, World } from "./types";
+import type { Consign, Corp, MarketRow, Order, Part, Project, Proposal, Voyage, World } from "./types";
 
 import type { FlyAcct } from "./types";
 
@@ -29,6 +29,20 @@ export function repriceMarket(): void {
   freight.forEach((l) => { fly[l.k] = (fly[l.k] || 0) + 1; });   // купленное на погрузке — тоже поставка
   COMPS.forEach((f) => {
     let m = market[f.key], stock = 0, want = 0, sellers: Corp[] = [];
+    // Сырьё ценится ПО СИСТЕМАМ (repriceLocal ниже), а в market у него стоит
+    // средняя по галактике. Общий счёт спроса и склада ему всё равно нужен:
+    // по нему видно, много ли его вообще и кто им торгует.
+    if (isOre(f.key)) {
+      corps.forEach((c) => {
+        const have = totalStock(c, f.key);
+        stock += have;
+        if (have > 0) sellers.push(c);
+      });
+      if (!tickCache.sellers) tickCache.sellers = {};
+      tickCache.sellers[f.key] = sellers;
+      m.stock = stock;
+      return;
+    }
     corps.forEach((c) => {
       const have = totalStock(c, f.key);
       stock += have;
@@ -47,53 +61,173 @@ export function repriceMarket(): void {
   });
 }
 
-// ---- топливо ----------------------------------------------------------
-// Топливом торгуют БЕЗ отказов: это расходник, на нём не выигрывают гонку, а
+// ---- сырьё: своя цена в каждой системе ---------------------------------
+// Деталь стоит одинаково по всей галактике, и это честно: её везут откуда
+// угодно, она не портится и ждёт покупателя сколько надо. С сырьём не так. Вар
+// жгут там, где стоит корабль, металл съедает цех той планеты, где он стоит, а
+// энергию выпивают люди того мира, на который её привезли. Поэтому у сырья
+// цена МЕСТНАЯ: у камня, с которого его добыли, оно почти ничего не стоит, а за
+// пять звёзд, где его ждут, — втрое дороже. Разница этих двух цен и есть весь
+// смысл транспортника.
+//
+// Коридор у местной цены уже, чем у детали (0.45..3 базы против 0.35..5):
+// сырьё — расходник, и вилка в семь раз между двумя концами галактики уже
+// делает перевозку выгоднее любой добычи.
+export const ORE_LOW = 0.45, ORE_HIGH = 3;
+/** Память спроса: съеденное в этом месяце забывается за год. */
+export const USE_MEMORY = 12;
+
+export function localKey(sys: number, k: string): string { return sys + "|" + k; }
+/** Строка местного рынка; заводится при первом обращении — по базовой цене. */
+export function localRow(sys: number, k: string): MarketRow {
+  const key = localKey(sys, k), row = local[key];
+  if (row) return row;
+  const base = compOf(k).base;
+  return (local[key] = { price: base, last: base, want: 0, stock: 0 });
+}
+/** Почём это здесь. У детали цена одна на галактику, у сырья — своя в каждой
+ *  системе, и спрашивать её надо ИМЕННО ЗДЕСЬ: тем и живёт торговля. */
+export function priceAt(k: string, sys: number): number {
+  return isOre(k) ? localRow(sys, k).price : market[k].price;
+}
+/** Сырьё здесь съели: спрос запоминается на год и тянет местную цену вверх. */
+export function noteUse(sys: number, k: string, n: number): void {
+  const s = systems[sys];
+  if (!s) return;
+  if (!s.use) s.use = {};
+  s.use[k] = (s.use[k] || 0) + n;
+}
+/** Есть ли это сырьё в галактике вообще: лежит у кого-нибудь или его качает
+ *  живая платформа. Без вара не взлетает ничего, без металла не делается ни
+ *  одна деталь — и заказ, который нечем будет спустить, лучше не начинать. */
+export function anyRes(k: string): boolean {
+  if (corps.some((c) => totalStock(c, k) > 0)) return true;
+  return systems.some((s) => s.ventures.some((v) => v.live && v.kind === k));
+}
+
+/** Месячная пересчётка местных цен. Спрос — сколько сырья здесь съели за
+ *  последний год (s.use, с затуханием), предложение — сколько его здесь лежит
+ *  прямо сейчас. Там, где лежит годовой запас, цена падает к полу; там, где
+ *  жгут, а на складе пусто, — упирается в потолок. */
+export function repriceLocal(): void {
+  const have: Record<string, number> = {};
+  corps.forEach((c) => {
+    for (const sys in c.stock) {
+      const row = c.stock[sys];
+      ORES.forEach((k) => { if (row[k] > 0) have[sys + "|" + k] = (have[sys + "|" + k] || 0) + row[k]; });
+    }
+  });
+  const sum: Record<string, number> = {}, weight: Record<string, number> = {};
+  systems.forEach((s) => {
+    if (!s.use) s.use = {};
+    ORES.forEach((k) => {
+      const key = localKey(s.id, k);
+      const use = s.use[k] || 0, stock = have[key] || 0;
+      // Строк на пустом месте не заводим: пятьдесят систем на четыре вещества —
+      // это две сотни записей в сохранении, из которых почти все были бы про
+      // звезду, где никто ничего не жёг и не добывал.
+      if (!use && !stock && !local[key]) return;
+      const row = localRow(s.id, k), base = compOf(k).base;
+      row.last = row.price;
+      row.want = use; row.stock = stock;
+      // МЁРТВЫЙ РЫНОК СПОЛЗАЕТ К ПОЛУ. Система, где это сырьё никто не жжёт и
+      // никто не держит, — не «рынок по базовой цене», а место, где за него не
+      // дадут ничего: везти туда некому и незачем. Пока цена там стояла на
+      // базе, она выглядела лучшей в галактике, и сырьевые рейсы уходили в
+      // пустые системы, где груз ложился мёртвым грузом.
+      row.price = use + stock <= 0
+        ? Math.max(base * ORE_LOW, row.price * 0.98)
+        : clamp(row.price * clamp(1 + 0.06 * (use - stock) / (use + stock + 2), 0.94, 1.07),
+                base * ORE_LOW, base * ORE_HIGH);
+      s.use[k] = use * (1 - 1 / USE_MEMORY);
+      // Средняя по галактике — по складу: цена в системе, где лежит сотня
+      // единиц, весит больше, чем в той, где не лежит ничего.
+      const w = stock + 0.5;
+      sum[k] = (sum[k] || 0) + row.price * w; weight[k] = (weight[k] || 0) + w;
+    });
+  });
+  ORES.forEach((k) => {
+    const m = market[k];
+    m.last = m.price;
+    if (weight[k]) m.price = sum[k] / weight[k];
+  });
+}
+
+// ---- топливо и прочее сырьё -------------------------------------------
+// Сырьём торгуют БЕЗ отказов: это расходник, на нём не выигрывают гонку, а
 // запрет на него мгновенно запирает всю галактику и убивает партию. Берём
 // своё, если есть в этой системе, иначе покупаем у соседа по цеху.
-// n — сколько баков нужно на рейс: под воротами топливо жжётся на КАЖДОМ
-// створе, и дальний конец сети обходится дороже ближнего.
-export function takeFuel(c: Corp, sys: number, k: string, direct?: boolean, n?: number): boolean {
+// n — сколько единиц нужно: под воротами топливо жжётся на КАЖДОМ створе, и
+// дальний конец сети обходится дороже ближнего; цеху на корпус нужно пять
+// металла, а на трюм один.
+export function takeRes(c: Corp, sys: number, k: string, direct?: boolean, n?: number): boolean {
   const want = n || 1;
-  if (stockAt(c, sys, k) >= want) { addStock(c, sys, k, -want); return true; }
-  let seller: Corp = null;
-  corps.forEach((s) => {
-    if (s.id === c.id || stockAt(s, sys, k) <= 0) return;
-    if (!seller || stockAt(s, sys, k) > stockAt(seller, sys, k)) seller = s;
-  });
-  if (!seller) {
-    // В этой системе топлива нет — заказываем танкер из другой. Он приедет
-    // через годы, и до тех пор корабль стоит. direct запрещает вложенный
-    // заказ: танкеру за топливом для танкера ехать некуда.
-    if (direct) return false;
-    // танкер тоже заказывают один раз, а не каждый месяц: у топлива свой
-    // счёт летящего на каждую систему
-    if (!c.fuelAcct) c.fuelAcct = {};
-    const acct = c.fuelAcct[sys] || (c.fuelAcct[sys] = { fly:{} });
-    if ((acct.fly[k] || 0) > 0) return false;
-    buyPart(c, k, sys, 0.6,
-            (sum: number) => { if (c.cash < sum + 10) return false; c.cash -= sum; return true; },
-            "stock", true, acct);
-    return false;
+  const own = Math.min(want, stockAt(c, sys, k));
+  const need = want - own;
+  if (need > 0) {
+    // Кто продаст: все, у кого это лежит В ЭТОЙ системе, от самого запасливого.
+    // Берём у нескольких, если у одного не хватает: три бака просини на дальний
+    // конец сети редко находятся в одних руках.
+    const sellers = corps.filter((s) => { return s.id !== c.id && stockAt(s, sys, k) > 0; })
+                         .sort((a, b) => { return stockAt(b, sys, k) - stockAt(a, sys, k); });
+    const pool = sellers.reduce((a, s) => { return a + stockAt(s, sys, k); }, 0);
+    if (pool < need) {
+      // В этой системе сырья не хватает — заказываем подвоз из другой. Он
+      // приедет через годы, и до тех пор корабль стоит, а цех не работает.
+      // direct запрещает вложенный заказ: танкеру за варом для танкера ехать
+      // некуда.
+      if (!direct) orderRes(c, sys, k);
+      return false;
+    }
+    const price = priceAt(k, sys) * (1 + L.tradeFee);
+    if (c.cash < price * need + 10) return false;
+    let left = need;
+    sellers.forEach((s) => {
+      if (left <= 0) return;
+      const take = Math.min(left, stockAt(s, sys, k));
+      left -= take;
+      addStock(s, sys, k, -take);
+      c.cash -= price * take; s.cash += price * take / (1 + L.tradeFee); s.sold++;
+      S.treasury += (price - price / (1 + L.tradeFee)) * take;
+      S.trades++; S.turnover += price * take;
+    });
   }
-  const price = market[k].price * (1 + L.tradeFee);
-  if (c.cash < price + 10) return false;
-  c.cash -= price; seller.cash += market[k].price; seller.sold++;
-  S.treasury += price - market[k].price;
-  addStock(seller, sys, k, -1);
-  S.trades++; S.turnover += price; S.burned++;
+  if (own > 0) addStock(c, sys, k, -own);
+  spend(sys, k, want);
   return true;
+}
+/** Заказать подвоз сырья в эту систему: купить его там, где оно есть, и
+ *  положить на свой склад здесь. НИЧЕГО НЕ РАСХОДУЕТ — это заказ, а не расход,
+ *  и звать его можно каждый месяц: подвоз заказывают ОДИН раз, пока летит
+ *  предыдущий, и на это у каждой системы свой счёт летящего. */
+export function orderRes(c: Corp, sys: number, k: string): void {
+  if (!c.resAcct) c.resAcct = {};
+  const acct = c.resAcct[sys] || (c.resAcct[sys] = { fly:{} });
+  if ((acct.fly[k] || 0) > 0) return;
+  buyPart(c, k, sys, 0.6,
+          (sum: number) => { if (c.cash < sum + 10) return false; c.cash -= sum; return true; },
+          "stock", true, acct);
+}
+/** Сырьё СЪЕДЕНО здесь: спрос в местную цену, и, если это топливо, ещё и в
+ *  счётчик сожжённого. Одна дверь на все расходы, потому что и цена, и счётчик
+ *  врут одинаково, когда расход мимо неё проходит. */
+export function spend(sys: number, k: string, n: number): void {
+  noteUse(sys, k, n);
+  if (k === "fuel" || k === "sfuel") S.burned += n;
 }
 // есть ли в системе мира продавец топлива, и хватит ли казне — проверяется
 // ДО покупки корабля, чтобы не остаться с оплаченным корпусом без горючего
 export function govFuelAvail(payer: World, at: World, k: string, n?: number): boolean {
   const want = n || 1;
-  return payer.gov.cash >= fuelBill(k, want) + 10 && corps.some((s) => { return stockAt(s, at.sys, k) >= want; });
+  return payer.gov.cash >= fuelBill(k, want, at.sys) + 10 &&
+         corps.some((s) => { return stockAt(s, at.sys, k) >= want; });
 }
-/** Во что обойдётся заправка: цена с наценкой за все баки. Считается в одном
- *  месте, потому что по этому счёту и проверяют кассу, и списывают с неё. */
-export function fuelBill(k: string, n?: number): number {
-  return market[k].price * (1 + L.tradeFee) * (n || 1);
+/** Во что обойдётся заправка ЗДЕСЬ: местная цена с наценкой за все баки.
+ *  Считается в одном месте, потому что по этому счёту и проверяют кассу, и
+ *  списывают с неё. Система обязательна: у вара в разных концах галактики
+ *  цена разная, и прикидка по средней обманула бы кассу в обе стороны. */
+export function fuelBill(k: string, n: number, sys: number): number {
+  return priceAt(k, sys) * (1 + L.tradeFee) * (n || 1);
 }
 // правительство мира жжёт своё топливо так же, только платит из своей казны
 export function govFuel(payer: World, at: World, k: string, n?: number): boolean {
@@ -104,12 +238,13 @@ export function govFuel(payer: World, at: World, k: string, n?: number): boolean
     if (!seller || stockAt(s, at.sys, k) > stockAt(seller, at.sys, k)) seller = s;
   });
   if (!seller) return false;
-  const price = market[k].price * (1 + L.tradeFee) * want;
+  const net = priceAt(k, at.sys) * want, price = net * (1 + L.tradeFee);
   if (payer.gov.cash < price + 10) return false;
-  payer.gov.cash -= price; seller.cash += market[k].price * want; seller.sold++;
-  S.treasury += price - market[k].price * want;
+  payer.gov.cash -= price; seller.cash += net; seller.sold++;
+  S.treasury += price - net;
   addStock(seller, at.sys, k, -want);
-  S.trades++; S.turnover += price; S.burned += want;
+  S.trades++; S.turnover += price;
+  spend(at.sys, k, want);
   return true;
 }
 
@@ -119,24 +254,35 @@ export function govFuel(payer: World, at: World, k: string, n?: number): boolean
 // наполовину декорацией: цена одна на всех и торговаться не о чем.
 // После каждой попытки обе стороны подвигают свои притязания, поэтому цены
 // сходятся сами, а жадный продавец какое-то время сидит без сделок.
-export function askPrice(seller: Corp, k: string): number {
-  return market[k].price * clamp(seller.ask[k], 0.7, 2.2);
+// Цена, от которой пляшет торг, — МЕСТНАЯ (priceAt): у детали она одна на
+// галактику, у сырья своя в каждой системе, и торговаться о варе по средней
+// цене значило бы не заметить, что здесь его девать некуда, а там за него
+// дерутся. Система — та, ГДЕ ЛЕЖИТ ТОВАР: продавец назначает цену по своему
+// складу, покупатель соглашается или нет.
+export function askPrice(seller: Corp, k: string, sys: number): number {
+  return priceAt(k, sys) * clamp(seller.ask[k], 0.7, 2.2);
 }
-export function bidCap(buyer: Corp, k: string, urgency: number): number {
+export function bidCap(buyer: Corp, k: string, urgency: number, sys: number): number {
   // чем дольше ждёт заказ и чем богаче покупатель, тем выше он готов задрать
-  return market[k].price * clamp(0.9 + urgency * 0.5 + (buyer.cash > 1200 ? 0.15 : 0), 0.8, 2.0);
+  return priceAt(k, sys) * clamp(0.9 + urgency * 0.5 + (buyer.cash > 1200 ? 0.15 : 0), 0.8, 2.0);
 }
-export function haggle(seller: Corp, buyer: Corp, k: string, urgency: number): number {
-  const ask = askPrice(seller, k), cap = bidCap(buyer, k, urgency);
+export function haggle(seller: Corp, buyer: Corp, k: string, urgency: number, sys: number): number {
+  const ask = askPrice(seller, k, sys), cap = bidCap(buyer, k, urgency, sys);
   if (ask > cap) {                                   // не сошлись
     seller.ask[k] = clamp(seller.ask[k] - 0.02, 0.7, 2.2);
     return 0;
   }
   seller.ask[k] = clamp(seller.ask[k] + 0.012, 0.7, 2.2);
   const price = (ask + cap) / 2;
-  // ходовая цена подтягивается к состоявшейся сделке
-  market[k].price = clamp(market[k].price * 0.96 + price * 0.04,
-                          compOf(k).base * 0.35, compOf(k).base * 5);
+  // ходовая цена подтягивается к состоявшейся сделке — та самая, по которой
+  // торговались: местная у сырья, галактическая у детали
+  const base = compOf(k).base;
+  if (isOre(k)) {
+    const row = localRow(sys, k);
+    row.price = clamp(row.price * 0.96 + price * 0.04, base * ORE_LOW, base * ORE_HIGH);
+  } else {
+    market[k].price = clamp(market[k].price * 0.96 + price * 0.04, base * 0.35, base * 5);
+  }
   return price;
 }
 // ---- отказ продавать -------------------------------------------------
@@ -178,6 +324,11 @@ export function lastPrize(): boolean {
 }
 
 export function willSell(seller: Corp, buyer: Corp, k: string): boolean {
+  // Сырьём не отказывают торговать НИКОГДА, и это не поблажка, а то же
+  // правило, что было у топлива: расходником запирают не соперника, а
+  // галактику. Без вара не взлетает ни один корабль, без металла не делается
+  // ни одна деталь — и одна обиженная контора остановила бы всех разом.
+  if (isOre(k)) return true;
   const e = seller.embargo[embKey(buyer.id, k)];
   if (e && e > S.tick) return false;                    // отказ ещё в силе
   if (e && e <= S.tick) delete seller.embargo[embKey(buyer.id, k)];
@@ -343,7 +494,7 @@ export function buyPart(buyer: Corp, k: string, dest: number, urgency: number, p
     const cnd = cands[i];
     if (!noRefuse && !willSell(cnd.s, buyer, k)) continue;
     if (cnd.from !== dest && !canTravel(cnd.from, dest)) continue;      // дороги нет
-    const p = haggle(cnd.s, buyer, k, urgency);
+    const p = haggle(cnd.s, buyer, k, urgency, cnd.from);
     if (!p) continue;                                                   // не сошлись в цене
     seller = cnd.s; sysFrom = cnd.from; price = p;
     break;
@@ -378,6 +529,7 @@ export function unfly(v: Voyage): void {
 
 export function trade(): void {
   repriceMarket();
+  repriceLocal();
   corps.forEach((c) => {
     if (!c.order) return;
     const urgency = Math.min(1, (c.order.wait || 0) / 48);
@@ -406,7 +558,7 @@ export function trade(): void {
       if ((pr.need[f.key] || 0) - (pr.got[f.key] || 0) - (pr.fly[f.key] || 0) <= 0) return;
       // своё, лежащее на месте, ведущий продаёт консорциуму по ходовой
       if (stockAt(lead, pr.sys, f.key) > 0) {
-        const p = market[f.key].price;
+        const p = priceAt(f.key, pr.sys);
         if (pr.purse < p) return;
         pr.purse -= p; lead.cash += p; addStock(lead, pr.sys, f.key, -1);
         pr.got[f.key] = (pr.got[f.key] || 0) + 1; pr.parts.push({ k:f.key, from:lead.id });

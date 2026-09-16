@@ -16,21 +16,21 @@
 // ходовой не работает вовсе, там правит марка межзвёздного перехода
 // (markSpeedOf), и она же решает, добьёт ли корабль до цели.
 
-import { POPS_PER_LIFE, engMult, pickCaptain, seatsOf } from "./data";
+import { POPS_PER_LIFE, compOf, engMult, pickCaptain, seatsOf } from "./data";
 import { newWarship } from "./battle";
 import { designOf } from "./arms";
 import { loadUp } from "./fleet";
 import { dockShip } from "./docks";
 import { markLevelOf, markSpeedOf } from "./galaxy";
 import { partMark } from "./data";
-import { landPart, takeFuel } from "./market";
+import { landPart, takeRes } from "./market";
 import { rnd } from "./rng";
 import { yardAt } from "./shipyard";
 import { sayAt } from "./charts";
 import { S, U, corps, dateStr, docks, gates, say, shipyards, staged, systems, voyages } from "./state";
 import { ensurePortal, fuelCost, newGate, routeKey, syncRoutes, useRoute } from "./travel";
 import { popsWord, rnd6 } from "./util";
-import { makeWorld, openBranch } from "./world";
+import { addStock, makeWorld, openBranch } from "./world";
 import type { Gate, Ship, Sys, Voyage, Yard } from "./types";
 
 /** Скорость межзвёздного корабля: по марке детали на борту; нет детали (под
@@ -54,16 +54,16 @@ export function moveShips(): void {
   for (let i = staged.length - 1; i >= 0; i--) {
     const st = staged[i], c = corps[st.corp];
     const what = st.kind === "gate" ? "портальный корабль" : "первопроходец";
-    if (!takeFuel(c, st.at, "sfuel", false, fuelCost(st.at, st.to))) {
+    if (!takeRes(c, st.at, "sfuel", false, fuelCost(st.at, st.to))) {
       st.fuelWait++;
       if (st.fuelWait === 1 || st.fuelWait % 36 === 0)
-        sayAt(st.at, "<b>" + c.name + "</b>: " + what + " стоит в " + systems[st.at].name + " без межзвёздного топлива.");
+        sayAt(st.at, "<b>" + c.name + "</b>: " + what + " стоит в " + systems[st.at].name + " без просини.");
       continue;
     }
     staged.splice(i, 1);
     voyages.push({ kind:st.kind, sysFrom:st.at, to:st.to, corp:st.corp, color:st.color, parts:st.parts, upgrade:st.upgrade,
                    t:0, dur:(220 + rnd()*80) / shipMark(st.parts, st.corp), born:dateStr(), captain:st.captain });
-    sayAt(st.to, "<b>" + c.name + "</b>: " + what + " заправился в " + systems[st.at].name + " и вышел к " + systems[st.to].name + ".");
+    sayAt(st.to, "<b>" + c.name + "</b>: " + what + " залил просинь в " + systems[st.at].name + " и вышел к " + systems[st.to].name + ".");
   }
 
   systems.forEach((s) => {
@@ -93,10 +93,10 @@ export function moveShips(): void {
       // сливает своё из награбленного, и требовать с неё покупки было бы
       // ровно тем же, что запретить разбой на окраине, где топливом не торгуют.
       if (yd.vt.key === "war") {
-        if (!lead.pirate && !takeFuel(lead, s.id, "fuel", false, 1)) {
+        if (!lead.pirate && !takeRes(lead, s.id, "fuel", false, 1)) {
           yd.left = 0; yd.fuelWait = (yd.fuelWait || 0) + 1;
           if (yd.fuelWait === 1 || yd.fuelWait % 36 === 0)
-            say("<b>" + lead.name + "</b>: военный корабль в " + s.name + " готов, но топлива в системе нет.");
+            say("<b>" + lead.name + "</b>: военный корабль в " + s.name + " готов, но вара в системе нет.");
           continue;
         }
         yard.queue.splice(q, 1);
@@ -128,11 +128,11 @@ export function moveShips(): void {
       const jumper = yd.vt.key === "gate";
       const fuelKind = (jumper || far) ? "sfuel" : "fuel";
       const tanks = far ? fuelCost(s.id, yd.dst) : 1;
-      if (!takeFuel(lead, s.id, fuelKind, false, tanks)) {
+      if (!takeRes(lead, s.id, fuelKind, false, tanks)) {
         yd.left = 0; yd.fuelWait = (yd.fuelWait || 0) + 1;   // готов, ждёт топлива
         if (yd.fuelWait === 1 || yd.fuelWait % 36 === 0)
           sayAt(s.id, "<b>" + lead.name + "</b>: " + yd.vt.name + " в " + s.name + " готов, но " +
-              (fuelKind === "sfuel" ? "межзвёздного" : "местного") + " топлива в системе нет" +
+              (fuelKind === "sfuel" ? "просини" : "вара") + " в системе нет" +
               (tanks > 1 ? " (нужно " + tanks + ")" : "") + ".");
         continue;
       }
@@ -304,6 +304,14 @@ export function arriveVoyage(v: Voyage): void {
   }
   if (v.kind === "empty") { loadUp(v); return; }   // дошёл до погрузки — дальше с грузом (fleet.ts)
   if (v.kind === "parts") { landPart(v); dockShip(v); return; }
+  // Сырьевой рейс: груз ложится на склад хозяина В ЭТОЙ системе, и с этой
+  // минуты он здешний — его жгут, едят и покупают по здешней цене.
+  if (v.kind === "ore") {
+    addStock(corps[v.forCorp], v.to as number, v.k, v.qty);
+    sayAt(v.to as number, "<b>" + corps[v.forCorp].name + "</b> привезла " + v.qty + " " +
+        compOf(v.k).short + " в " + systems[v.to as number].name + ".");
+    dockShip(v); return;
+  }
   if (v.kind === "food") { v.to.food.stock += v.qty; dockShip(v); return; }
   if (v.kind === "pops") {
     dockShip(v);

@@ -1,6 +1,6 @@
 // ===================== галактика =====================
 
-import { BODYNAMES, MARKRANGE, MARKS, ROCKNAMES, SYSNAMES, ptypeOf, rollType } from "./data";
+import { BODYNAMES, MARKRANGE, MARKS, ROCKKINDS, ROCKNAMES, SYSNAMES, ptypeOf, rollType } from "./data";
 import { CH, CW } from "./render/canvas";
 import { rnd } from "./rng";
 import { canBuild, corps, fill, systems } from "./state";
@@ -10,11 +10,17 @@ import type { Corp, Mark, PType, Sys } from "./types";
 // pts — координаты ВСЕХ звёзд: направления на соседей, до которых когда-нибудь
 // дотянется портал, резервируются под ворота ещё при расстановке планет.
 export function makeSystem(i: number, name: string, x: number, y: number, pool: string[], pts: { x: number; y: number }[]): Sys {
-  // belt и gate дописываются ниже: belt тянет случайное число, и перенос его
-  // в литерал сдвинул бы весь поток — партии перестали бы воспроизводиться
+  // belt и gate дописываются ниже: камни раскидываются в самом конце, и
+  // перенос этого в литерал сдвинул бы весь поток случайности — партии
+  // перестали бы воспроизводиться
   const s = { id:i, name:name, x:x, y:y, unlocked:i === 0, depth:0, pulse:0,
-            bodies:[], rocks:[], ventures:[], ships:[], stations:[], sats:[], mines:0, portals:[] } as unknown as Sys;
-  const np = i === 0 ? 4 : 2 + Math.floor(rnd() * 4);      // до пяти планет
+            bodies:[], rocks:[], ventures:[], ships:[], stations:[], sats:[], mines:0, portals:[],
+            use:{} } as unknown as Sys;
+  // Планет в системе от ОДНОЙ до пяти. Одна — это не бедная система, а другая
+  // система: в ней негде поставить вторую колонию, некуда переселять и почти
+  // некому покупать энергию, зато и делить её не с кем. В стартовой планет
+  // четыре, и это единственное исключение.
+  const np = i === 0 ? 4 : 1 + Math.floor(rnd() * 5);
   const types: PType[] = [], rs: number[] = [];
   for (let k = 0; k < np; k++) {
     types.push((i === 0 && k === 0) ? ptypeOf("terran") : rollType());
@@ -28,7 +34,11 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
   // звезду: допускается уход до 30° в любую сторону, и место выбирается
   // ближайшее к лучу из тех, где нет планеты. Планеты при этом стоят где
   // хотят; углы перебираются лишь когда какому-то створу места не нашлось.
-  s.gateR = rs[np - 1];
+  // Створы стоят на ПОСЛЕДНЕЙ орбите — но не ближе 220 от звезды. Оговорка
+  // появилась вместе с системами из одной планеты: там последняя орбита это же
+  // первая, около 150, и кольцо створов ложилось прямо на планету — места под
+  // створ не находилось, и он вставал поверх неё.
+  s.gateR = Math.max(rs[np - 1], 220);
   s.gateAngs = {};
   const reach = MARKRANGE[MARKRANGE.length - 1];
   const aims: { id: number; ang: number }[] = [];
@@ -82,10 +92,20 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
   // «радиусы разные ИЛИ углы разные» сравнивала разность углов не с тем
   // знаком и пропускала почти всё — камень ложился прямо под планету, и её
   // подпись накрывала его имя.
-  s.belt = i === 0 || rnd() < 0.75;
-  if (s.belt) {
-    let n = 5 + Math.floor(rnd()*4), guard = 0,
+  // СКОЛЬКО ИХ. От нуля до семи, и ноль здесь такой же законный ответ, как
+  // семь: система без единого камня — это система, в которой нечего добывать,
+  // и лететь в неё имеет смысл только ради планет. Стартовая — исключение, и
+  // оно одно на всю галактику: в Тире камней не меньше четырёх, и первые
+  // четыре РАЗНЫХ ПОРОД. Иначе партия начиналась бы с жребия, который решает
+  // всё: без вара не взлетает ни один корабль, без металла цех не делает ни
+  // одной детали, а добыть их можно только платформой, которую надо из чего-то
+  // собрать и чем-то спустить.
+  const n = i === 0 ? 4 + Math.floor(rnd() * 4) : Math.floor(rnd() * 8);
+  {
+    let guard = 0,
         names = ROCKNAMES.slice().sort(() => { return rnd() - 0.5; });
+    // Породы стартовой системы: четыре разные, вперемешку, дальше как повезёт.
+    const first = ROCKKINDS.slice().sort(() => { return rnd() - 0.5; });
     while (s.rocks.length < n && guard++ < 400) {
       const rr = 78 + rnd() * 244, aa = rnd6();
       const x = Math.cos(aa) * rr, y = Math.sin(aa) * rr;
@@ -98,10 +118,14 @@ export function makeSystem(i: number, name: string, x: number, y: number, pool: 
         return Math.hypot(Math.cos(o.ang) * o.r - x, Math.sin(o.ang) * o.r - y) > 34;
       });
       if (!clear) continue;
-      s.rocks.push({ name:names[s.rocks.length], r:rr, ang:aa,
+      const kind = (i === 0 && s.rocks.length < first.length)
+                 ? first[s.rocks.length]
+                 : ROCKKINDS[Math.floor(rnd() * ROCKKINDS.length)];
+      s.rocks.push({ name:names[s.rocks.length], kind:kind, r:rr, ang:aa,
                      s:4.2 + rnd()*2.6, seed:rnd()*6.28, taken:false });
     }
   }
+  s.belt = s.rocks.length > 0;
   return s;
 }
 

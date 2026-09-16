@@ -13,7 +13,7 @@ import { bindUI } from "./render/ui";
 import { build } from "./setup";
 import { seedOf } from "./rng";
 import { gameText, restore } from "./save";
-import { L, S, U, corps, docks, feed, fights, gates, grounds, headless, market, shipMarket, freight, patents, projects, proposals, purses, shipyards, staged, systems, voyages, warships, worlds } from "./state";
+import { L, S, U, corps, docks, feed, fights, gates, grounds, headless, local, market, shipMarket, freight, patents, projects, proposals, purses, shipyards, staged, systems, voyages, warships, worlds } from "./state";
 import { ENGINES, speedOf } from "./tech";
 import { step } from "./tick";
 import { harvestOf, yieldPerFarmer } from "./labour";
@@ -40,11 +40,12 @@ export { knowsSys, seenByState };
 
 export function state(): Snapshot {
   return { tick: S.tick, treasury: S.treasury, corps: corps, worlds: worlds, systems: systems,
-           move: S.move, gates: gates, market: market, shipMarket: shipMarket, freight: freight, patents: patents, voyages: voyages, projects: projects, shipyards: shipyards, proposals: proposals, staged: staged,
+           move: S.move, gates: gates, market: market, local: local, shipMarket: shipMarket, freight: freight, patents: patents, voyages: voyages, projects: projects, shipyards: shipyards, proposals: proposals, staged: staged,
            purses: purses, taxAway: S.taxAway,
            warships: warships, fights: fights, grounds: grounds, designs: DESIGNS,
            armyFund: S.armyFund, battles: S.battles, downed: S.downed, risings: S.risings,
            trades: S.trades, shipped: S.shipped, movedPops: S.movedPops, refusals: S.refusals, dropped: S.dropped,
+           oreHauled: S.oreHauled, powerSold: S.powerSold,
            hauled: S.hauled, burned: S.burned, raids: S.raids, lost: S.lost,
            maps: S.maps, mapNo: S.mapNo, docks: docks, feed: feed };
 }

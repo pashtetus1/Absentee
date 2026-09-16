@@ -215,7 +215,7 @@ function buyArsenal(): boolean {
     if (!seller || stockAt(s, best.sys, key) > stockAt(seller, best.sys, key)) seller = s;
   });
   if (!seller) return false;
-  const price = askPrice(seller, key) * (1 + L.tradeFee);
+  const price = askPrice(seller, key, best.sys) * (1 + L.tradeFee);
   if (S.armyFund < price) return false;
   S.armyFund -= price;
   seller.cash += price / (1 + L.tradeFee); seller.sold++;

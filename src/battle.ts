@@ -300,6 +300,11 @@ export function plunder(p: Corp, v: Voyage, f?: Fight): void {
       ds.ventures = ds.ventures.filter((x) => { return x !== v.vent; });
       loot = "готовая платформа";
     }
+  } else if (v.kind === "ore") {
+    // Сырьевоз — самая жирная добыча: двадцать единиц навалом вместо двух
+    // деталей. Груз ложится на склад логова, как и всё остальное взятое.
+    addStock(p, ps.id, v.k, v.qty);
+    loot = v.qty + " " + compOf(v.k).short;
   } else {
     const lots = lotsOf(v);
     lots.forEach((l) => { addStock(p, ps.id, l.k, 1); });
@@ -342,7 +347,7 @@ export function raidHunt(p: Corp): void {
     const v = voyages[i];
     if (!v || v.fight !== undefined) continue;
     if (v.kind === "jump" || v.kind === "gate" || v.kind === "reloc" || v.kind === "empty") continue;
-    const owner = v.kind === "parts" ? v.forCorp
+    const owner = (v.kind === "parts" || v.kind === "ore") ? v.forCorp
                 : v.kind === "ferry" ? v.corp
                 : (v.relief !== undefined ? v.relief : -1);
     if (owner === p.id) continue;

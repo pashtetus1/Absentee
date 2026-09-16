@@ -2,10 +2,10 @@
 
 import { PTYPES, armOf, bestHullMade, colOf, compOf, isArm, isEngine, isHull, isScope, markOf, ownSight, roomOfKey, sightOfKey } from "./data";
 import { ensureDesign, isDesign } from "./arms";
-import { galaxyRange, rangeOf, within } from "./galaxy";
+import { rangeOf, within } from "./galaxy";
 import { knowsSys } from "./charts";
 import { isRealm } from "./realm";
-import { L, S, Y, anyKnows, anyMakes, corps, flash, knows, patLive, patents, say, shipyards, staged, systems, voyages } from "./state";
+import { L, S, Y, anyKnows, corps, flash, knows, patLive, patents, say, systems, voyages } from "./state";
 import { allTech, bestEngineMade, devOf, engOf, ensureDev, markStep, ownEngine, ownHull, prevStep, stepKey, techOf } from "./tech";
 import type { Corp } from "./types";
 
@@ -126,14 +126,10 @@ export function pickTarget(c: Corp): string | null {
       // дороже, чем «летать вообще»: первый двигатель 3.4, топливо 2.8.
       worth = Math.min(worth, 2.6);
     }
-    else if (f.key === "fuel") worth = 2.8;                              // без него не взлетает ничего
-    else if (f.key === "sfuel") {
-      // межзвёздное топливо дорожает в цене ровно тогда, когда есть чему лететь:
-      // без него готовый прыжковый корабль стоял у стапеля девяносто лет
-      const waiting = shipyards.some((y) => { return y.queue.length > 0 && y.queue[0].fuelWait > 0; }) ||
-                      staged.some((st) => { return st.fuelWait > 0; });
-      worth = waiting ? 4.5 : (galaxyRange() > 0 ? 3.2 : 1.2);
-    }
+    // ТОПЛИВА В ЭТОМ ПЕРЕБОРЕ БОЛЬШЕ НЕТ. Вар и просинь были технологиями, и
+    // цена им здесь стояла особая — «без него не взлетает ничего». Теперь их не
+    // исследуют вовсе: они лежат в камнях, и стоит их добыть буром и привезти
+    // трюмом. Ровно поэтому бур и трюм ниже ценятся выше прочих деталей.
     else if (isScope(f.key)) {
       // Телескоп — глаза конторы, и глаза СВОИ: спутник несёт ту ступень,
       // которую она умеет делать сама (satKit в orders.ts). Поэтому, пока у

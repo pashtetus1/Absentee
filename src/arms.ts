@@ -262,7 +262,7 @@ export function buyKit(p: Purse, sys: number, need: Record<string, number>): Par
         if (!seller || stockAt(s, sys, k) > stockAt(seller, sys, k)) seller = s;
       });
       if (!seller) { ok = false; return; }
-      const price = askPrice(seller, k) * (1 + L.tradeFee);
+      const price = askPrice(seller, k, sys) * (1 + L.tradeFee);
       if (!p.pay(price)) { ok = false; return; }
       seller.cash += price / (1 + L.tradeFee); seller.sold++;
       S.treasury += price - price / (1 + L.tradeFee);

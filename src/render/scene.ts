@@ -1,7 +1,7 @@
 
 import { vis } from "../clock";
 import { seenByState } from "../charts";
-import { MARKRANGE, hullScale } from "../data";
+import { MARKRANGE, compOf, hullScale } from "../data";
 import { galaxyRange, within } from "../galaxy";
 import { HOME, manyRealms, realmOf, realmOfCorp, realmOfShip, realmOfVoyage } from "../realm";
 import { yardAt } from "../shipyard";
@@ -10,7 +10,7 @@ import { gatesAt, inNet, otherEnd, portalAng, portalFor, spread } from "../trave
 import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
 import { CH, CW, advanceFrame, cx, glow, last, setSysK, setUiz, uiz } from "./canvas";
-import { advance, caption, crest, dockLines, flame, grow, posOf, rift, rock, scrapYard, ship, star, tiny, warped, windowLines, yardLines, yardPos } from "./models";
+import { advance, caption, crest, dockLines, flame, grow, posOf, rift, rock, rockColor, scrapYard, ship, star, tiny, warped, windowLines, yardLines, yardPos } from "./models";
 import { drawFight, drawGround, drawWarMark, drawWarship, fightLines, warLines } from "./war";
 import type { Rock, Sys, Voyage } from "../types";
 
@@ -86,10 +86,16 @@ export function drawSystem(s: Sys): void {
 
   s.rocks.forEach((r) => {
     const p = posOf(r, mx, my);
-    rock(p.x, p.y, r.s, r.seed, r.taken ? "#7e8aa4" : "#46526e");
+    rock(p.x, p.y, r.s, r.seed, rockColor(r.kind, r.taken));
     cx.font = "500 9.5px system-ui, sans-serif"; cx.fillStyle = r.taken ? "#6d7793" : "#49536c";
     cx.textAlign = "center"; cx.textBaseline = "top";
+    // Под именем камня — ЧТО В НЁМ. Порода решает, зачем сюда лететь, и
+    // спрашивать об этом кликом на каждый камень было бы издевательством.
     cx.fillText(r.name, p.x, p.y + r.s + 6);
+    cx.fillStyle = rockColor(r.kind, true);
+    cx.fillText(compOf(r.kind).short, p.x, p.y + r.s + 16);
+    // По камню можно ткнуть: в панели видно породу, выработку и здешнюю цену.
+    hits.push({ x:p.x, y:p.y, r:Math.max(9, r.s + 3), kind:"rock", data:{ rock:r, sys:s.id } });
   });
 
   s.bodies.forEach((b) => {

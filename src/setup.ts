@@ -4,14 +4,18 @@ import { DESIGNS } from "./arms";
 import { setFightSeq } from "./battle";
 import { makeGalaxy } from "./galaxy";
 import { foundYard } from "./shipyard";
-import { S, U, clear, corps, docks, feed, fights, freight, fill, flash, gates, grounds, market, patents, projects, proposals, purses, say, shipMarket, shipyards, staged, systems, voyages, warships, worlds } from "./state";
+import { S, U, clear, corps, docks, feed, fights, freight, fill, flash, gates, grounds, local, market, patents, projects, proposals, purses, say, shipMarket, shipyards, staged, systems, voyages, warships, worlds } from "./state";
 import { DEVS, allTech, ensureDev } from "./tech";
-import { makeWorld, openBranch } from "./world";
+import { addStock, makeWorld, openBranch } from "./world";
 import type { Corp } from "./types";
 
 import { rnd } from "./rng";
 
 import { freshSeed, setSeed } from "./rng";
+
+/** Начальный запас конторы на складе Тиры: столько металла и вара привезли с
+ *  собой. Хватает на две-три платформы; на четвёртую придётся добыть. */
+export const START_METAL = 40, START_FUEL = 12;
 
 export function build(forcedMove?: string, seed?: number): void {
   // Сид ставится ПЕРВЫМ делом: всё, что ниже, тянет случайность, и партия
@@ -34,7 +38,7 @@ export function build(forcedMove?: string, seed?: number): void {
     COMPS.forEach((f) => { c.ask[f.key] = 0.95 + (t.nerve - 0.9) * 0.25 + rnd() * 0.1; });
     return c;
   }));
-  clear(market); clear(patents); clear(shipMarket);
+  clear(market); clear(local); clear(patents); clear(shipMarket);
   COMPS.forEach((f) => { market[f.key] = { price:f.base, last:f.base, want:0, stock:0 }; });
   allTech().forEach((f) => { patents[f.key] = { owner:-1, since:0, told:false }; });
   DEVS.length = 0;
@@ -58,14 +62,26 @@ export function build(forcedMove?: string, seed?: number): void {
   S.home.cap = S.home.cap0 = S.home.capTop = 32;
   S.home.gov.cash = 200; S.home.food.stock = 40;
   corps.forEach((c) => { openBranch(c, S.home, true); });
+  // ЗАПАС, С КОТОРОГО ВСЁ НАЧИНАЕТСЯ. Металл и вар лежат у каждой конторы на
+  // складе Тиры — ровно столько, чтобы хватило собрать первые платформы и
+  // спустить их на камни. Без этого запаса партия не начиналась бы вовсе:
+  // металл нужен цеху, чтобы сделать бур, бур нужен платформе, платформа стоит
+  // на камне, а камень даёт металл — круг, который нечем разорвать. Это не
+  // поблажка, а то, с чем прилетели: дальше добывай.
+  corps.forEach((c) => {
+    addStock(c, 0, "metal", START_METAL);
+    addStock(c, 0, "fuel", START_FUEL);
+  });
 
   S.tick = 0; S.yearNow = 0; S.treasury = 320; S.jumped = false; S.trades = 0; S.turnover = 0; S.shipped = 0; S.movedPops = 0;
   S.refusals = 0; S.dropped = 0; S.moveKnown = false; S.hauled = 0; S.burned = 0; S.raids = 0; S.lost = 0;
+  S.oreHauled = 0; S.powerSold = 0;
   S.pirateCount = 0; S.crestSeq = 0; S.taxAway = 0; S.maps = 0; S.mapNo = 0; clear(purses);
   S.armyFund = 0; S.battles = 0; S.downed = 0; S.risings = 0;
   U.view = { mode:"system", sys:0 };
   foundYard(S.home, []);                     // стартовая верфь: общая и пустая
   say("Тира: восемнадцать человечков из тридцати двух возможных, пять компаний, одна верфь и ни одной освоенной детали.");
+  say("У каждой конторы на складе " + START_METAL + " металла и " + START_FUEL + " вара — всё, что привезли с собой. Дальше сырьё только с астероидов: металл в цех, вар и просинь в баки, энергию людям на планеты.");
   say("Что вокруг — неизвестно никому: звёзды открывают спутники с телескопом, и каждая контора видит только то, что разглядела сама.");
   say("Межзвёздный переход возможен, но какой именно — неизвестно: выяснится, когда кто-нибудь доведёт первую марку.");
 }
