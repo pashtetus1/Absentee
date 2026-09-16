@@ -1539,6 +1539,41 @@ test("вольница появляется от голода и грабит", 
   assert(raids > 0, "вольницы есть, а перехватов нет");
 });
 
+// Перехват называет МЕСТО ПРОИСШЕСТВИЯ, а не логово вольницы. Сводка писала
+// «сбила рейс командира X у Тира» по системе логова — то есть про корабль,
+// взятый на полпути к соседней звезде, говорила, что он пропал у столицы.
+// Игрок при этом смотрел на карту, видел, как корабль исчезает посреди
+// перегона, и искал причину не там. Проверка идёт по самим рейсам, а не по
+// словам в ленте: у пропавшего межзвёздного рейса в строке обязаны стоять ОБА
+// конца его пути.
+test("перехват называет перегон, а не логово вольницы", () => {
+  let checked = 0;
+  for (const seed of [3, 6, 1]) {
+    const sim = load("dist/index.html", { seed });
+    let watch = new Map<Voyage, string>();
+    let head = "";
+    runYears(sim, 300, (st) => {
+      const fresh: string[] = [];
+      for (const f of st.feed) { const line = f.d + "|" + f.t; if (line === head) break; fresh.push(f.t); }
+      head = st.feed.length ? st.feed[0].d + "|" + st.feed[0].t : head;
+      const said = fresh.join(" ~ ");
+      watch.forEach((want, v) => {
+        if (st.voyages.indexOf(v) >= 0) return;
+        if (!said.includes("сбила рейс командира " + v.captain)) return;   // долетел или отбился
+        checked++;
+        assert(said.includes(want),
+               "сид " + seed + ": перехват у " + v.captain + " назван не «" + want + "» — " + said);
+      });
+      watch = new Map();
+      st.voyages.forEach((v) => {
+        if (v.fight === undefined || v.sysFrom === undefined || v.to === v.sysFrom) return;
+        watch.set(v, "на перегоне " + st.systems[v.sysFrom].name + " — " + st.systems[v.to as number].name);
+      });
+    });
+  }
+  assert(checked > 0, "за три партии по триста лет ни один межзвёздный рейс не сбили");
+});
+
 // Логово ватаги — не столица. Мятеж брал «самый дальний филиал», а на деле
 // последний открытый, и у конторы, не шагнувшей дальше родины, им была родина:
 // к 168-му году под окнами государства сидели четыре ватаги, и все с одним

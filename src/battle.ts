@@ -143,6 +143,21 @@ export function guardsFor(v: Voyage): Warship[] {
 /** Под чьим флагом ходит военный корабль. Казённый — под родным. */
 function realmOfCorp2(owner: number): number { return owner < 0 ? HOME : realmOfCorp(corps[owner]); }
 
+/** ГДЕ это случилось — так, как игрок увидит на карте. Рейс внутри системы
+ *  стоит у своей звезды, межзвёздный идёт по перегону между двумя, и «у Тира»
+ *  про корабль, взятый на полпути к соседней звезде, — неправда: игрок ищет
+ *  глазами столицу, а корабль пропал посреди карты. Добыча до сих пор
+ *  называлась и вовсе по ЛОГОВУ вольницы, то есть место в сводке не совпадало
+ *  с местом происшествия никогда. */
+export function whereOf(v: Voyage): string {
+  const a = v.sysFrom !== undefined ? systems[v.sysFrom] : v.from ? systems[v.from.sys] : null;
+  const b = v.sysFrom !== undefined ? systems[v.to as number]
+          : v.to && (v.to as { sys: number }).sys !== undefined ? systems[(v.to as { sys: number }).sys] : null;
+  if (!a) return b ? "у " + b.name : "в пути";
+  if (!b || a === b) return "у " + a.name;
+  return "на перегоне " + a.name + " — " + b.name;
+}
+
 /** Начать бой за рейс. Возвращает null, если нападать некому или не на кого. */
 export function startFight(raiders: Warship[], v: Voyage): Fight | null {
   if (!raiders.length || v.fight !== undefined) return null;
@@ -176,7 +191,7 @@ export function startFight(raiders: Warship[], v: Voyage): Fight | null {
   fights.push(f);
   S.battles++;
   const who = corps[f.raider] ? corps[f.raider].name : "неизвестные";
-  say("<b>" + who + "</b> вышла на рейс командира " + (v.captain || "?") + " у " + a.name + ": " +
+  say("<b>" + who + "</b> вышла на рейс командира " + (v.captain || "?") + " " + whereOf(v) + ": " +
       (guards.length ? "его прикрывают, завязался бой."
      : sats.length ? "охраны нет, но бьют спутники с орбиты."
      : "прикрыть его некому.") +
@@ -310,7 +325,7 @@ export function plunder(p: Corp, v: Voyage, f?: Fight): void {
   (v.parts || []).forEach((pt) => { addStock(p, ps.id, pt.k, 1); });
   S.raids++;
   if (U.pick && U.pick.data === v) U.pick = null;
-  say("<b>" + p.name + "</b> сбила рейс командира " + (v.captain || "?") + " у " + ps.name +
+  say("<b>" + p.name + "</b> сбила рейс командира " + (v.captain || "?") + " " + whereOf(v) +
       ": взято " + loot + " и корпус на детали.");
   unfly(v);
   const at = voyages.indexOf(v);
