@@ -151,12 +151,6 @@ export function moveShips(): void {
         voyages.push({ kind:"gate", sysFrom:s.id, to:yd.to, corp:yd.lead, color:yd.color, upgrade:yd.upgrade,
                        parts:yd.parts, t:0, dur:(220 + rnd()*80) / shipMark(yd.parts, yd.lead), born:dateStr(), captain:pickCaptain() });
         sayAt(s.id, "<b>" + lead.name + "</b> вывела " + yd.vt.name + " с верфи " + s.name + ".");
-      } else if (yd.vt.key === "sat") {
-        if (far) { ferry(yd, s, "sat"); continue; }
-        s.ships.push({ kind:"sat", corp:yd.lead, color:yd.color, glyph:yd.glyph, size:7, t:0,
-                       dur:(120 + rnd()*60) / engMult(yd.parts), dest:yd.dest, sat:yd.sat, parts:yd.parts,
-                       trail:[], x:0, y:0, ang:0, born:dateStr(), captain:pickCaptain(), yard:yard });
-        sayAt(s.id, "<b>" + lead.name + "</b> спустила спутник: курс на орбиту " + s.name + ".");
       } else if (yd.vt.key === "colony") {
         if (far) { ferry(yd, s, "colony"); continue; }
         s.ships.push({ kind:"colony", corp:yd.lead, color:yd.color, glyph:"cir", size:8, t:0,
@@ -195,15 +189,6 @@ export function arriveShip(sh: Ship, s: Sys): void {
   if (sh.kind === "colony" && sh.body.world) {   // кто-то успел раньше
     sh.body.claimed = false;
     sayAt(s.id, "Колония " + corps[sh.corp].name + " опоздала: " + sh.body.name + " уже занята.");
-    return;
-  }
-  if (sh.kind === "sat") {
-    // Спутник встал — и с этого месяца СМОТРИТ. Разом он ничего не открывает:
-    // звёзды находятся по одной и годами (scanSats в charts.ts).
-    sh.sat.live = true; sh.sat.building = false; sh.sat.scan = 0;
-    sayAt(s.id, "<b>" + corps[sh.corp].name + "</b> вывела спутник на орбиту " + s.name +
-        ": телескоп Mk" + sh.sat.mark + ", видит на " + sh.sat.range +
-        (sh.sat.armed ? ", с лучемётом" : "") + ".");
     return;
   }
   if (sh.kind === "mine") {
@@ -280,11 +265,6 @@ export function arriveVoyage(v: Voyage): void {
                      parts:v.parts, trail:[], x:0, y:0, ang:0, born:dateStr(), captain:v.captain });
       sayAt(v.to, "<b>" + corps[v.corp].name + "</b>: колониальный модуль дошёл до " + t.name +
           ", курс на " + v.body.name + ".");
-    } else if (v.cargo === "sat") {
-      t.ships.push({ kind:"sat", corp:v.corp, color:v.color, glyph:v.sat.armed ? "satgun" : "sat", size:7, t:0,
-                     dur:(120 + rnd()*60) / engMult(v.parts), dest:v.dest, sat:v.sat,
-                     parts:v.parts, trail:[], x:0, y:0, ang:0, born:dateStr(), captain:v.captain });
-      sayAt(v.to, "<b>" + corps[v.corp].name + "</b>: спутник дошёл до " + t.name + ", курс на орбиту.");
     } else {
       t.ships.push({ kind:"mine", corp:v.corp, color:v.color, glyph:"mine", size:8, t:0,
                      dur:(120 + rnd()*60) / engMult(v.parts), dest:v.dest, vent:v.vent,

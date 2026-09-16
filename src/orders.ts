@@ -17,14 +17,17 @@ export function freeRocks(s: Sys): Rock[]{ return s.rocks.filter((r) => { return
 // Заказ не начинают, пока нет горючего, на котором это полетит: иначе корабль
 // собирают, а потом он десятилетиями стоит у стапеля и ест деньги впустую.
 export function buildable(vt: VType, extra?: Record<string, number>): boolean {
-  // Спутник чаще всего встаёт в своей же системе — как платформа и модуль, ему
-  // хватает местного. За звёзды его тоже возят, и тогда рейс ждёт межзвёздного
-  // у стапеля (motion.ts), но заказ из-за этого не запрещают: иначе первый
-  // спутник партии был бы невозможен, пока не освоено межзвёздное топливо, а
-  // без первого спутника в партии нет вообще ничего, кроме Тиры.
-  const fuelKey = (vt.key === "mine" || vt.key === "colony" || vt.key === "sat") ? "fuel" : "sfuel";
-  if (!anyMakes(fuelKey)) return false;
-  if (!bestEngineMade()) return false;     // без ходового двигателя корабль не тронется с места
+  // СПУТНИК НЕ КОРАБЛЬ. Он не сходит со стапеля, никуда не летит и ничего не
+  // жжёт: его собирают прямо на орбите своей планеты руками того филиала, что
+  // там сидит. Оттого ему не нужны ни топливо, ни ходовой двигатель, и требовать
+  // их значило бы запирать первый телескоп партии за той наукой, без которой он
+  // как раз и должен обходиться, — а без первого телескопа в партии нет ничего,
+  // кроме Тиры.
+  if (vt.key !== "sat") {
+    const fuelKey = (vt.key === "mine" || vt.key === "colony") ? "fuel" : "sfuel";
+    if (!anyMakes(fuelKey)) return false;
+    if (!bestEngineMade()) return false;   // без ходового двигателя корабль не тронется с места
+  }
   // Набор считается целиком (shipNeed): в нём и ходовой, и межзвёздная деталь,
   // и КОРПУС, в который всё это должно влезть. Без корпуса нужной вместимости
   // корабля не будет, сколько бы ни было прочих деталей, — и раньше эта
@@ -77,10 +80,12 @@ export function expandTarget(c: Corp): { from: number; to: number; upgrade?: boo
 // своей системы и видит на SCOPE_RANGE вокруг; всё, что попало в этот круг,
 // становится открыто в тот же месяц, как он встал.
 //
-// Цель — известная конторе система, из которой её телескоп достанет до звёзд,
-// которых она ещё не знает. СВОЯ система годится наравне с чужой, и первый
-// спутник партии так и встаёт над Тирой, никуда не улетая: иначе партия не
-// начиналась бы вовсе — лететь некуда, пока не посмотрел.
+// Цель — система, ГДЕ У КОНТОРЫ ЕСТЬ СВОИ ЛЮДИ: телескоп собирают на орбите
+// своей планеты те, кто на ней живёт, и никуда его не везут. Первый спутник
+// партии так и встаёт над Тирой — иначе партия не начиналась бы вовсе, лететь
+// некуда, пока не посмотрел. Дальше круг обзора расширяется не рейсами, а
+// колониями: пока контора не завела филиал у новой звезды, смотреть оттуда
+// некому, и остаётся покупать карту у того, кто уже смотрит.
 //
 // ЧУЖОЙ СПУТНИК В ТОЙ ЖЕ СИСТЕМЕ НЕ МЕШАЕТ. Он смотрит для своего хозяина, а
 // не для всех: пока карта не куплена, соседняя звезда для этой конторы не
@@ -96,7 +101,10 @@ export function satTarget(c: Corp): { dst: number; opens: number } | null {
   if (!sight) return null;                       // своих телескопов не делает — и спутника не будет
   let out: { dst: number; opens: number } = null, top = 0;
   systems.forEach((s) => {
-    if (!knowsSys(c, s.id) || !reachable(s.id)) return;
+    if (!knowsSys(c, s.id)) return;
+    // Своих людей в системе нет — и ставить телескоп некому: он не летит сюда,
+    // его здесь собирают.
+    if (!s.bodies.some((b) => { return b.world && hasBranch(c, b.world); })) return;
     if (s.sats.some((sat) => { return sat.owner === c.id && sat.range >= sight; })) return;
     const opens = within(s.id, sight).filter((n) => { return !knowsSys(c, n); }).length;
     if (!opens) return;
@@ -432,6 +440,59 @@ export function branchTrade(): void {
   });
 }
 
+/** Заложить телескоп на орбите своей планеты. Ни верфи, ни очереди, ни рейса:
+ *  он появляется там, где встанет, и с этого дня ВИДЕН — тускло, с подписью
+ *  «строится». Спутник числится в системе с закладки, поэтому второй такой же
+ *  туда не заложат (satTarget).
+ *
+ *  Собирают его люди того филиала, что на планете сидит, и оттого срок у него
+ *  свой: SAT_WORK месяцев на месяц сборки по таблице. Полтора — потому что
+ *  стапель на верфи работает руками целого мира, а тут работает один филиал. */
+export const SAT_WORK = 1.5;
+function raiseSat(c: Corp, o: Order, vt: VType): void {
+  const ds = systems[o.dst];
+  // Филиал мог уйти, пока свозили детали: собирать телескоп стало некому.
+  // Детали возвращаются на склад, в следующий раз контора выберет другую цель.
+  if (!ds || !ds.bodies.some((b) => { return b.world && hasBranch(c, b.world); })) {
+    o.parts.forEach((p) => { addStock(c, o.sys, p.k, 1); });
+    releaseOrder(o); c.order = null;
+    return;
+  }
+  const spot = satSpot(ds, c);
+  // Ступень телескопа берётся С САМОГО СПУТНИКА, а не из знаний хозяина:
+  // деталь могли купить у того, кто умеет лучше, и смотрит спутник тем,
+  // что на нём стоит.
+  const sp = o.parts.filter((pt) => { return scopeMark(pt.k) > 0; })
+                    .sort((a, b) => { return scopeMark(b.k) - scopeMark(a.k); })[0];
+  const sat: Sat = { sys:o.dst, owner:c.id, color:c.color, body:spot.body, orb:spot.orb, ang:spot.ang,
+                     parts:o.parts.slice(), born:dateStr(), found:0, scan:0,
+                     mark:sp ? scopeMark(sp.k) : 1, range:sp ? sightOfKey(sp.k) : 0,
+                     hp:shipHp(o.parts),
+                     armed:o.parts.some((pt) => { return armFam(pt.k) === "beam"; }),
+                     live:false, building:true, left:Math.round(vt.build * SAT_WORK) };
+  ds.sats.push(sat);
+  releaseOrder(o); c.order = null; c.cool = 6;
+  sayAt(ds.id, "<b>" + c.name + "</b> закладывает спутник на орбите " +
+      (spot.body ? spot.body.name : ds.name) + ": телескоп Mk" + sat.mark +
+      (sat.armed ? ", с лучемётом" : "") + ", " + sat.left + " мес.");
+}
+
+/** Месяц сборки на орбите. Готовый телескоп с этого дня СМОТРИТ: разом он
+ *  ничего не открывает, звёзды находятся по одной и годами (scanSats). */
+export function satsBuild(): void {
+  systems.forEach((s) => {
+    s.sats.forEach((sat) => {
+      if (sat.live || !sat.building) return;
+      sat.left = (sat.left === undefined ? 0 : sat.left) - 1;
+      if (sat.left > 0) return;
+      sat.live = true; sat.building = false; sat.scan = 0;
+      sayAt(s.id, "<b>" + corps[sat.owner].name + "</b> вывела спутник на орбиту " + s.name +
+          ": телескоп Mk" + sat.mark + ", видит на " + sat.range +
+          (sat.armed ? ", с лучемётом" : "") + ".");
+    });
+  });
+}
+
 export function full(need: Record<string, number>, got: Record<string, number>): boolean {
   return Object.keys(need).every((k) => { return (got[k] || 0) >= need[k]; });
 }
@@ -440,6 +501,10 @@ export function assemble(): void {
   corps.forEach((c) => {
     if (!c.order || !full(c.order.need, c.order.got)) return;
     const vt = vtype(c.order.type), o = c.order;
+    // ТЕЛЕСКОП СОБИРАЮТ НА МЕСТЕ, и очередь верфи ему не нужна: он не корабль,
+    // его не спускают со стапеля и никуда не ведут. Поэтому спутник уходит
+    // отсюда первым — до всей возни с верфью, местом в очереди и точкой старта.
+    if (o.type === "sat") { raiseSat(c, o, vt); return; }
     const yard = o.yard;
     // Верфь ушла из-под заказа (планета отделилась). Держать заказ незачем:
     // детали возвращаются на склад, а в следующий раз компания встанет в
@@ -469,26 +534,6 @@ export function assemble(): void {
       }
       yard.queue.push({ vt:vt, lead:c.id, color:c.color, glyph:vt.glyph, to:to, from:from, upgrade:o.upgrade,
                      parts:o.parts.slice(), left:vt.build * YARD_WORK, total:vt.build * YARD_WORK });
-    } else if (o.type === "sat") {
-      // Спутник числится в системе с закладки: пока его собирают и везут, туда
-      // не полетит второй. Место на орбите выбирается сразу — оно же служит
-      // целью кораблику, который его повезёт.
-      const ds = systems[o.dst], spot = satSpot(ds, c);
-      // Ступень телескопа берётся С САМОГО СПУТНИКА, а не из знаний хозяина:
-      // деталь могли купить у того, кто умеет лучше, и смотрит спутник тем,
-      // что на нём стоит.
-      const sp = o.parts.filter((pt) => { return scopeMark(pt.k) > 0; })
-                        .sort((a, b) => { return scopeMark(b.k) - scopeMark(a.k); })[0];
-      const sat: Sat = { sys:o.dst, owner:c.id, color:c.color, body:spot.body, orb:spot.orb, ang:spot.ang,
-                         parts:o.parts.slice(), born:dateStr(), found:0, scan:0,
-                         mark:sp ? scopeMark(sp.k) : 1, range:sp ? sightOfKey(sp.k) : 0,
-                         hp:shipHp(o.parts),
-                         armed:o.parts.some((pt) => { return armFam(pt.k) === "beam"; }),
-                         live:false, building:true };
-      ds.sats.push(sat);
-      yard.queue.push({ vt:vt, sat:sat, lead:c.id, color:c.color, glyph:sat.armed ? "satgun" : "sat",
-                     dest:{ kind:"sat", ref:sat, label:"орбита " + ds.name }, dst:o.dst, parts:sat.parts,
-                     left:vt.build * YARD_WORK, total:vt.build * YARD_WORK });
     } else {
       // предприятие числится в системе АСТЕРОИДА, а не сборки
       const r = o.rock, ds = systems[o.dst];

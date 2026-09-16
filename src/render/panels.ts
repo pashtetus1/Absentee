@@ -310,7 +310,7 @@ export function inspector(): void {
   }
   if (U.pick.kind === "ship") {
     box.innerHTML = '<div class="card"><h3>' +
-      (d.kind === "colony" ? "Колониальный модуль" : d.kind === "sat" ? "Спутник на подъёме" : "Добывающая платформа") + '</h3>' +
+      (d.kind === "colony" ? "Колониальный модуль" : "Добывающая платформа") + '</h3>' +
       '<div class="sub">' + corps[d.corp].name + ' · курс на ' +
       (d.kind === "colony" ? d.body.name : d.dest.label) + ' · ' + Math.round(d.t * 100) + '%</div>' +
       hullLine(d.parts) + engLine(d.parts) + partsList(d.parts, d.corp) + '</div>';
@@ -323,13 +323,21 @@ export function inspector(): void {
     // Спутник ищет звёзды по одной и годами: в карточке видно, сколько он
     // уже всматривается в очередную и сколько нашёл за жизнь.
     const left = Math.max(0, SCAN_MONTHS - (d.scan || 0));
-    box.innerHTML = '<div class="card"><h3>Спутник' + (d.armed ? ' с лучемётом' : '') + '</h3>' +
-      '<div class="sub">' + corps[d.owner].name + ' · орбита ' + systems[d.sys].name +
-      (d.born ? ' · с ' + d.born : '') + '</div>' +
+    // Строящийся телескоп ещё НЕ СМОТРИТ, и писать ему «ищет следующую» было бы
+    // враньём: он собирается на орбите своей планеты, и всё, что про него можно
+    // сказать, — сколько осталось собирать.
+    box.innerHTML = '<div class="card"><h3>Спутник' + (d.armed ? ' с лучемётом' : '') +
+      (d.live ? '' : ' (строится)') + '</h3>' +
+      '<div class="sub">' + corps[d.owner].name + ' · орбита ' +
+      (d.body ? d.body.name : systems[d.sys].name) +
+      (d.born ? ' · заложен ' + d.born : '') + '</div>' +
       '<div class="part"><span class="pn">телескоп Mk' + d.mark + '</span><span class="pw">видит на ' + d.range + '</span></div>' +
-      '<div class="part"><span class="pn">нашёл звёзд</span><span class="pw">' + d.found + '</span></div>' +
-      '<div class="part"><span class="pn">ищет следующую</span><span class="pw">' +
-      (left / 12).toFixed(1) + ' лет осталось</span></div>' +
+      (d.live
+        ? '<div class="part"><span class="pn">нашёл звёзд</span><span class="pw">' + d.found + '</span></div>' +
+          '<div class="part"><span class="pn">ищет следующую</span><span class="pw">' +
+          (left / 12).toFixed(1) + ' лет осталось</span></div>'
+        : '<div class="part"><span class="pn">собирают на орбите</span><span class="pw">' +
+          Math.max(0, d.left || 0) + ' мес. осталось</span></div>') +
       (d.armed ? '<div class="part"><span class="pn">прочность</span><span class="pw">' +
         (Math.round(d.hp * 10) / 10) + '/' + (Math.round(shipHp(d.parts) * 10) / 10) +
         ' · урон ' + shipDmg(d.parts).toFixed(1) + '/мес</span></div>' : '') +

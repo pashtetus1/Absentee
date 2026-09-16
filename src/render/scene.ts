@@ -203,11 +203,17 @@ export function drawSystem(s: Sys): void {
   // «телескоп» или «телескоп, лазер». Тот, что ещё в пути, рисуется корабликом
   // ниже.
   s.sats.forEach((sat) => {
-    if (!sat.live) return;
     const p = satPos(sat, mx, my);
+    // Строящийся телескоп виден с первого месяца и ТУСКЛО: он не летит сюда с
+    // верфи, его собирают прямо здесь (orders.ts, raiseSat), и место на орбите
+    // занято с закладки. Прежде он был невидим до самого пуска, и годы сборки
+    // выглядели как ничего.
+    cx.globalAlpha = sat.live ? 1 : 0.35;
     ship(sat.armed ? "satgun" : "sat", p.x, p.y, 7, p.a + 1.5708, sat.color);
-    if (flags) crest(p.x, p.y - 14, 4.6, realmOfCorp(corps[sat.owner]));
-    tiny(p.x, p.y + 12, "телескоп Mk" + sat.mark + (sat.armed ? ", лучемёт" : ""), "#7f8cb4");
+    if (flags && sat.live) crest(p.x, p.y - 14, 4.6, realmOfCorp(corps[sat.owner]));
+    tiny(p.x, p.y + 12, sat.live ? "телескоп Mk" + sat.mark + (sat.armed ? ", лучемёт" : "")
+                                 : "строится, " + Math.max(0, sat.left || 0) + " мес.", "#7f8cb4");
+    cx.globalAlpha = 1;
     hits.push({ x:p.x, y:p.y, r:11, kind:"sat", data:sat });
   });
 

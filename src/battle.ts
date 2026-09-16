@@ -402,13 +402,6 @@ export function plunder(p: Corp, v: Voyage, f?: Fight): void {
   else if (v.kind === "ferry") {
     v.parts.forEach((pt) => { addStock(p, ps.id, pt.k, 1); });
     if (v.cargo === "colony") { v.body.claimed = false; loot = "колониальный модуль"; }
-    else if (v.cargo === "sat") {
-      // Спутник числился в системе с закладки, чтобы туда не полетел второй
-      // (orders.ts); сбитый — не встанет, и место снова свободно.
-      const ss = systems[v.to as number];
-      ss.sats = ss.sats.filter((x) => { return x !== v.sat; });
-      loot = "готовый спутник";
-    }
     else {
       if (v.dest && v.dest.ref) (v.dest.ref as Rock).taken = false;
       const ds = systems[v.to as number];
