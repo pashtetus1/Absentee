@@ -62,7 +62,7 @@ export function build(forcedMove?: string, seed?: number): void {
   S.tick = 0; S.yearNow = 0; S.treasury = 320; S.jumped = false; S.trades = 0; S.turnover = 0; S.shipped = 0; S.movedPops = 0;
   S.refusals = 0; S.dropped = 0; S.moveKnown = false; S.hauled = 0; S.burned = 0; S.raids = 0; S.lost = 0;
   S.pirateCount = 0; S.crestSeq = 0; S.taxAway = 0; S.maps = 0; S.mapNo = 0; clear(purses);
-  S.armyFund = 0; S.battles = 0; S.downed = 0; S.risings = 0;
+  S.armyFund = 0; S.battles = 0; S.downed = 0; S.risings = 0; S.chases = 0; S.gotAway = 0;
   U.view = { mode:"system", sys:0 };
   foundYard(S.home, []);                     // стартовая верфь: общая и пустая
   say("Тира: восемнадцать человечков из тридцати двух возможных, пять компаний, одна верфь и ни одной освоенной детали.");

@@ -336,6 +336,30 @@ export function drawSystem(s: Sys): void {
     }
   });
 
+  // ПОГОНЯ: ватага снялась с орбиты логова и идёт к рейсу. Рисуется здесь, в
+  // системе, потому что промысел теперь только внутри звезды (battle.ts):
+  // межзвёздный перегон — гипер, там корабля нет. Нитка к жертве не украшение —
+  // по ней видно, ЗА КЕМ вышли, и на глаз видно, успеют ли: расстояние тает,
+  // пока хлебовоз тянется к своей планете.
+  fights.forEach((f) => {
+    const c = f.close;
+    if (!c || f.sys !== s.id || !f.prey || f.prey.sysFrom !== undefined) return;
+    const x = mx + vis({ t:c.x, tp:c.px }), y = my + vis({ t:c.y, tp:c.py });
+    const pv = f.prey;
+    const pa = posOf(pv.from.body, mx, my), pb = posOf(pv.to.body, mx, my), pk = clamp(vis(pv), 0, 1);
+    const tx = pa.x + (pb.x - pa.x) * pk, ty = pa.y + (pb.y - pa.y) * pk;
+    const col = corps[f.raider] ? corps[f.raider].color : "#ff5c5c";
+    cx.beginPath(); cx.moveTo(x, y); cx.lineTo(tx, ty);
+    cx.strokeStyle = col; cx.globalAlpha = 0.3; cx.lineWidth = 1.2;
+    cx.setLineDash([3, 5]); cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
+    const rot = Math.atan2(ty - y, tx - x) + 1.5708;
+    flame(x, y, 6.5, rot); ship("war", x, y, 6.5, rot, col);
+    if (U.pick && U.pick.data === f)
+      caption(x, y, fightLines(f, corps[f.raider] ? corps[f.raider].name : "неизвестные"), col);
+    else tiny(x, y, "погоня", col);
+    hits.push({ x:x, y:y, r:12, kind:"fight", data:f });
+  });
+
   // Межзвёздные рейсы, пока они ещё ВНУТРИ этой системы (legIn). Первые 15% пути —
   // уход от планеты к своему створу, последние 15% — выход из створа к цели.
   // Раньше корабль правил в пустой край в сторону нужной звезды: ворота стояли
@@ -563,6 +587,10 @@ export function drawMap(): void {
     // Карта показывает только известное: бой у звезды, которой государство не
     // знает, выдал бы саму звезду.
     if (!at || !seenSys(at)) return;
+    // Погоня — ещё не бой, и скрещенными клинками её рисовать нельзя: игрок
+    // побежит смотреть на бойню, а там ватага только идёт. Смотреть на погоню —
+    // в систему; на карте о ней говорит красное кольцо логова.
+    if (f.close) return;
     // Бой за рейс ВНУТРИ системы стоит ровно в узле звезды и накрыл бы её
     // собой. Он отодвигается вбок, за пипки филиалов: видно и то, что дерутся
     // у этой звезды, и саму звезду.
@@ -602,10 +630,14 @@ export function drawMap(): void {
       cx.beginPath(); cx.arc(s.x, s.y, r + 10 * uiz, 0, 6.2832);
       cx.strokeStyle = "#3d4a70"; cx.lineWidth = uiz; cx.stroke();
     }
-    // логово вольницы: красное кольцо — зона охоты, мимо лучше не летать
+    // Логово вольницы: красное кольцо ВПЛОТНУЮ к узлу. Прежнее было радиусом в
+    // 45 единиц карты — зона охоты в открытом космосе, — и с тех пор, как
+    // межзвёздный перегон стал неприкосновенным (battle.ts), оно обещало
+    // опасность там, где её нет. Промысел идёт внутри звезды, и кольцо теперь
+    // говорит ровно это: здесь живёт ватага, рейсы между здешними мирами берут.
     if (corps.some((c) => { return c.pirate && c.home && c.home.sys === s.id; })) {
-      cx.beginPath(); cx.arc(s.x, s.y, 45, 0, 6.2832);
-      cx.strokeStyle = "#ff5c5c"; cx.globalAlpha = 0.35; cx.setLineDash([4 * uiz, 6 * uiz]); cx.lineWidth = 1.2 * uiz;
+      cx.beginPath(); cx.arc(s.x, s.y, r + 16 * uiz, 0, 6.2832);
+      cx.strokeStyle = "#ff5c5c"; cx.globalAlpha = 0.5; cx.setLineDash([3 * uiz, 5 * uiz]); cx.lineWidth = 1.2 * uiz;
       cx.stroke(); cx.setLineDash([]); cx.globalAlpha = 1;
     }
     // Звезда со спутником: квадратик цвета хозяина сбоку от узла — та же ось

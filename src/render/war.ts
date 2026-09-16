@@ -19,6 +19,7 @@
 //
 // ЗАКРЫТЬ её можно и нужно: крестик в углу, и на сцене снова обычная система.
 
+import { voyPace, voyPos } from "../battle";
 import { force, sideColor } from "../ground";
 import { HOME, realmOf } from "../realm";
 import { U, corps, hits, systems } from "../state";
@@ -252,6 +253,19 @@ export function warLines(s: Warship, name: string): string[] {
 /** Строки окошка боя: кто с кем и сколько осталось. */
 export function fightLines(f: Fight, raider: string): string[] {
   const live = (a: { hp: number }[]): number => a.filter((x) => { return x.hp > 0; }).length;
+  // Погоня — не бой, и окошко у неё своё: боя ещё нет, отбиваться пока некому,
+  // и всё, что важно, — это гонка. Сколько осталось крыть и за сколько месяцев,
+  // если никто не прибавит ходу.
+  if (f.close && f.prey) {
+    const p = voyPos(f.prey), c = f.close;
+    const gap = Math.hypot(p.x - c.x, p.y - c.y);
+    const near = Math.max(0, c.pace - voyPace(f.prey));
+    const left = Math.max(0, (1 - f.prey.t) * f.prey.dur);
+    return ["Погоня у " + systems[f.sys].name + " · " + raider,
+            "идут " + live(f.att) + " · за рейсом командира " + (f.prey.captain || "?"),
+            "догонят через " + (near > 0 ? Math.ceil(gap / near) + " мес." : "не догонят") +
+            ", ему лететь " + Math.ceil(left) + " мес."];
+  }
   return ["Бой у " + systems[f.sys].name + " · " + raider,
           "нападают " + live(f.att) + " из " + f.att.length + ", отбиваются " + live(f.def) + " из " + f.def.length,
           "идёт ещё " + Math.max(0, f.left) + " мес." + (f.prey ? " · держат рейс " + (f.prey.captain || "?") : "")];

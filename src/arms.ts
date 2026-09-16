@@ -22,7 +22,7 @@
 // заперт наукой: пока никто в галактике не осилил лучемёт, вольница не могла бы
 // выйти на промысел вовсе, а она выходила и до того, как оружие придумали.
 
-import { ARMKEYS, HULLKEYS, armOf, armPower, bestHullMade, compOf, roomOf, roomOfKey, sizeOfNeed } from "./data";
+import { ARMKEYS, ENGKEYS, HULLKEYS, armOf, armPower, bestHullMade, compOf, engMult, roomOf, roomOfKey, sizeOfNeed } from "./data";
 import { askPrice } from "./market";
 import { rnd } from "./rng";
 import { L, S, anyKnows, canBuild, corps, market, patents, say } from "./state";
@@ -223,6 +223,20 @@ export function kitFor(d: Design, sys: number): Record<string, number> {
     n[have] = (n[have] || 0) + 1; room--;
   });
   return n;
+}
+
+/** Лучший ХОДОВОЙ ДВИГАТЕЛЬ, лежащий на складах в этой системе; null — ни
+ *  одного. Тем и переобувается самоделка (army.ts, pirateRefit).
+ *
+ *  Двигатель попал в этот список позже оружия и по прямой надобности: промысел
+ *  стал ПОГОНЕЙ (battle.ts), а догоняют ходом. Ватага, оставшаяся на Mk1, за
+ *  хлебовозом с ходовым Mk3 просто не угонится — и весь её арсенал ни во что,
+ *  потому что стрелять не в кого. Найденные двигатели при этом у неё есть
+ *  всегда: сбитый корабль разбирают на детали, а ход есть на каждом. */
+export function engAt(sys: number): string | null {
+  let have: string = null;
+  ENGKEYS.forEach((k) => { if (corps.some((c) => { return stockAt(c, sys, k) > 0; })) have = k; });
+  return have;
 }
 
 /** Лучшая ступень этого семейства, лежащая на складах В ЭТОЙ СИСТЕМЕ; null —

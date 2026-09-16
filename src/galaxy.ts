@@ -169,6 +169,18 @@ export function within(i: number, range: number): number[] {
     if (j !== i && dist(systems[i], systems[j]) <= range) out.push(j);
   return out;
 }
+/** Где тело лежит В СИСТЕМЕ, в единицах системы от звезды. Планеты в этой игре
+ *  стоят на местах (журнал), поэтому это не «положение на такой-то месяц», а
+ *  просто место.
+ *
+ *  Отрисовка берёт то же самое со сдвигом к центру экрана (render/models.ts,
+ *  posOf). Здесь оно нужно САМОЙ ИГРЕ: погоня вольницы за рейсом считается
+ *  именно в этих единицах, и считать её по экранным координатам значило бы,
+ *  что исход зависит от того, куда игрок смотрит. */
+export function bodyPos(b: { ang: number; r: number }): { x: number; y: number } {
+  return { x:Math.cos(b.ang) * b.r, y:Math.sin(b.ang) * b.r };
+}
+
 export function rangeOf(c: Corp): number {
   let best = 0;
   MARKS.forEach((m) => { if (canBuild(c, m.key)) best = Math.max(best, m.range); });

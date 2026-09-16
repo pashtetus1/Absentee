@@ -44,6 +44,7 @@ export function state(): Snapshot {
            purses: purses, taxAway: S.taxAway,
            warships: warships, fights: fights, grounds: grounds, designs: DESIGNS,
            armyFund: S.armyFund, battles: S.battles, downed: S.downed, risings: S.risings,
+           chases: S.chases, gotAway: S.gotAway,
            trades: S.trades, shipped: S.shipped, movedPops: S.movedPops, refusals: S.refusals, dropped: S.dropped,
            hauled: S.hauled, burned: S.burned, raids: S.raids, lost: S.lost,
            maps: S.maps, mapNo: S.mapNo, docks: docks, feed: feed };

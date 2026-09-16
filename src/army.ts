@@ -27,8 +27,8 @@
 // казной: у всех троих это один и тот же разговор — чертёж, детали на месте,
 // место в очереди верфи. Разница только в том, чей кошелёк и зачем корабль.
 
-import { RAIDER, armAt, bestDesign, buyKit, designMakers, designsFor, kitAt, kitCost, kitFor, shipDmg, shipHp } from "./arms";
-import { ARMKEYS, armOf, compOf, roomOf, vtype } from "./data";
+import { RAIDER, armAt, bestDesign, buyKit, designMakers, designsFor, engAt, kitAt, kitCost, kitFor, shipDmg, shipHp } from "./arms";
+import { ARMKEYS, armOf, compOf, engMult, isEngine, roomOf, vtype } from "./data";
 import { fleetOf, idleAt } from "./battle";
 import { askPrice } from "./market";
 import { HOME, isRealm, realmOf, realmOfCorp, treasuryOf, payTreasury } from "./realm";
@@ -198,6 +198,10 @@ function pirateRefit(p: Corp): void {
     };
     const beam = armAt(sys, "beam"), armor = armAt(sys, "armor");
     const myBeam = worst("beam"), myArmor = worst("armor");
+    // Свой ходовой: его меняют на найденный, если найденный лучше. Места это
+    // не занимает — двигатель встаёт на место двигателя.
+    const eng = engAt(sys);
+    const myEng = w.parts.find((pt) => { return isEngine(pt.k); });
     let put: string = null, drop: Part = null;
     if (beam && !myBeam) {
       // Оружия на борту нет вовсе: это первое, что ставят. Тесно — броня
@@ -205,6 +209,12 @@ function pirateRefit(p: Corp): void {
       if (free > 0) put = beam;
       else if (myArmor) { put = beam; drop = myArmor; }
     }
+    // ХОД ИДЁТ СРАЗУ ЗА ПЕРВЫМ ЛУЧЕМЁТОМ и впереди второго. Промысел — это
+    // погоня (battle.ts): за хлебовозом с ходовым Mk3 самоделка на Mk1 не
+    // угонится вовсе, и лишняя ступень лучемёта ей ни к чему — стрелять не в
+    // кого. Замер, 8 партий по 300 лет: без переобувки вольница выходила 11 раз
+    // за партию и не догнала НИ РАЗУ.
+    else if (eng && myEng && engMult([{ k:eng }]) > engMult([myEng])) { put = eng; drop = myEng; }
     else if (beam && myBeam && armOf(beam).lvl > armOf(myBeam.k).lvl) { put = beam; drop = myBeam; }
     else if (armor && !myArmor && free > 0) put = armor;
     else if (armor && myArmor && armOf(armor).lvl > armOf(myArmor.k).lvl) { put = armor; drop = myArmor; }
