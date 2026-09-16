@@ -10,7 +10,7 @@ import { dockValue } from "../docks";
 import { lotsOf } from "../freight";
 import { realmCharge, realmColor } from "../realm";
 import { corps, systems } from "../state";
-import { Build, Dock, Part, Ship, Shipyard, Sys, Voyage } from "../types";
+import { Build, Dock, Part, Planet, Rock, Sat, Ship, Shipyard, Sys, Voyage } from "../types";
 import { clamp, popsWord } from "../util";
 import { CH, CW, cx, getCx, glow, setCx, uiz } from "./canvas";
 
@@ -191,6 +191,22 @@ export function yardPos(y: Shipyard, mx: number, my: number): { x: number; y: nu
   const p = posOf(y.world.body, mx, my), off = y.world.body.rad + 34;
   const a = y.ang + glow * 0.12;
   return { x: p.x + Math.cos(a) * off, y: p.y + Math.sin(a) * off };
+}
+
+/** Где телескоп на экране. Спутник ОБХОДИТ свою планету, как стоянка и верфь:
+ *  он такое же сооружение на орбите, и приклеенным к небу выглядел здесь
+ *  единственным. Орбита у него выше всех прочих (satSpot в orders.ts), и
+ *  оттого он медленнее их: скорость обратна радиусу, как на настоящей орбите,
+ *  — дальняя дорожка того же спутника сама собой отстаёт от ближней.
+ *  Возвращает и угол: по нему спутник доворачивается носом вдоль орбиты.
+ *
+ *  Нужна и отрисовке, и движению: кораблик, который везёт телескоп, целится в
+ *  точку, которая всё это время уезжает. */
+export const SAT_SPIN = 5;
+export function satPos(sat: Sat, mx: number, my: number): { x: number; y: number; a: number } {
+  const p = sat.body ? posOf(sat.body, mx, my) : { x:mx, y:my };
+  const a = sat.ang + glow * (SAT_SPIN / sat.orb);
+  return { x:p.x + Math.cos(a) * sat.orb, y:p.y + Math.sin(a) * sat.orb, a:a };
 }
 
 // Стапель из мусора. Настоящая верфь — три ровных крана с круглыми захватами,
@@ -465,7 +481,9 @@ export function advance(s: Sys, dt: number): void {
     // s.bodies[0] — первой планеты в списке, безо всякой причины: выглядело так,
     // будто их отпускает случайная планета, а не стапель.
     const op = sh.yard ? yardPos(sh.yard, mx, my) : posOf(s.bodies[0], mx, my);
-    const tp = posOf(sh.kind === "colony" ? sh.body : sh.dest.ref, mx, my);
+    // Спутник кружит, а не висит, — и целиться в него надо туда, где он СЕЙЧАС.
+    const tp = sh.sat ? satPos(sh.sat, mx, my)
+             : posOf(sh.kind === "colony" ? sh.body : sh.dest.ref as Planet | Rock, mx, my);
     const k = clamp(vis(sh), 0, 1), e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
     sh.x = op.x + (tp.x - op.x) * e; sh.y = op.y + (tp.y - op.y) * e;
     sh.ang = Math.atan2(tp.y - op.y, tp.x - op.x) + 1.5708;

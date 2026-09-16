@@ -218,12 +218,22 @@ export function kitFor(d: Design, sys: number): Record<string, number> {
   let room = roomOfKey(d.hull) - sizeOfNeed(n);
   (["beam", "armor"] as string[]).forEach((kind) => {
     if (room <= 0) return;
-    let have: string = null;
-    ARMKEYS[kind].forEach((k) => { if (corps.some((c) => { return stockAt(c, sys, k) > 0; })) have = k; });
+    const have = armAt(sys, kind);
     if (!have) return;
     n[have] = (n[have] || 0) + 1; room--;
   });
   return n;
+}
+
+/** Лучшая ступень этого семейства, лежащая на складах В ЭТОЙ СИСТЕМЕ; null —
+ *  ни одной. Этим и вооружается самоделка — и на стапеле (kitFor выше), и
+ *  потом, когда ватага перебирает готовый рейдер (pirateRefit в army.ts). Одна
+ *  дверь на оба случая: «чем богата округа» обязано значить одно и то же в
+ *  день сборки и через полвека. */
+export function armAt(sys: number, kind: string): string | null {
+  let have: string = null;
+  ARMKEYS[kind].forEach((k) => { if (corps.some((c) => { return stockAt(c, sys, k) > 0; })) have = k; });
+  return have;
 }
 
 /** Во что обойдётся набор по ходовым ценам. */

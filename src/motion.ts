@@ -206,15 +206,6 @@ export function arriveShip(sh: Ship, s: Sys): void {
         (sh.sat.armed ? ", с лучемётом" : "") + ".");
     return;
   }
-  if (sh.kind === "sat") {
-    // Спутник встал — и с этого месяца СМОТРИТ. Разом он ничего не открывает:
-    // звёзды находятся по одной и годами (scanSats в charts.ts).
-    sh.sat.live = true; sh.sat.building = false; sh.sat.scan = 0;
-    sayAt(s.id, "<b>" + corps[sh.corp].name + "</b> вывела спутник на орбиту " + s.name +
-        ": телескоп Mk" + sh.sat.mark + ", видит на " + sh.sat.range +
-        (sh.sat.armed ? ", с лучемётом" : "") + ".");
-    return;
-  }
   if (sh.kind === "mine") {
     sh.vent.live = true; sh.vent.building = false; s.mines++;
     s.stations.push({ dest:sh.vent.dest, color:sh.color, glyph:sh.glyph, size:6.4, vent:sh.vent, ang:-1.9 });

@@ -145,23 +145,23 @@ export function addNeed(a: Record<string, number> | null, b: Record<string, numb
   return out;
 }
 
-/** Где в системе повиснет спутник: У ПЛАНЕТЫ, а не у звезды. Раньше у каждого
- *  спутника была своя орбита вокруг светила, ближе пояса, и телескопы в
- *  столичной системе висели прямо на солнце — ничьи на вид и ни при чём.
+/** На какой орбите повиснет спутник: ВОКРУГ ПЛАНЕТЫ, а не у звезды. Раньше у
+ *  каждого спутника была своя орбита вокруг светила, ближе пояса, и телескопы
+ *  в столичной системе висели прямо на солнце — ничьи на вид и ни при чём.
+ *  Потом их привязали к планете, но неподвижной точкой сбоку, и выходило, что
+ *  сооружение на орбите приклеено к небу гвоздём, пока стоянка и верфь той же
+ *  планеты вокруг неё кружат. Теперь спутник её ОБХОДИТ, как они (satPos в
+ *  render/models.ts): здесь выбирается только планета, радиус и начальная фаза.
  *
  *  Планета выбирается по хозяину: мир, где у конторы филиал, — там её люди,
  *  им телескоп и ставят; нет такого — самый людный мир системы; в пустой
- *  системе — самая крупная планета. Место — неподвижная точка сбоку от
- *  планеты (планеты в игре стоят на местах): не снизу, где две строки её
- *  подписи, и дальше дорожек стоянки, верфи и военных кораблей, которые
- *  кружат ближе. Следующий спутник у той же планеты — на шаг дальше, а место
- *  сбитого занимает первый же новый.
+ *  системе — самая крупная планета. Орбита идёт дальше дорожек стоянки, верфи
+ *  и военных кораблей, которые кружат ближе. Следующий спутник у той же
+ *  планеты — дорожкой дальше, а дорожку сбитого занимает первый же новый.
  *
- *  Хранится место по-прежнему координатами от звезды (ang, r), так что всё,
- *  что к спутнику летит или его рисует, осталось как было. Случайное число
- *  берётся ровно одно, как и раньше: поток партии этой правкой не сдвинут. */
+ *  Случайное число берётся ровно одно, как и раньше. */
 export const SAT_OFF = 44, SAT_STEP = 11;
-export function satSpot(s: Sys, c: Corp): { ang: number; r: number } {
+export function satSpot(s: Sys, c: Corp): { body: Planet; orb: number; ang: number } {
   const turn = rnd6();
   let body: Planet = null, top = -1;
   s.bodies.forEach((b) => {
@@ -169,14 +169,12 @@ export function satSpot(s: Sys, c: Corp): { ang: number; r: number } {
     const score = w ? (hasBranch(c, w) ? 1000 : 500) + popOf(w) : b.rad;
     if (score > top) { top = score; body = b; }
   });
-  if (!body) return { ang:turn, r:42 + s.sats.length * 11 };
-  const px = Math.cos(body.ang) * body.r, py = Math.sin(body.ang) * body.r;
-  const from = (o: Sat): number => { return Math.hypot(Math.cos(o.ang) * o.r - px, Math.sin(o.ang) * o.r - py); };
+  // Планет в системе нет вовсе: кружить остаётся вокруг светила, дорожками от
+  // пояса наружу — как оно и было до привязки к планетам.
+  if (!body) return { body:null, orb:42 + s.sats.length * SAT_STEP, ang:turn };
   let n = 0;
-  while (s.sats.some((o) => { return Math.abs(from(o) - (body.rad + SAT_OFF + n * SAT_STEP)) < 0.01; })) n++;
-  const a = Math.sin(turn) > 0.45 ? -turn : turn, d = body.rad + SAT_OFF + n * SAT_STEP;
-  const x = px + Math.cos(a) * d, y = py + Math.sin(a) * d;
-  return { ang:Math.atan2(y, x), r:Math.hypot(x, y) };
+  while (s.sats.some((o) => { return o.body === body && Math.abs(o.orb - (body.rad + SAT_OFF + n * SAT_STEP)) < 0.01; })) n++;
+  return { body:body, orb:body.rad + SAT_OFF + n * SAT_STEP, ang:turn };
 }
 
 // Переделка створов на старшую марку. Створ ведёт корабль со скоростью СВОЕГО
@@ -481,7 +479,7 @@ export function assemble(): void {
       // что на нём стоит.
       const sp = o.parts.filter((pt) => { return scopeMark(pt.k) > 0; })
                         .sort((a, b) => { return scopeMark(b.k) - scopeMark(a.k); })[0];
-      const sat: Sat = { sys:o.dst, owner:c.id, color:c.color, ang:spot.ang, r:spot.r,
+      const sat: Sat = { sys:o.dst, owner:c.id, color:c.color, body:spot.body, orb:spot.orb, ang:spot.ang,
                          parts:o.parts.slice(), born:dateStr(), found:0, scan:0,
                          mark:sp ? scopeMark(sp.k) : 1, range:sp ? sightOfKey(sp.k) : 0,
                          hp:shipHp(o.parts),

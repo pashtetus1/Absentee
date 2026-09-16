@@ -27,16 +27,17 @@
 // казной: у всех троих это один и тот же разговор — чертёж, детали на месте,
 // место в очереди верфи. Разница только в том, чей кошелёк и зачем корабль.
 
-import { RAIDER, bestDesign, buyKit, designMakers, designsFor, kitAt, kitCost, kitFor } from "./arms";
-import { ARMKEYS, vtype } from "./data";
-import { fleetOf } from "./battle";
+import { RAIDER, armAt, bestDesign, buyKit, designMakers, designsFor, kitAt, kitCost, kitFor, shipDmg, shipHp } from "./arms";
+import { ARMKEYS, armOf, compOf, roomOf, vtype } from "./data";
+import { fleetOf, idleAt } from "./battle";
 import { askPrice } from "./market";
 import { HOME, isRealm, realmOf, realmOfCorp, treasuryOf, payTreasury } from "./realm";
 import { rnd } from "./rng";
 import { QUEUE_MAX, YARD_WORK, edgeShipyard, nearestYard, paySlot, slotPrice } from "./shipyard";
 import { L, S, corps, say, shipyards, systems, warships, worlds } from "./state";
 import { addStock, popOf, stockAt } from "./world";
-import type { Corp, Design, Shipyard, World } from "./types";
+import { clamp } from "./util";
+import type { Corp, Design, Part, Shipyard, World } from "./types";
 
 /** Потолок рычага: сколько казна может отдавать на войско в год. Тем же числом
  *  размечен ползунок в shell.html — если менять, то в обоих местах. */
@@ -152,6 +153,75 @@ function pirateArms(p: Corp): void {
     return;
   }
   orderWar(p, bestDesign(p) || RAIDER, y, "raid");
+}
+
+/** Довооружение самоделки: раз в год ватага перебирает свои рейдеры.
+ *
+ *  Рейдер, сколоченный в голодный год, ходил голым весь век. Три причины
+ *  сходились в одну точку: ватага строит три корабля и на том успокаивается
+ *  (RAID_CAP), собранный корабль в этой игре не переделывался никогда, а
+ *  первые её годы — это как раз те годы, когда оружия нет НИГДЕ: лучемёт
+ *  осваивают позже, чем вспыхивает первое восстание. Выходило, что вольница
+ *  навсегда оставалась с уроном голого корпуса (BARE_DMG в arms.ts): таранила
+ *  хлебовозы носом и не могла тронуть никого, за кем стоит хоть одна охрана, —
+ *  притом что в самом логове через полвека лежал лучемёт Mk3.
+ *
+ *  Самоделка — это ровно то, что удалось достать, и «удалось» со временем
+ *  меняется. Ватага ставит найденное на свободное место, а нет свободного —
+ *  МЕНЯЕТ им своё старое, и снятое ложится к ней же на склад: она бедна, и
+ *  выбрасывать ей нечего.
+ *
+ *  ЛУЧЕМЁТ ВАЖНЕЕ БРОНИ, и важнее настолько, что в тесном корпусе он сгоняет
+ *  её с места. Порядок семейств тут не вкусовщина: у самоделки на корпусе Mk1
+ *  свободное место РОВНО ОДНО, занимает его то, что подвернулось первым, — а
+ *  броня в галактике дешевле и осваивается раньше оружия. Без этого правила
+ *  ватага десятилетиями возила на единственном месте броню Mk2 и оставалась
+ *  безобидной при полном складе лучемётов: живучий таран, от которого никому
+ *  ни горячо ни холодно.
+ *
+ *  Одна деталь за корабль в год: перебрать корабль — это работа, а не платёж.
+ *  Корабль В БОЮ не трогают вовсе — рейдер не перевооружают на ходу. */
+function pirateRefit(p: Corp): void {
+  if (!p.home) return;
+  const sys = p.home.sys;
+  idleAt(sys, (w) => { return w.owner === p.id; }).forEach((w) => {
+    const free = roomOf(w.parts) - w.parts.length;
+    // Своё этого семейства, СЛАБЕЙШЕЕ: его и меняют, если нашлось лучше.
+    const worst = (kind: string): Part => {
+      let own: Part = null;
+      w.parts.forEach((pt) => {
+        const a = armOf(pt.k);
+        if (!a || a.kind !== kind) return;
+        if (!own || a.lvl < armOf(own.k).lvl) own = pt;
+      });
+      return own;
+    };
+    const beam = armAt(sys, "beam"), armor = armAt(sys, "armor");
+    const myBeam = worst("beam"), myArmor = worst("armor");
+    let put: string = null, drop: Part = null;
+    if (beam && !myBeam) {
+      // Оружия на борту нет вовсе: это первое, что ставят. Тесно — броня
+      // уступает место; уступать некому — этот корабль так и останется тараном.
+      if (free > 0) put = beam;
+      else if (myArmor) { put = beam; drop = myArmor; }
+    }
+    else if (beam && myBeam && armOf(beam).lvl > armOf(myBeam.k).lvl) { put = beam; drop = myBeam; }
+    else if (armor && !myArmor && free > 0) put = armor;
+    else if (armor && myArmor && armOf(armor).lvl > armOf(myArmor.k).lvl) { put = armor; drop = myArmor; }
+    if (!put) return;
+    const got = buyKit({ corp:p, pay:(sum) => { if (p.cash < sum) return false; p.cash -= sum; return true; },
+                         back:(sum) => { p.cash += sum; } }, sys, { [put]:1 });
+    if (!got) return;
+    if (drop) { w.parts.splice(w.parts.indexOf(drop), 1); addStock(p, sys, drop.k, 1); }
+    w.parts.push(got[0]);
+    const was = w.hpMax;
+    w.dmg = shipDmg(w.parts); w.hpMax = shipHp(w.parts);
+    // Перебор — не починка: прибавляет он ровно то, что прибавила броня, а
+    // дыры, полученные в прошлом бою, так и остаются дырами.
+    w.hp = clamp(w.hp + (w.hpMax - was), 0.1, w.hpMax);
+    say("<b>" + p.name + "</b> ставит " + compOf(put).short + " на рейдер командира " + w.captain +
+        (drop ? " взамен " + compOf(drop.k).short : "") + ": урон " + w.dmg.toFixed(1) + ".");
+  });
 }
 
 // ---- компании -----------------------------------------------------------
@@ -310,7 +380,9 @@ export function armyRun(): void {
  *  когда есть чего бояться. */
 export function warOrders(): void {
   corps.forEach((c) => {
-    if (c.pirate) pirateArms(c); else corpGuard(c);
+    // Сперва перебрать то, что уже летает: вооружённый старый рейдер полезнее
+    // четвёртого голого корпуса, а денег у ватаги обычно хватает на одно из двух.
+    if (c.pirate) { pirateRefit(c); pirateArms(c); } else corpGuard(c);
   });
 }
 

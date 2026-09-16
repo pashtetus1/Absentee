@@ -10,7 +10,7 @@ import { gatesAt, inNet, otherEnd, portalAng, portalFor, spread } from "../trave
 import { clamp, dist, fmt } from "../util";
 import { popOf } from "../world";
 import { CH, CW, advanceFrame, cx, glow, last, setSysK, setUiz, uiz } from "./canvas";
-import { advance, caption, crest, dockLines, flame, grow, posOf, rift, rock, scrapYard, ship, star, tiny, warped, windowLines, yardLines, yardPos } from "./models";
+import { advance, caption, crest, dockLines, flame, grow, posOf, rift, rock, satPos, scrapYard, ship, star, tiny, warped, windowLines, yardLines, yardPos } from "./models";
 import { drawFight, drawGround, drawWarMark, drawWarship, fightLines, warLines } from "./war";
 import type { Rock, Sys, Voyage } from "../types";
 
@@ -199,12 +199,13 @@ export function drawSystem(s: Sys): void {
   });
 
   // Вставший спутник — не кораблик: он никуда не летит и не полетит больше
-  // никогда. Висит там, где его оставили, цветом хозяина, с подписью «телескоп»
-  // или «телескоп, лазер». Тот, что ещё в пути, рисуется корабликом ниже.
+  // никогда. Он ОБХОДИТ свою планету (satPos), цветом хозяина, с подписью
+  // «телескоп» или «телескоп, лазер». Тот, что ещё в пути, рисуется корабликом
+  // ниже.
   s.sats.forEach((sat) => {
     if (!sat.live) return;
-    const p = posOf(sat, mx, my);
-    ship(sat.armed ? "satgun" : "sat", p.x, p.y, 7, sat.ang + 1.5708, sat.color);
+    const p = satPos(sat, mx, my);
+    ship(sat.armed ? "satgun" : "sat", p.x, p.y, 7, p.a + 1.5708, sat.color);
     if (flags) crest(p.x, p.y - 14, 4.6, realmOfCorp(corps[sat.owner]));
     tiny(p.x, p.y + 12, "телескоп Mk" + sat.mark + (sat.armed ? ", лучемёт" : ""), "#7f8cb4");
     hits.push({ x:p.x, y:p.y, r:11, kind:"sat", data:sat });
